@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "Running pre-push checks..."
+
+echo "  fmt"
+cargo fmt --all -- --check
+
+echo "  clippy"
+cargo clippy --workspace --all-targets -- -D warnings
+
+echo "  test"
+cargo test --workspace
+
+echo "All checks passed."

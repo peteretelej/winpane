@@ -6,5 +6,8 @@ license.workspace = true
 repository.workspace = true
 description = "Windows companion surface SDK - overlays, HUDs, panels, widgets, tray indicators"
 
+[lints]
+workspace = true
+
 [dependencies]
 winpane-core = { version = "0.0.1", path = "../winpane-core" }

@@ -6,6 +6,9 @@ license.workspace = true
 repository.workspace = true
 description = "Internal core for winpane - Windows companion surface SDK"
 
+[lints]
+workspace = true
+
 [dependencies]
 windows-numerics = "0.3"
 

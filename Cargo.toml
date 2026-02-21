@@ -14,3 +14,25 @@ repository = "https://github.com/peteretelej/winpane"
 
 [workspace.dependencies]
 windows = "0.62"
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
+unused_qualifications = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+# Safety
+undocumented_unsafe_blocks = "warn"
+ptr_as_ptr = "warn"
+ptr_cast_constness = "warn"
+ref_as_ptr = "warn"
+# Clarity
+manual_let_else = "warn"
+redundant_closure_for_method_calls = "warn"
+semicolon_if_nothing_returned = "warn"
+uninlined_format_args = "warn"
+# Hygiene
+dbg_macro = "warn"
+print_stdout = "warn"
+print_stderr = "warn"
