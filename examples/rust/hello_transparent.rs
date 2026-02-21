@@ -16,6 +16,7 @@ use windows::{
     Win32::Graphics::Dxgi::*, Win32::System::Com::*, Win32::System::LibraryLoader::*,
     Win32::UI::WindowsAndMessaging::*,
 };
+use windows_numerics::Vector2;
 
 const WINDOW_SIZE: i32 = 400;
 const CIRCLE_RADIUS: f32 = 150.0;
@@ -87,9 +88,9 @@ fn main() -> Result<()> {
         let center = WINDOW_SIZE as f32 / 2.0;
         dc.FillEllipse(
             &D2D1_ELLIPSE {
-                point: D2D_POINT_2F {
-                    x: center,
-                    y: center,
+                point: Vector2 {
+                    X: center,
+                    Y: center,
                 },
                 radiusX: CIRCLE_RADIUS,
                 radiusY: CIRCLE_RADIUS,
