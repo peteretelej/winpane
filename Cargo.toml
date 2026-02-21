@@ -1,0 +1,16 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/winpane-core",
+    "crates/winpane",
+    "crates/winpane-ffi",
+    "crates/winpane-host",
+]
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/peteretelej/winpane"
+
+[workspace.dependencies]
+windows = "0.62"
