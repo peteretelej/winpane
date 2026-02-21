@@ -105,7 +105,7 @@ fn main() -> Result<()> {
         dcomp_device.Commit()?;
 
         // 9. Show the window and run the message loop
-        ShowWindow(hwnd, SW_SHOWNOACTIVATE);
+        let _ = ShowWindow(hwnd, SW_SHOWNOACTIVATE);
 
         println!("winpane hello_transparent: floating circle should be visible on desktop.");
         println!("Close this console or press Ctrl+C to exit.");
