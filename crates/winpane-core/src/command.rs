@@ -2,7 +2,8 @@ use std::sync::mpsc;
 
 use crate::scene::Element;
 use crate::types::{
-    DrawOp, Error, HudConfig, MenuItem, PanelConfig, SurfaceId, TrayConfig, TrayId,
+    Anchor, DrawOp, Error, HudConfig, MenuItem, PanelConfig, PipConfig, SourceRect, SurfaceId,
+    TrayConfig, TrayId,
 };
 
 pub enum Command {
@@ -72,6 +73,32 @@ pub enum Command {
     CustomDraw {
         surface: SurfaceId,
         ops: Vec<DrawOp>,
+    },
+
+    // --- P4 commands ---
+    CreatePip {
+        config: PipConfig,
+        reply: mpsc::Sender<Result<SurfaceId, Error>>,
+    },
+    SetSourceRegion {
+        surface: SurfaceId,
+        rect: SourceRect,
+    },
+    ClearSourceRegion {
+        surface: SurfaceId,
+    },
+    AnchorTo {
+        surface: SurfaceId,
+        target_hwnd: isize,
+        anchor: Anchor,
+        offset: (i32, i32),
+    },
+    Unanchor {
+        surface: SurfaceId,
+    },
+    SetCaptureExcluded {
+        surface: SurfaceId,
+        excluded: bool,
     },
 }
 

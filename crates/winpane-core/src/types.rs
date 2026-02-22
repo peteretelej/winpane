@@ -237,6 +237,40 @@ pub struct TrayConfig {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TrayId(pub u64);
 
+// --- PipConfig ---
+
+#[derive(Debug, Clone)]
+pub struct PipConfig {
+    /// Raw HWND value of the source window to thumbnail.
+    pub source_hwnd: isize,
+    pub x: i32,
+    pub y: i32,
+    pub width: u32,
+    pub height: u32,
+}
+
+// --- SourceRect ---
+
+/// Defines a crop region on the PiP source window.
+#[derive(Debug, Clone, Copy)]
+pub struct SourceRect {
+    pub x: i32,
+    pub y: i32,
+    pub width: i32,
+    pub height: i32,
+}
+
+// --- Anchor ---
+
+/// Anchor point on a target window for surface positioning.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Anchor {
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight,
+}
+
 // --- Event ---
 
 #[derive(Debug, Clone)]
@@ -246,6 +280,8 @@ pub enum Event {
     ElementLeft { surface_id: SurfaceId, key: String },
     TrayClicked { button: MouseButton },
     TrayMenuItemClicked { id: u32 },
+    PipSourceClosed { surface_id: SurfaceId },
+    AnchorTargetClosed { surface_id: SurfaceId },
 }
 
 // --- MouseButton ---
@@ -277,6 +313,7 @@ pub enum Error {
     ThreadSpawnFailed,
     SurfaceNotFound,
     Shutdown,
+    UnsupportedOperation(String),
 }
 
 impl fmt::Display for Error {
@@ -289,6 +326,7 @@ impl fmt::Display for Error {
             Error::ThreadSpawnFailed => write!(f, "failed to spawn engine thread"),
             Error::SurfaceNotFound => write!(f, "surface not found"),
             Error::Shutdown => write!(f, "engine has shut down"),
+            Error::UnsupportedOperation(msg) => write!(f, "unsupported operation: {msg}"),
         }
     }
 }
