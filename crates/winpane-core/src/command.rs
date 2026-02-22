@@ -1,9 +1,10 @@
 use std::sync::mpsc;
 
 use crate::scene::Element;
-use crate::types::{Error, HudConfig, SurfaceId};
+use crate::types::{Error, HudConfig, MenuItem, PanelConfig, SurfaceId, TrayConfig, TrayId};
 
 pub enum Command {
+    // --- Existing P1 commands ---
     CreateHud {
         config: HudConfig,
         reply: mpsc::Sender<Result<SurfaceId, Error>>,
@@ -35,6 +36,35 @@ pub enum Command {
     },
     DestroySurface(SurfaceId),
     Shutdown,
+
+    // --- New P2 commands ---
+    CreatePanel {
+        config: PanelConfig,
+        reply: mpsc::Sender<Result<SurfaceId, Error>>,
+    },
+    CreateTray {
+        config: TrayConfig,
+        reply: mpsc::Sender<Result<TrayId, Error>>,
+    },
+    SetTrayTooltip {
+        tray: TrayId,
+        tooltip: String,
+    },
+    SetTrayIcon {
+        tray: TrayId,
+        rgba: Vec<u8>,
+        width: u32,
+        height: u32,
+    },
+    SetTrayPopup {
+        tray: TrayId,
+        surface: SurfaceId,
+    },
+    SetTrayMenu {
+        tray: TrayId,
+        items: Vec<MenuItem>,
+    },
+    DestroyTray(TrayId),
 }
 
 pub type CommandSender = mpsc::Sender<Command>;
