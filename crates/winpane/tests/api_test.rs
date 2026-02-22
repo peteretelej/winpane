@@ -48,6 +48,7 @@ mod windows_tests {
         assert!(!t.bold);
         assert!(!t.italic);
         assert!(t.font_family.is_none());
+        assert!(!t.interactive);
     }
 
     #[test]

@@ -15,3 +15,11 @@ winpane-core = { version = "0.0.1", path = "../winpane-core" }
 [[example]]
 name = "hud_demo"
 path = "../../examples/rust/hud_demo.rs"
+
+[[example]]
+name = "interactive_panel"
+path = "../../examples/rust/interactive_panel.rs"
+
+[[example]]
+name = "tray_ticker"
+path = "../../examples/rust/tray_ticker.rs"
