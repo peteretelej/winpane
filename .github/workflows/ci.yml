@@ -34,5 +34,46 @@ jobs:
           cl /c /W4 /I crates/winpane-ffi/include crates/winpane-ffi/include/winpane.h
         shell: cmd
 
+      - name: Verify winpane-host binary
+        run: |
+          test -f target/debug/winpane-host.exe
+        shell: bash
+
       - name: Test
         run: cargo test --workspace
+
+  node-addon:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: bindings/node
+
+      - name: Format check (node addon)
+        run: cargo fmt --manifest-path bindings/node/Cargo.toml -- --check
+
+      - name: Install dependencies
+        run: npm install
+        working-directory: bindings/node
+
+      - name: Build native addon
+        run: npm run build
+        working-directory: bindings/node
+
+      - name: Verify artifacts
+        run: |
+          test -f index.js
+          test -f index.d.ts
+          ls -la *.node
+        working-directory: bindings/node
+        shell: bash

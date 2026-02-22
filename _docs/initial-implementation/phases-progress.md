@@ -22,8 +22,8 @@ Shared state file for sequential phase execution. **Every phase must read this f
 | P1 | `p1-hud` | **Complete** | HUD overlay + rendering pipeline + Rust API |
 | P2 | `p2-interactive` | **Complete** | Interactive panels + system tray ticker |
 | P3 | `p3-ffi` | **Complete** | C ABI + cbindgen + custom draw escape hatch |
-| P4 | `p4-advanced-surfaces` | Not started | PiP thumbnail, anchored companion, capture exclusion |
-| P5 | `p5-host` | Not started | CLI/stdio host + npm package via napi-rs |
+| P4 | `p4-advanced-surfaces` | **Complete** | PiP thumbnail, anchored companion, capture exclusion |
+| P5 | `p5-host` | **Complete** | CLI/stdio host + npm package via napi-rs |
 | P6 | `p6-polish` | Not started | Backdrop effects, device loss recovery, DPI hardening, docs |
 
 ## Pre-push Checks (All Phases)
