@@ -35,3 +35,9 @@ EXPORTS
     winpane_canvas_draw_image
     winpane_canvas_fill_rounded_rect
     winpane_canvas_stroke_rounded_rect
+    winpane_pip_create
+    winpane_surface_set_source_region
+    winpane_surface_clear_source_region
+    winpane_surface_anchor_to
+    winpane_surface_unanchor
+    winpane_surface_set_capture_excluded

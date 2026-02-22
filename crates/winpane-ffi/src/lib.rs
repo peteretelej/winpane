@@ -243,6 +243,88 @@ impl WinpaneTrayConfig {
     }
 }
 
+// --- PiP config (versioned) ---
+
+#[repr(C)]
+pub struct WinpanePipConfig {
+    pub version: u32,
+    pub size: u32,
+    pub source_hwnd: isize,
+    pub x: i32,
+    pub y: i32,
+    pub width: u32,
+    pub height: u32,
+}
+
+impl WinpanePipConfig {
+    fn to_rust(&self) -> Result<winpane::PipConfig, String> {
+        if self.version != WINPANE_CONFIG_VERSION {
+            return Err(format!(
+                "unsupported config version {} (expected {})",
+                self.version, WINPANE_CONFIG_VERSION
+            ));
+        }
+        if (self.size as usize) < std::mem::size_of::<Self>() {
+            return Err(format!(
+                "config size {} too small (expected at least {})",
+                self.size,
+                std::mem::size_of::<Self>()
+            ));
+        }
+        Ok(winpane::PipConfig {
+            source_hwnd: self.source_hwnd,
+            x: self.x,
+            y: self.y,
+            width: self.width,
+            height: self.height,
+        })
+    }
+}
+
+// --- Source rect (value type, frozen) ---
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct WinpaneSourceRect {
+    pub x: i32,
+    pub y: i32,
+    pub width: i32,
+    pub height: i32,
+}
+
+impl WinpaneSourceRect {
+    fn to_rust(&self) -> winpane::SourceRect {
+        winpane::SourceRect {
+            x: self.x,
+            y: self.y,
+            width: self.width,
+            height: self.height,
+        }
+    }
+}
+
+// --- Anchor ---
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WinpaneAnchor {
+    TopLeft = 0,
+    TopRight = 1,
+    BottomLeft = 2,
+    BottomRight = 3,
+}
+
+impl WinpaneAnchor {
+    fn to_rust(&self) -> winpane::Anchor {
+        match self {
+            WinpaneAnchor::TopLeft => winpane::Anchor::TopLeft,
+            WinpaneAnchor::TopRight => winpane::Anchor::TopRight,
+            WinpaneAnchor::BottomLeft => winpane::Anchor::BottomLeft,
+            WinpaneAnchor::BottomRight => winpane::Anchor::BottomRight,
+        }
+    }
+}
+
 // --- Element structs (value types, frozen per major version) ---
 
 #[repr(C)]
@@ -365,6 +447,8 @@ pub enum WinpaneEventType {
     ElementLeft = 3,
     TrayClicked = 4,
     TrayMenuItemClicked = 5,
+    PipSourceClosed = 6,
+    AnchorTargetClosed = 7,
 }
 
 #[repr(C)]
@@ -421,6 +505,14 @@ impl WinpaneEvent {
                 e.event_type = WinpaneEventType::TrayMenuItemClicked;
                 e.menu_item_id = *id;
             }
+            winpane::Event::PipSourceClosed { surface_id } => {
+                e.event_type = WinpaneEventType::PipSourceClosed;
+                e.surface_id = surface_id.0;
+            }
+            winpane::Event::AnchorTargetClosed { surface_id } => {
+                e.event_type = WinpaneEventType::AnchorTargetClosed;
+                e.surface_id = surface_id.0;
+            }
         }
         e
     }
@@ -437,10 +529,11 @@ fn copy_key_to_buffer(key: &str, buf: &mut [u8; 256]) {
 // Opaque handle types (NOT #[repr(C)] - cbindgen generates forward declarations)
 // ============================================================
 
-/// Internal surface wrapper that unifies Hud and Panel behind one handle.
+/// Internal surface wrapper that unifies Hud, Panel, and Pip behind one handle.
 enum FfiSurface {
     Hud(winpane::Hud),
     Panel(winpane::Panel),
+    Pip(winpane::Pip),
 }
 
 impl FfiSurface {
@@ -448,34 +541,63 @@ impl FfiSurface {
         match self {
             FfiSurface::Hud(h) => h.id(),
             FfiSurface::Panel(p) => p.id(),
+            FfiSurface::Pip(p) => p.id(),
         }
     }
 
-    fn set_text(&self, key: &str, elem: winpane::TextElement) {
+    fn set_text(&self, key: &str, elem: winpane::TextElement) -> Result<(), String> {
         match self {
-            FfiSurface::Hud(h) => h.set_text(key, elem),
-            FfiSurface::Panel(p) => p.set_text(key, elem),
+            FfiSurface::Hud(h) => {
+                h.set_text(key, elem);
+                Ok(())
+            }
+            FfiSurface::Panel(p) => {
+                p.set_text(key, elem);
+                Ok(())
+            }
+            FfiSurface::Pip(_) => Err("set_text is not supported on PiP surfaces".into()),
         }
     }
 
-    fn set_rect(&self, key: &str, elem: winpane::RectElement) {
+    fn set_rect(&self, key: &str, elem: winpane::RectElement) -> Result<(), String> {
         match self {
-            FfiSurface::Hud(h) => h.set_rect(key, elem),
-            FfiSurface::Panel(p) => p.set_rect(key, elem),
+            FfiSurface::Hud(h) => {
+                h.set_rect(key, elem);
+                Ok(())
+            }
+            FfiSurface::Panel(p) => {
+                p.set_rect(key, elem);
+                Ok(())
+            }
+            FfiSurface::Pip(_) => Err("set_rect is not supported on PiP surfaces".into()),
         }
     }
 
-    fn set_image(&self, key: &str, elem: winpane::ImageElement) {
+    fn set_image(&self, key: &str, elem: winpane::ImageElement) -> Result<(), String> {
         match self {
-            FfiSurface::Hud(h) => h.set_image(key, elem),
-            FfiSurface::Panel(p) => p.set_image(key, elem),
+            FfiSurface::Hud(h) => {
+                h.set_image(key, elem);
+                Ok(())
+            }
+            FfiSurface::Panel(p) => {
+                p.set_image(key, elem);
+                Ok(())
+            }
+            FfiSurface::Pip(_) => Err("set_image is not supported on PiP surfaces".into()),
         }
     }
 
-    fn remove(&self, key: &str) {
+    fn remove(&self, key: &str) -> Result<(), String> {
         match self {
-            FfiSurface::Hud(h) => h.remove(key),
-            FfiSurface::Panel(p) => p.remove(key),
+            FfiSurface::Hud(h) => {
+                h.remove(key);
+                Ok(())
+            }
+            FfiSurface::Panel(p) => {
+                p.remove(key);
+                Ok(())
+            }
+            FfiSurface::Pip(_) => Err("remove is not supported on PiP surfaces".into()),
         }
     }
 
@@ -483,6 +605,7 @@ impl FfiSurface {
         match self {
             FfiSurface::Hud(h) => h.show(),
             FfiSurface::Panel(p) => p.show(),
+            FfiSurface::Pip(p) => p.show(),
         }
     }
 
@@ -490,6 +613,7 @@ impl FfiSurface {
         match self {
             FfiSurface::Hud(h) => h.hide(),
             FfiSurface::Panel(p) => p.hide(),
+            FfiSurface::Pip(p) => p.hide(),
         }
     }
 
@@ -497,6 +621,7 @@ impl FfiSurface {
         match self {
             FfiSurface::Hud(h) => h.set_position(x, y),
             FfiSurface::Panel(p) => p.set_position(x, y),
+            FfiSurface::Pip(p) => p.set_position(x, y),
         }
     }
 
@@ -504,6 +629,7 @@ impl FfiSurface {
         match self {
             FfiSurface::Hud(h) => h.set_size(width, height),
             FfiSurface::Panel(p) => p.set_size(width, height),
+            FfiSurface::Pip(p) => p.set_size(width, height),
         }
     }
 
@@ -511,13 +637,45 @@ impl FfiSurface {
         match self {
             FfiSurface::Hud(h) => h.set_opacity(opacity),
             FfiSurface::Panel(p) => p.set_opacity(opacity),
+            FfiSurface::Pip(p) => p.set_opacity(opacity),
         }
     }
 
-    fn custom_draw(&self, ops: Vec<winpane::DrawOp>) {
+    fn custom_draw(&self, ops: Vec<winpane::DrawOp>) -> Result<(), String> {
         match self {
-            FfiSurface::Hud(h) => h.custom_draw(ops),
-            FfiSurface::Panel(p) => p.custom_draw(ops),
+            FfiSurface::Hud(h) => {
+                h.custom_draw(ops);
+                Ok(())
+            }
+            FfiSurface::Panel(p) => {
+                p.custom_draw(ops);
+                Ok(())
+            }
+            FfiSurface::Pip(_) => Err("custom_draw is not supported on PiP surfaces".into()),
+        }
+    }
+
+    fn anchor_to(&self, target_hwnd: isize, anchor: winpane::Anchor, offset: (i32, i32)) {
+        match self {
+            FfiSurface::Hud(h) => h.anchor_to(target_hwnd, anchor, offset),
+            FfiSurface::Panel(p) => p.anchor_to(target_hwnd, anchor, offset),
+            FfiSurface::Pip(p) => p.anchor_to(target_hwnd, anchor, offset),
+        }
+    }
+
+    fn unanchor(&self) {
+        match self {
+            FfiSurface::Hud(h) => h.unanchor(),
+            FfiSurface::Panel(p) => p.unanchor(),
+            FfiSurface::Pip(p) => p.unanchor(),
+        }
+    }
+
+    fn set_capture_excluded(&self, excluded: bool) {
+        match self {
+            FfiSurface::Hud(h) => h.set_capture_excluded(excluded),
+            FfiSurface::Panel(p) => p.set_capture_excluded(excluded),
+            FfiSurface::Pip(p) => p.set_capture_excluded(excluded),
         }
     }
 }
@@ -686,7 +844,7 @@ pub unsafe extern "C" fn winpane_surface_set_text(
         let surface = unsafe { &*surface };
         let key = unsafe { cstr_to_string(key)? };
         let elem = unsafe { &*element }.to_rust()?;
-        surface.inner.set_text(&key, elem);
+        surface.inner.set_text(&key, elem)?;
         Ok(())
     })
 }
@@ -704,7 +862,7 @@ pub unsafe extern "C" fn winpane_surface_set_rect(
         let surface = unsafe { &*surface };
         let key = unsafe { cstr_to_string(key)? };
         let elem = unsafe { &*element }.to_rust();
-        surface.inner.set_rect(&key, elem);
+        surface.inner.set_rect(&key, elem)?;
         Ok(())
     })
 }
@@ -722,7 +880,7 @@ pub unsafe extern "C" fn winpane_surface_set_image(
         let surface = unsafe { &*surface };
         let key = unsafe { cstr_to_string(key)? };
         let elem = unsafe { &*element }.to_rust()?;
-        surface.inner.set_image(&key, elem);
+        surface.inner.set_image(&key, elem)?;
         Ok(())
     })
 }
@@ -737,7 +895,7 @@ pub unsafe extern "C" fn winpane_surface_remove(
         require_non_null(key, "key")?;
         let surface = unsafe { &*surface };
         let key = unsafe { cstr_to_string(key)? };
-        surface.inner.remove(&key);
+        surface.inner.remove(&key)?;
         Ok(())
     })
 }
@@ -876,7 +1034,7 @@ pub unsafe extern "C" fn winpane_tray_set_popup(
                 tray.inner.set_popup(p);
                 Ok(())
             }
-            FfiSurface::Hud(_) => Err("set_popup requires a panel surface, not a hud".into()),
+            _ => Err("set_popup requires a panel surface".into()),
         }
     })
 }
@@ -947,7 +1105,7 @@ pub unsafe extern "C" fn winpane_surface_end_draw(surface: *mut WinpaneSurface) 
             .canvas
             .take()
             .ok_or_else(|| "no active canvas; call begin_draw first".to_string())?;
-        surface.inner.custom_draw(acc.ops);
+        surface.inner.custom_draw(acc.ops)?;
         Ok(())
     })
 }
@@ -1191,6 +1349,120 @@ pub unsafe extern "C" fn winpane_canvas_stroke_rounded_rect(
             color: color.to_rust(),
             stroke_width: width,
         });
+        Ok(())
+    })
+}
+
+// ============================================================
+// PiP creation
+// ============================================================
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_pip_create(
+    ctx: *mut WinpaneContext,
+    config: *const WinpanePipConfig,
+    out: *mut *mut WinpaneSurface,
+) -> i32 {
+    ffi_try!({
+        require_non_null(ctx, "ctx")?;
+        require_non_null(config, "config")?;
+        require_non_null_mut(out, "out")?;
+        let ctx = unsafe { &*ctx };
+        let cfg = unsafe { &*config }.to_rust()?;
+        let pip = ctx.inner.create_pip(cfg).map_err(|e| e.to_string())?;
+        let surface = Box::new(WinpaneSurface {
+            inner: FfiSurface::Pip(pip),
+            canvas: None,
+        });
+        unsafe { *out = Box::into_raw(surface) };
+        Ok(())
+    })
+}
+
+// ============================================================
+// PiP source region
+// ============================================================
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_surface_set_source_region(
+    surface: *mut WinpaneSurface,
+    rect: *const WinpaneSourceRect,
+) -> i32 {
+    ffi_try!({
+        require_non_null(surface, "surface")?;
+        require_non_null(rect, "rect")?;
+        let surface = unsafe { &*surface };
+        match &surface.inner {
+            FfiSurface::Pip(p) => {
+                let r = unsafe { &*rect }.to_rust();
+                p.set_source_region(r);
+                Ok(())
+            }
+            _ => Err("set_source_region is only valid on PiP surfaces".into()),
+        }
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_surface_clear_source_region(surface: *mut WinpaneSurface) -> i32 {
+    ffi_try!({
+        require_non_null(surface, "surface")?;
+        let surface = unsafe { &*surface };
+        match &surface.inner {
+            FfiSurface::Pip(p) => {
+                p.clear_source_region();
+                Ok(())
+            }
+            _ => Err("clear_source_region is only valid on PiP surfaces".into()),
+        }
+    })
+}
+
+// ============================================================
+// Anchoring
+// ============================================================
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_surface_anchor_to(
+    surface: *mut WinpaneSurface,
+    target_hwnd: isize,
+    anchor: WinpaneAnchor,
+    offset_x: i32,
+    offset_y: i32,
+) -> i32 {
+    ffi_try!({
+        require_non_null(surface, "surface")?;
+        let surface = unsafe { &*surface };
+        surface
+            .inner
+            .anchor_to(target_hwnd, anchor.to_rust(), (offset_x, offset_y));
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_surface_unanchor(surface: *mut WinpaneSurface) -> i32 {
+    ffi_try!({
+        require_non_null(surface, "surface")?;
+        let surface = unsafe { &*surface };
+        surface.inner.unanchor();
+        Ok(())
+    })
+}
+
+// ============================================================
+// Capture exclusion
+// ============================================================
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_surface_set_capture_excluded(
+    surface: *mut WinpaneSurface,
+    excluded: i32,
+) -> i32 {
+    ffi_try!({
+        require_non_null(surface, "surface")?;
+        let surface = unsafe { &*surface };
+        surface.inner.set_capture_excluded(excluded != 0);
         Ok(())
     })
 }

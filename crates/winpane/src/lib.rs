@@ -3,8 +3,8 @@
 // All Win32 calls stay in winpane-core. This crate is pure Rust wrapping EngineHandle.
 
 pub use winpane_core::{
-    Color, DrawOp, Error, Event, HudConfig, ImageElement, MenuItem, MouseButton, PanelConfig,
-    RectElement, SurfaceId, TextElement, TrayConfig, TrayId,
+    Anchor, Color, DrawOp, Error, Event, HudConfig, ImageElement, MenuItem, MouseButton,
+    PanelConfig, PipConfig, RectElement, SourceRect, SurfaceId, TextElement, TrayConfig, TrayId,
 };
 
 use std::sync::mpsc;
@@ -73,6 +73,21 @@ impl Context {
                 sender: self.engine.sender.clone(),
                 control_hwnd: self.engine.control_hwnd,
             })
+    }
+
+    /// Creates a PiP (Picture-in-Picture) surface showing a live DWM thumbnail
+    /// of the specified source window.
+    pub fn create_pip(&self, config: PipConfig) -> Result<Pip, Error> {
+        let (reply_tx, reply_rx) = mpsc::channel();
+        self.engine.send_and_wake(Command::CreatePip {
+            config,
+            reply: reply_tx,
+        });
+        reply_rx.recv().map_err(|_| Error::Shutdown)?.map(|id| Pip {
+            id,
+            sender: self.engine.sender.clone(),
+            control_hwnd: self.engine.control_hwnd,
+        })
     }
 
     /// Polls for the next event. Returns None if no events are pending.
@@ -178,6 +193,26 @@ impl Hud {
         });
     }
 
+    pub fn anchor_to(&self, target_hwnd: isize, anchor: Anchor, offset: (i32, i32)) {
+        self.send(Command::AnchorTo {
+            surface: self.id,
+            target_hwnd,
+            anchor,
+            offset,
+        });
+    }
+
+    pub fn unanchor(&self) {
+        self.send(Command::Unanchor { surface: self.id });
+    }
+
+    pub fn set_capture_excluded(&self, excluded: bool) {
+        self.send(Command::SetCaptureExcluded {
+            surface: self.id,
+            excluded,
+        });
+    }
+
     fn send(&self, cmd: Command) {
         let _ = self.sender.send(cmd);
         wake_engine(self.control_hwnd);
@@ -277,6 +312,26 @@ impl Panel {
         });
     }
 
+    pub fn anchor_to(&self, target_hwnd: isize, anchor: Anchor, offset: (i32, i32)) {
+        self.send(Command::AnchorTo {
+            surface: self.id,
+            target_hwnd,
+            anchor,
+            offset,
+        });
+    }
+
+    pub fn unanchor(&self) {
+        self.send(Command::Unanchor { surface: self.id });
+    }
+
+    pub fn set_capture_excluded(&self, excluded: bool) {
+        self.send(Command::SetCaptureExcluded {
+            surface: self.id,
+            excluded,
+        });
+    }
+
     fn send(&self, cmd: Command) {
         let _ = self.sender.send(cmd);
         wake_engine(self.control_hwnd);
@@ -284,6 +339,99 @@ impl Panel {
 }
 
 impl Drop for Panel {
+    fn drop(&mut self) {
+        let _ = self.sender.send(Command::DestroySurface(self.id));
+        wake_engine(self.control_hwnd);
+    }
+}
+
+// --- Pip ---
+
+/// A Picture-in-Picture surface showing a live DWM thumbnail of another window.
+/// Does not support scene graph operations (set_text, set_rect, etc.).
+pub struct Pip {
+    id: SurfaceId,
+    sender: CommandSender,
+    control_hwnd: SendHwnd,
+}
+
+impl Pip {
+    pub fn show(&self) {
+        self.send(Command::Show(self.id));
+    }
+
+    pub fn hide(&self) {
+        self.send(Command::Hide(self.id));
+    }
+
+    pub fn set_position(&self, x: i32, y: i32) {
+        self.send(Command::SetPosition {
+            surface: self.id,
+            x,
+            y,
+        });
+    }
+
+    pub fn set_size(&self, width: u32, height: u32) {
+        self.send(Command::SetSize {
+            surface: self.id,
+            width,
+            height,
+        });
+    }
+
+    pub fn set_opacity(&self, opacity: f32) {
+        self.send(Command::SetOpacity {
+            surface: self.id,
+            opacity: opacity.clamp(0.0, 1.0),
+        });
+    }
+
+    /// Sets the source window crop region. Only the specified rectangle
+    /// of the source window is shown in the thumbnail.
+    pub fn set_source_region(&self, rect: SourceRect) {
+        self.send(Command::SetSourceRegion {
+            surface: self.id,
+            rect,
+        });
+    }
+
+    /// Clears the source crop, showing the full source window.
+    pub fn clear_source_region(&self) {
+        self.send(Command::ClearSourceRegion { surface: self.id });
+    }
+
+    pub fn anchor_to(&self, target_hwnd: isize, anchor: Anchor, offset: (i32, i32)) {
+        self.send(Command::AnchorTo {
+            surface: self.id,
+            target_hwnd,
+            anchor,
+            offset,
+        });
+    }
+
+    pub fn unanchor(&self) {
+        self.send(Command::Unanchor { surface: self.id });
+    }
+
+    pub fn set_capture_excluded(&self, excluded: bool) {
+        self.send(Command::SetCaptureExcluded {
+            surface: self.id,
+            excluded,
+        });
+    }
+
+    pub fn id(&self) -> SurfaceId {
+        self.id
+    }
+
+    fn send(&self, cmd: Command) {
+        let _ = self.sender.send(cmd);
+        wake_engine(self.control_hwnd);
+    }
+}
+
+impl Drop for Pip {
     fn drop(&mut self) {
         let _ = self.sender.send(Command::DestroySurface(self.id));
         wake_engine(self.control_hwnd);
