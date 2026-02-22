@@ -8,6 +8,36 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+/**
+ * WINPANE_CONFIG_VERSION: consumers set this in config structs.
+ */
+#define WINPANE_WINPANE_CONFIG_VERSION 1
+
+typedef enum WINPANE_winpane_event_type_t {
+    WINPANE_WINPANE_EVENT_TYPE_T_NONE = 0,
+    WINPANE_WINPANE_EVENT_TYPE_T_ELEMENT_CLICKED = 1,
+    WINPANE_WINPANE_EVENT_TYPE_T_ELEMENT_HOVERED = 2,
+    WINPANE_WINPANE_EVENT_TYPE_T_ELEMENT_LEFT = 3,
+    WINPANE_WINPANE_EVENT_TYPE_T_TRAY_CLICKED = 4,
+    WINPANE_WINPANE_EVENT_TYPE_T_TRAY_MENU_ITEM_CLICKED = 5,
+} WINPANE_winpane_event_type_t;
+
+typedef enum WINPANE_winpane_mouse_button_t {
+    WINPANE_WINPANE_MOUSE_BUTTON_T_LEFT = 0,
+    WINPANE_WINPANE_MOUSE_BUTTON_T_RIGHT = 1,
+    WINPANE_WINPANE_MOUSE_BUTTON_T_MIDDLE = 2,
+} WINPANE_winpane_mouse_button_t;
+
+typedef struct WINPANE_WinpaneContext WINPANE_WinpaneContext;
+
+typedef struct WINPANE_winpane_event_t {
+    enum WINPANE_winpane_event_type_t event_type;
+    uint64_t surface_id;
+    uint8_t key[256];
+    enum WINPANE_winpane_mouse_button_t mouse_button;
+    uint32_t menu_item_id;
+} WINPANE_winpane_event_t;
+
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
@@ -17,6 +47,17 @@ extern "C" {
  * The returned pointer is valid until the next winpane call on the same thread.
  */
 const char *winpane_last_error(void);
+
+int32_t winpane_create(struct WINPANE_WinpaneContext **out);
+
+void winpane_destroy(struct WINPANE_WinpaneContext *ctx);
+
+/**
+ * Polls for the next event. Returns 0 if an event was available
+ * (event struct filled), 1 if no event pending, -1/-2 on error/panic.
+ */
+int32_t winpane_poll_event(struct WINPANE_WinpaneContext *ctx,
+                           struct WINPANE_winpane_event_t *event);
 
 #ifdef __cplusplus
 }  // extern "C"
