@@ -14,6 +14,7 @@ repository = "https://github.com/peteretelej/winpane"
 
 [workspace.dependencies]
 windows = "0.62"
+indexmap = "2"
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "warn"

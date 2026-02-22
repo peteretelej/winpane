@@ -21,6 +21,7 @@ use windows_numerics::Vector2;
 const WINDOW_SIZE: i32 = 400;
 const CIRCLE_RADIUS: f32 = 150.0;
 
+#[allow(clippy::print_stdout)]
 fn main() -> Result<()> {
     unsafe {
         // COM initialization (required for DirectComposition and Direct2D)
