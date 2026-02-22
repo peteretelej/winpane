@@ -11,6 +11,9 @@ Cargo.lock
 .DS_Store
 Thumbs.db
 
+# Generated
+crates/winpane-ffi/include/winpane.h
+
 # Node
 node_modules/
 bindings/node/dist/

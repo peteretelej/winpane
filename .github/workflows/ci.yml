@@ -27,5 +27,12 @@ jobs:
       - name: Build
         run: cargo build --workspace --all-targets
 
+      - uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Verify C header
+        run: |
+          cl /c /W4 /I crates/winpane-ffi/include crates/winpane-ffi/include/winpane.h
+        shell: cmd
+
       - name: Test
         run: cargo test --workspace
