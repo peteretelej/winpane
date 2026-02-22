@@ -8,3 +8,13 @@ description = "C ABI bindings for winpane - Windows companion surface SDK"
 
 [lints]
 workspace = true
+
+[lib]
+name = "winpane"
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+winpane = { version = "0.0.1", path = "../winpane" }
+
+[build-dependencies]
+cbindgen = "0.29"
