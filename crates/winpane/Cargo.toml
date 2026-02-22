@@ -12,6 +12,10 @@ workspace = true
 [dependencies]
 winpane-core = { version = "0.0.1", path = "../winpane-core" }
 
+[dev-dependencies.windows]
+workspace = true
+features = ["Win32_UI_WindowsAndMessaging", "Win32_Foundation"]
+
 [[example]]
 name = "hud_demo"
 path = "../../examples/rust/hud_demo.rs"
@@ -27,3 +31,15 @@ path = "../../examples/rust/tray_ticker.rs"
 [[example]]
 name = "custom_draw"
 path = "../../examples/rust/custom_draw.rs"
+
+[[example]]
+name = "pip_viewer"
+path = "../../examples/rust/pip_viewer.rs"
+
+[[example]]
+name = "anchored_companion"
+path = "../../examples/rust/anchored_companion.rs"
+
+[[example]]
+name = "capture_excluded"
+path = "../../examples/rust/capture_excluded.rs"

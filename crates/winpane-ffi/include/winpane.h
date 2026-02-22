@@ -20,6 +20,8 @@ typedef enum WINPANE_winpane_event_type_t {
     WINPANE_WINPANE_EVENT_TYPE_T_ELEMENT_LEFT = 3,
     WINPANE_WINPANE_EVENT_TYPE_T_TRAY_CLICKED = 4,
     WINPANE_WINPANE_EVENT_TYPE_T_TRAY_MENU_ITEM_CLICKED = 5,
+    WINPANE_WINPANE_EVENT_TYPE_T_PIP_SOURCE_CLOSED = 6,
+    WINPANE_WINPANE_EVENT_TYPE_T_ANCHOR_TARGET_CLOSED = 7,
 } WINPANE_winpane_event_type_t;
 
 typedef enum WINPANE_winpane_mouse_button_t {
@@ -28,7 +30,20 @@ typedef enum WINPANE_winpane_mouse_button_t {
     WINPANE_WINPANE_MOUSE_BUTTON_T_MIDDLE = 2,
 } WINPANE_winpane_mouse_button_t;
 
+typedef enum WINPANE_WinpaneAnchor {
+    WINPANE_WINPANE_ANCHOR_TOP_LEFT = 0,
+    WINPANE_WINPANE_ANCHOR_TOP_RIGHT = 1,
+    WINPANE_WINPANE_ANCHOR_BOTTOM_LEFT = 2,
+    WINPANE_WINPANE_ANCHOR_BOTTOM_RIGHT = 3,
+} WINPANE_WinpaneAnchor;
+
+typedef struct WINPANE_WinpaneCanvas WINPANE_WinpaneCanvas;
+
 typedef struct WINPANE_WinpaneContext WINPANE_WinpaneContext;
+
+typedef struct WINPANE_WinpaneSurface WINPANE_WinpaneSurface;
+
+typedef struct WINPANE_WinpaneTray WINPANE_WinpaneTray;
 
 typedef struct WINPANE_winpane_event_t {
     enum WINPANE_winpane_event_type_t event_type;
@@ -37,6 +52,103 @@ typedef struct WINPANE_winpane_event_t {
     enum WINPANE_winpane_mouse_button_t mouse_button;
     uint32_t menu_item_id;
 } WINPANE_winpane_event_t;
+
+typedef struct WINPANE_winpane_hud_config_t {
+    uint32_t version;
+    uint32_t size;
+    int32_t x;
+    int32_t y;
+    uint32_t width;
+    uint32_t height;
+} WINPANE_winpane_hud_config_t;
+
+typedef struct WINPANE_winpane_panel_config_t {
+    uint32_t version;
+    uint32_t size;
+    int32_t x;
+    int32_t y;
+    uint32_t width;
+    uint32_t height;
+    int32_t draggable;
+    uint32_t drag_height;
+} WINPANE_winpane_panel_config_t;
+
+typedef struct WINPANE_winpane_color_t {
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+    uint8_t a;
+} WINPANE_winpane_color_t;
+
+typedef struct WINPANE_winpane_text_element_t {
+    const char *text;
+    float x;
+    float y;
+    float font_size;
+    struct WINPANE_winpane_color_t color;
+    const char *font_family;
+    int32_t bold;
+    int32_t italic;
+    int32_t interactive;
+} WINPANE_winpane_text_element_t;
+
+typedef struct WINPANE_winpane_rect_element_t {
+    float x;
+    float y;
+    float width;
+    float height;
+    struct WINPANE_winpane_color_t fill;
+    float corner_radius;
+    int32_t has_border;
+    struct WINPANE_winpane_color_t border_color;
+    float border_width;
+    int32_t interactive;
+} WINPANE_winpane_rect_element_t;
+
+typedef struct WINPANE_winpane_image_element_t {
+    float x;
+    float y;
+    float width;
+    float height;
+    const uint8_t *data;
+    uint32_t data_len;
+    uint32_t data_width;
+    uint32_t data_height;
+    int32_t interactive;
+} WINPANE_winpane_image_element_t;
+
+typedef struct WINPANE_winpane_tray_config_t {
+    uint32_t version;
+    uint32_t size;
+    const uint8_t *icon_rgba;
+    uint32_t icon_rgba_len;
+    uint32_t icon_width;
+    uint32_t icon_height;
+    const char *tooltip;
+} WINPANE_winpane_tray_config_t;
+
+typedef struct WINPANE_winpane_menu_item_t {
+    uint32_t id;
+    const char *label;
+    int32_t enabled;
+} WINPANE_winpane_menu_item_t;
+
+typedef struct WINPANE_WinpanePipConfig {
+    uint32_t version;
+    uint32_t size;
+    intptr_t source_hwnd;
+    int32_t x;
+    int32_t y;
+    uint32_t width;
+    uint32_t height;
+} WINPANE_WinpanePipConfig;
+
+typedef struct WINPANE_WinpaneSourceRect {
+    int32_t x;
+    int32_t y;
+    int32_t width;
+    int32_t height;
+} WINPANE_WinpaneSourceRect;
 
 #ifdef __cplusplus
 extern "C" {
@@ -58,6 +170,173 @@ void winpane_destroy(struct WINPANE_WinpaneContext *ctx);
  */
 int32_t winpane_poll_event(struct WINPANE_WinpaneContext *ctx,
                            struct WINPANE_winpane_event_t *event);
+
+int32_t winpane_hud_create(struct WINPANE_WinpaneContext *ctx,
+                           const struct WINPANE_winpane_hud_config_t *config,
+                           struct WINPANE_WinpaneSurface **out);
+
+int32_t winpane_panel_create(struct WINPANE_WinpaneContext *ctx,
+                             const struct WINPANE_winpane_panel_config_t *config,
+                             struct WINPANE_WinpaneSurface **out);
+
+void winpane_surface_destroy(struct WINPANE_WinpaneSurface *surface);
+
+uint64_t winpane_surface_id(const struct WINPANE_WinpaneSurface *surface);
+
+int32_t winpane_surface_set_text(struct WINPANE_WinpaneSurface *surface,
+                                 const char *key,
+                                 const struct WINPANE_winpane_text_element_t *element);
+
+int32_t winpane_surface_set_rect(struct WINPANE_WinpaneSurface *surface,
+                                 const char *key,
+                                 const struct WINPANE_winpane_rect_element_t *element);
+
+int32_t winpane_surface_set_image(struct WINPANE_WinpaneSurface *surface,
+                                  const char *key,
+                                  const struct WINPANE_winpane_image_element_t *element);
+
+int32_t winpane_surface_remove(struct WINPANE_WinpaneSurface *surface, const char *key);
+
+int32_t winpane_surface_show(struct WINPANE_WinpaneSurface *surface);
+
+int32_t winpane_surface_hide(struct WINPANE_WinpaneSurface *surface);
+
+int32_t winpane_surface_set_position(struct WINPANE_WinpaneSurface *surface, int32_t x, int32_t y);
+
+int32_t winpane_surface_set_size(struct WINPANE_WinpaneSurface *surface,
+                                 uint32_t width,
+                                 uint32_t height);
+
+int32_t winpane_surface_set_opacity(struct WINPANE_WinpaneSurface *surface, float opacity);
+
+int32_t winpane_tray_create(struct WINPANE_WinpaneContext *ctx,
+                            const struct WINPANE_winpane_tray_config_t *config,
+                            struct WINPANE_WinpaneTray **out);
+
+void winpane_tray_destroy(struct WINPANE_WinpaneTray *tray);
+
+int32_t winpane_tray_set_tooltip(struct WINPANE_WinpaneTray *tray, const char *tooltip);
+
+int32_t winpane_tray_set_icon(struct WINPANE_WinpaneTray *tray,
+                              const uint8_t *rgba,
+                              uint32_t rgba_len,
+                              uint32_t width,
+                              uint32_t height);
+
+int32_t winpane_tray_set_popup(struct WINPANE_WinpaneTray *tray,
+                               const struct WINPANE_WinpaneSurface *panel);
+
+int32_t winpane_tray_set_menu(struct WINPANE_WinpaneTray *tray,
+                              const struct WINPANE_winpane_menu_item_t *items,
+                              uint32_t count);
+
+/**
+ * Begins a custom draw session on the surface. Returns a canvas handle
+ * through `out`. Only one canvas can be active per surface at a time.
+ */
+int32_t winpane_surface_begin_draw(struct WINPANE_WinpaneSurface *surface,
+                                   struct WINPANE_WinpaneCanvas **out);
+
+/**
+ * Ends the custom draw session, flushing all accumulated draw ops to the surface.
+ * The canvas handle is invalid after this call - do not use it.
+ */
+int32_t winpane_surface_end_draw(struct WINPANE_WinpaneSurface *surface);
+
+int32_t winpane_canvas_clear(struct WINPANE_WinpaneCanvas *canvas,
+                             struct WINPANE_winpane_color_t color);
+
+int32_t winpane_canvas_fill_rect(struct WINPANE_WinpaneCanvas *canvas,
+                                 float x,
+                                 float y,
+                                 float w,
+                                 float h,
+                                 struct WINPANE_winpane_color_t color);
+
+int32_t winpane_canvas_stroke_rect(struct WINPANE_WinpaneCanvas *canvas,
+                                   float x,
+                                   float y,
+                                   float w,
+                                   float h,
+                                   struct WINPANE_winpane_color_t color,
+                                   float width);
+
+int32_t winpane_canvas_draw_text(struct WINPANE_WinpaneCanvas *canvas,
+                                 float x,
+                                 float y,
+                                 const char *text,
+                                 float font_size,
+                                 struct WINPANE_winpane_color_t color);
+
+int32_t winpane_canvas_draw_line(struct WINPANE_WinpaneCanvas *canvas,
+                                 float x1,
+                                 float y1,
+                                 float x2,
+                                 float y2,
+                                 struct WINPANE_winpane_color_t color,
+                                 float width);
+
+int32_t winpane_canvas_fill_ellipse(struct WINPANE_WinpaneCanvas *canvas,
+                                    float cx,
+                                    float cy,
+                                    float rx,
+                                    float ry,
+                                    struct WINPANE_winpane_color_t color);
+
+int32_t winpane_canvas_stroke_ellipse(struct WINPANE_WinpaneCanvas *canvas,
+                                      float cx,
+                                      float cy,
+                                      float rx,
+                                      float ry,
+                                      struct WINPANE_winpane_color_t color,
+                                      float width);
+
+int32_t winpane_canvas_draw_image(struct WINPANE_WinpaneCanvas *canvas,
+                                  float x,
+                                  float y,
+                                  float w,
+                                  float h,
+                                  const uint8_t *rgba,
+                                  uint32_t rgba_len,
+                                  uint32_t img_w,
+                                  uint32_t img_h);
+
+int32_t winpane_canvas_fill_rounded_rect(struct WINPANE_WinpaneCanvas *canvas,
+                                         float x,
+                                         float y,
+                                         float w,
+                                         float h,
+                                         float radius,
+                                         struct WINPANE_winpane_color_t color);
+
+int32_t winpane_canvas_stroke_rounded_rect(struct WINPANE_WinpaneCanvas *canvas,
+                                           float x,
+                                           float y,
+                                           float w,
+                                           float h,
+                                           float radius,
+                                           struct WINPANE_winpane_color_t color,
+                                           float width);
+
+int32_t winpane_pip_create(struct WINPANE_WinpaneContext *ctx,
+                           const struct WINPANE_WinpanePipConfig *config,
+                           struct WINPANE_WinpaneSurface **out);
+
+int32_t winpane_surface_set_source_region(struct WINPANE_WinpaneSurface *surface,
+                                          const struct WINPANE_WinpaneSourceRect *rect);
+
+int32_t winpane_surface_clear_source_region(struct WINPANE_WinpaneSurface *surface);
+
+int32_t winpane_surface_anchor_to(struct WINPANE_WinpaneSurface *surface,
+                                  intptr_t target_hwnd,
+                                  enum WINPANE_WinpaneAnchor anchor,
+                                  int32_t offset_x,
+                                  int32_t offset_y);
+
+int32_t winpane_surface_unanchor(struct WINPANE_WinpaneSurface *surface);
+
+int32_t winpane_surface_set_capture_excluded(struct WINPANE_WinpaneSurface *surface,
+                                             int32_t excluded);
 
 #ifdef __cplusplus
 }  // extern "C"

@@ -10,4 +10,4 @@ Reference: `proposal.md` for architecture decisions, `initial-plan.md` for full 
 - [x] Phase 2: [Monitor and Capture](2-monitor-and-capture/spec.md) - WindowMonitor module (SetWinEventHook infra), capture exclusion utility (build number detection + SetWindowDisplayAffinity)
 - [x] Phase 3: [Engine Integration](3-engine-integration/spec.md) - PiP surface creation with DWM thumbnails, anchor positioning, monitor event processing, PiP guards on existing handlers
 - [x] Phase 4: [Public API and FFI](4-public-api-and-ffi/spec.md) - Pip struct, anchor_to/unanchor/set_capture_excluded on all surfaces, 6 new FFI functions, C types, .def file
-- [ ] Phase 5: [Examples and Verification](5-examples-and-verification/spec.md) - pip_viewer, anchored_companion, capture_excluded examples, fmt/clippy/build checks
+- [x] Phase 5: [Examples and Verification](5-examples-and-verification/spec.md) - pip_viewer, anchored_companion, capture_excluded examples, fmt/clippy/build checks
