@@ -401,3 +401,68 @@ pub(crate) unsafe fn get_dpi_scale(hwnd: HWND) -> f32 {
 pub(crate) unsafe fn try_set_dpi_awareness() {
     let _ = SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 }
+
+// --- Capture exclusion utilities ---
+
+#[cfg(target_os = "windows")]
+static WINDOWS_BUILD_NUMBER: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
+
+#[cfg(target_os = "windows")]
+pub(crate) fn get_windows_build_number() -> u32 {
+    *WINDOWS_BUILD_NUMBER.get_or_init(|| unsafe { rtl_get_version_build() })
+}
+
+#[cfg(target_os = "windows")]
+unsafe fn rtl_get_version_build() -> u32 {
+    use windows::Win32::Foundation::NTSTATUS;
+    use windows::Win32::System::SystemInformation::OSVERSIONINFOW;
+
+    type RtlGetVersionFn = unsafe extern "system" fn(*mut OSVERSIONINFOW) -> NTSTATUS;
+
+    let ntdll = GetModuleHandleW(w!("ntdll.dll"));
+    let ntdll = match ntdll {
+        Ok(h) => h,
+        Err(_) => return 0,
+    };
+
+    let proc = GetProcAddress(ntdll, windows::core::s!("RtlGetVersion"));
+    let proc = match proc {
+        Some(p) => p,
+        None => return 0,
+    };
+
+    let rtl_get_version: RtlGetVersionFn = std::mem::transmute(proc);
+    let mut info: OSVERSIONINFOW = std::mem::zeroed();
+    info.dwOSVersionInfoSize = std::mem::size_of::<OSVERSIONINFOW>() as u32;
+
+    let status = rtl_get_version(&mut info);
+    if status.is_ok() {
+        info.dwBuildNumber
+    } else {
+        0
+    }
+}
+
+/// Returns true if the current Windows build supports WDA_EXCLUDEFROMCAPTURE.
+/// Win10 2004 = build 19041.
+#[cfg(target_os = "windows")]
+pub(crate) fn supports_exclude_from_capture() -> bool {
+    get_windows_build_number() >= 19041
+}
+
+#[cfg(target_os = "windows")]
+pub(crate) unsafe fn set_capture_excluded(hwnd: HWND, excluded: bool) {
+    use windows::Win32::UI::WindowsAndMessaging::{
+        SetWindowDisplayAffinity, WINDOW_DISPLAY_AFFINITY,
+    };
+
+    let affinity = if !excluded {
+        WINDOW_DISPLAY_AFFINITY(0) // WDA_NONE
+    } else if supports_exclude_from_capture() {
+        WINDOW_DISPLAY_AFFINITY(0x00000011) // WDA_EXCLUDEFROMCAPTURE
+    } else {
+        WINDOW_DISPLAY_AFFINITY(0x00000001) // WDA_MONITOR
+    };
+
+    let _ = SetWindowDisplayAffinity(hwnd, affinity);
+}
