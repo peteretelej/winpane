@@ -61,6 +61,7 @@ mod windows_tests {
             corner_radius: 5.0,
             border_color: Some(Color::WHITE),
             border_width: 1.0,
+            interactive: false,
         };
         assert_eq!(r.width, 100.0);
         assert!(r.border_color.is_some());
@@ -76,6 +77,7 @@ mod windows_tests {
             data: vec![0u8; 64 * 64 * 4],
             data_width: 64,
             data_height: 64,
+            interactive: false,
         };
         assert_eq!(img.data.len(), 64 * 64 * 4);
     }

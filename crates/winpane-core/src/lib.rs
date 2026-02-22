@@ -3,6 +3,7 @@
 
 pub(crate) mod command;
 pub(crate) mod engine;
+pub(crate) mod input;
 pub(crate) mod renderer;
 pub(crate) mod scene;
 pub mod types;

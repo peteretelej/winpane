@@ -67,6 +67,7 @@ pub struct TextElement {
     pub font_family: Option<String>,
     pub bold: bool,
     pub italic: bool,
+    pub interactive: bool,
 }
 
 impl Default for TextElement {
@@ -80,6 +81,7 @@ impl Default for TextElement {
             font_family: None,
             bold: false,
             italic: false,
+            interactive: false,
         }
     }
 }
@@ -96,6 +98,7 @@ pub struct RectElement {
     pub corner_radius: f32,
     pub border_color: Option<Color>,
     pub border_width: f32,
+    pub interactive: bool,
 }
 
 // --- ImageElement ---
@@ -111,6 +114,7 @@ pub struct ImageElement {
     pub data: Vec<u8>,
     pub data_width: u32,
     pub data_height: u32,
+    pub interactive: bool,
 }
 
 // --- HudConfig ---
@@ -121,6 +125,65 @@ pub struct HudConfig {
     pub y: i32,
     pub width: u32,
     pub height: u32,
+}
+
+// --- PanelConfig ---
+
+#[derive(Debug, Clone)]
+pub struct PanelConfig {
+    pub x: i32,
+    pub y: i32,
+    pub width: u32,
+    pub height: u32,
+    pub draggable: bool,
+    /// Logical pixels from top of panel that act as a drag handle.
+    pub drag_height: u32,
+}
+
+// --- TrayConfig ---
+
+#[derive(Debug, Clone)]
+pub struct TrayConfig {
+    /// RGBA8 pixel data for the tray icon.
+    pub icon_rgba: Vec<u8>,
+    pub icon_width: u32,
+    pub icon_height: u32,
+    /// Tooltip text (max 127 chars due to NOTIFYICONDATAW limit).
+    pub tooltip: String,
+}
+
+// --- TrayId ---
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct TrayId(pub u64);
+
+// --- Event ---
+
+#[derive(Debug, Clone)]
+pub enum Event {
+    ElementClicked { surface_id: SurfaceId, key: String },
+    ElementHovered { surface_id: SurfaceId, key: String },
+    ElementLeft { surface_id: SurfaceId, key: String },
+    TrayClicked { button: MouseButton },
+    TrayMenuItemClicked { id: u32 },
+}
+
+// --- MouseButton ---
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MouseButton {
+    Left,
+    Right,
+    Middle,
+}
+
+// --- MenuItem ---
+
+#[derive(Debug, Clone)]
+pub struct MenuItem {
+    pub id: u32,
+    pub label: String,
+    pub enabled: bool,
 }
 
 // --- Error ---

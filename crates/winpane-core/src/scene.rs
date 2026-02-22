@@ -83,6 +83,7 @@ mod tests {
             corner_radius: 0.0,
             border_color: None,
             border_width: 0.0,
+            interactive: false,
         })
     }
 

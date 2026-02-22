@@ -31,6 +31,7 @@ fn main() -> Result<(), winpane::Error> {
             corner_radius: 10.0,
             border_color: Some(Color::rgba(80, 80, 120, 150)),
             border_width: 1.0,
+            interactive: false,
         },
     );
 
@@ -60,6 +61,7 @@ fn main() -> Result<(), winpane::Error> {
             corner_radius: 0.0,
             border_color: None,
             border_width: 0.0,
+            interactive: false,
         },
     );
 
