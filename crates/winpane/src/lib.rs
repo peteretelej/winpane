@@ -3,8 +3,8 @@
 // All Win32 calls stay in winpane-core. This crate is pure Rust wrapping EngineHandle.
 
 pub use winpane_core::{
-    Color, Error, Event, HudConfig, ImageElement, MenuItem, MouseButton, PanelConfig, RectElement,
-    SurfaceId, TextElement, TrayConfig, TrayId,
+    Color, DrawOp, Error, Event, HudConfig, ImageElement, MenuItem, MouseButton, PanelConfig,
+    RectElement, SurfaceId, TextElement, TrayConfig, TrayId,
 };
 
 use std::sync::mpsc;
@@ -168,6 +168,16 @@ impl Hud {
         self.id
     }
 
+    /// Execute custom draw operations on this surface.
+    /// Renders the scene graph first, then the provided ops on top.
+    /// One-shot: the next scene graph change overwrites custom draw content.
+    pub fn custom_draw(&self, ops: Vec<DrawOp>) {
+        self.send(Command::CustomDraw {
+            surface: self.id,
+            ops,
+        });
+    }
+
     fn send(&self, cmd: Command) {
         let _ = self.sender.send(cmd);
         wake_engine(self.control_hwnd);
@@ -255,6 +265,16 @@ impl Panel {
 
     pub fn id(&self) -> SurfaceId {
         self.id
+    }
+
+    /// Execute custom draw operations on this surface.
+    /// Renders the scene graph first, then the provided ops on top.
+    /// One-shot: the next scene graph change overwrites custom draw content.
+    pub fn custom_draw(&self, ops: Vec<DrawOp>) {
+        self.send(Command::CustomDraw {
+            surface: self.id,
+            ops,
+        });
     }
 
     fn send(&self, cmd: Command) {

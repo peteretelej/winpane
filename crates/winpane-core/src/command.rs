@@ -1,7 +1,9 @@
 use std::sync::mpsc;
 
 use crate::scene::Element;
-use crate::types::{Error, HudConfig, MenuItem, PanelConfig, SurfaceId, TrayConfig, TrayId};
+use crate::types::{
+    DrawOp, Error, HudConfig, MenuItem, PanelConfig, SurfaceId, TrayConfig, TrayId,
+};
 
 pub enum Command {
     // --- Existing P1 commands ---
@@ -65,6 +67,12 @@ pub enum Command {
         items: Vec<MenuItem>,
     },
     DestroyTray(TrayId),
+
+    // --- P3 commands ---
+    CustomDraw {
+        surface: SurfaceId,
+        ops: Vec<DrawOp>,
+    },
 }
 
 pub type CommandSender = mpsc::Sender<Command>;

@@ -302,6 +302,11 @@ unsafe fn engine_thread_main(
                         destroy_tray_icon(state.hwnd, state.icon_id, state.hicon);
                     }
                 }
+                Command::CustomDraw { surface, ops } => {
+                    if let Some(s) = surfaces.get(&surface) {
+                        let _ = s.renderer.execute_draw_ops(&s.scene, &gpu, &ops);
+                    }
+                }
             }
         }
 

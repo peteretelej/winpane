@@ -117,6 +117,86 @@ pub struct ImageElement {
     pub interactive: bool,
 }
 
+// --- DrawOp ---
+
+/// Low-level drawing operations for the custom draw escape hatch.
+/// Accumulated by the FFI canvas and sent as a batch to the engine.
+#[derive(Debug, Clone)]
+pub enum DrawOp {
+    Clear(Color),
+    FillRect {
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        color: Color,
+    },
+    StrokeRect {
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        color: Color,
+        stroke_width: f32,
+    },
+    DrawText {
+        x: f32,
+        y: f32,
+        text: String,
+        font_size: f32,
+        color: Color,
+    },
+    DrawLine {
+        x1: f32,
+        y1: f32,
+        x2: f32,
+        y2: f32,
+        color: Color,
+        stroke_width: f32,
+    },
+    FillEllipse {
+        cx: f32,
+        cy: f32,
+        rx: f32,
+        ry: f32,
+        color: Color,
+    },
+    StrokeEllipse {
+        cx: f32,
+        cy: f32,
+        rx: f32,
+        ry: f32,
+        color: Color,
+        stroke_width: f32,
+    },
+    DrawImage {
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        rgba: Vec<u8>,
+        img_width: u32,
+        img_height: u32,
+    },
+    FillRoundedRect {
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        radius: f32,
+        color: Color,
+    },
+    StrokeRoundedRect {
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        radius: f32,
+        color: Color,
+        stroke_width: f32,
+    },
+}
+
 // --- HudConfig ---
 
 #[derive(Debug, Clone)]

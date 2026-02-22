@@ -8,7 +8,7 @@ use windows::{
 };
 
 use crate::scene::{Element, SceneGraph};
-use crate::types::{Error, ImageElement, RectElement, TextElement};
+use crate::types::{DrawOp, Error, ImageElement, RectElement, TextElement};
 use crate::window::get_dpi_scale;
 
 // --- Shared GPU resources ---
@@ -486,6 +486,348 @@ impl SurfaceRenderer {
         self.dcomp_device
             .Commit()
             .map_err(|e| Error::RenderError(format!("DComposition commit: {e}")))?;
+        Ok(())
+    }
+
+    /// Execute a batch of custom draw operations.
+    /// Performs a full BeginDraw/EndDraw/Present cycle, rendering the scene
+    /// graph first (if any), then the custom ops on top.
+    pub unsafe fn execute_draw_ops(
+        &self,
+        scene: &SceneGraph,
+        gpu: &GpuResources,
+        ops: &[DrawOp],
+    ) -> Result<(), Error> {
+        let scale = self.dpi_scale;
+        let phys_w = self.width as f32 * scale;
+        let phys_h = self.height as f32 * scale;
+
+        // Release current target
+        self.dc.SetTarget(None);
+
+        // Get new back buffer reference
+        let surface: IDXGISurface = self
+            .swapchain
+            .GetBuffer(0)
+            .map_err(|e| Error::RenderError(format!("GetBuffer: {e}")))?;
+
+        let bitmap_props = D2D1_BITMAP_PROPERTIES1 {
+            pixelFormat: D2D1_PIXEL_FORMAT {
+                format: DXGI_FORMAT_B8G8R8A8_UNORM,
+                alphaMode: D2D1_ALPHA_MODE_PREMULTIPLIED,
+            },
+            dpiX: 96.0 * scale,
+            dpiY: 96.0 * scale,
+            bitmapOptions: D2D1_BITMAP_OPTIONS_TARGET | D2D1_BITMAP_OPTIONS_CANNOT_DRAW,
+            ..Default::default()
+        };
+
+        let bitmap = self
+            .dc
+            .CreateBitmapFromDxgiSurface(&surface, Some(&bitmap_props))
+            .map_err(|e| Error::RenderError(format!("CreateBitmapFromDxgiSurface: {e}")))?;
+        self.dc.SetTarget(&bitmap);
+
+        // Begin drawing
+        self.dc.BeginDraw();
+        self.dc.Clear(Some(&D2D1_COLOR_F {
+            r: 0.0,
+            g: 0.0,
+            b: 0.0,
+            a: 0.0,
+        }));
+
+        // Render retained-mode scene graph first (base layer)
+        for (_key, element) in scene.iter() {
+            match element {
+                Element::Rect(elem) => self.render_rect(elem, scale)?,
+                Element::Text(elem) => self.render_text(elem, gpu, scale, phys_w, phys_h)?,
+                Element::Image(elem) => self.render_image(elem, scale)?,
+            }
+        }
+
+        // Execute custom draw ops on top
+        for op in ops {
+            self.execute_single_draw_op(op, gpu, scale, phys_w, phys_h)?;
+        }
+
+        self.dc
+            .EndDraw(None, None)
+            .map_err(|e| Error::RenderError(format!("EndDraw: {e}")))?;
+
+        self.swapchain
+            .Present(1, DXGI_PRESENT(0))
+            .ok()
+            .map_err(|e| Error::RenderError(format!("Present: {e}")))?;
+
+        self.dcomp_device
+            .Commit()
+            .map_err(|e| Error::RenderError(format!("DComposition commit: {e}")))?;
+
+        Ok(())
+    }
+
+    /// Execute a single DrawOp against the active D2D context.
+    /// Must be called between BeginDraw and EndDraw.
+    unsafe fn execute_single_draw_op(
+        &self,
+        op: &DrawOp,
+        gpu: &GpuResources,
+        scale: f32,
+        surface_width: f32,
+        surface_height: f32,
+    ) -> Result<(), Error> {
+        match op {
+            DrawOp::Clear(color) => {
+                self.dc.Clear(Some(&color.to_d2d_premultiplied()));
+            }
+            DrawOp::FillRect {
+                x,
+                y,
+                width,
+                height,
+                color,
+            } => {
+                let rect = D2D_RECT_F {
+                    left: x * scale,
+                    top: y * scale,
+                    right: (x + width) * scale,
+                    bottom: (y + height) * scale,
+                };
+                let brush = self
+                    .dc
+                    .CreateSolidColorBrush(&color.to_d2d_premultiplied(), None)
+                    .map_err(|e| Error::RenderError(format!("brush: {e}")))?;
+                self.dc.FillRectangle(&rect, &brush);
+            }
+            DrawOp::StrokeRect {
+                x,
+                y,
+                width,
+                height,
+                color,
+                stroke_width,
+            } => {
+                let rect = D2D_RECT_F {
+                    left: x * scale,
+                    top: y * scale,
+                    right: (x + width) * scale,
+                    bottom: (y + height) * scale,
+                };
+                let brush = self
+                    .dc
+                    .CreateSolidColorBrush(&color.to_d2d_premultiplied(), None)
+                    .map_err(|e| Error::RenderError(format!("brush: {e}")))?;
+                self.dc
+                    .DrawRectangle(&rect, &brush, stroke_width * scale, None);
+            }
+            DrawOp::DrawText {
+                x,
+                y,
+                text,
+                font_size,
+                color,
+            } => {
+                let format = gpu
+                    .dwrite_factory
+                    .CreateTextFormat(
+                        w!("Segoe UI"),
+                        None,
+                        DWRITE_FONT_WEIGHT_REGULAR,
+                        DWRITE_FONT_STYLE_NORMAL,
+                        DWRITE_FONT_STRETCH_NORMAL,
+                        font_size * scale,
+                        w!("en-us"),
+                    )
+                    .map_err(|e| Error::RenderError(format!("CreateTextFormat: {e}")))?;
+
+                let text_utf16: Vec<u16> = text.encode_utf16().collect();
+                let brush = self
+                    .dc
+                    .CreateSolidColorBrush(&color.to_d2d_premultiplied(), None)
+                    .map_err(|e| Error::RenderError(format!("brush: {e}")))?;
+
+                let layout_rect = D2D_RECT_F {
+                    left: x * scale,
+                    top: y * scale,
+                    right: surface_width,
+                    bottom: surface_height,
+                };
+
+                self.dc.DrawText(
+                    &text_utf16,
+                    &format,
+                    &layout_rect as *const D2D_RECT_F,
+                    &brush,
+                    D2D1_DRAW_TEXT_OPTIONS_NONE,
+                    DWRITE_MEASURING_MODE_NATURAL,
+                );
+            }
+            DrawOp::DrawLine {
+                x1,
+                y1,
+                x2,
+                y2,
+                color,
+                stroke_width,
+            } => {
+                let brush = self
+                    .dc
+                    .CreateSolidColorBrush(&color.to_d2d_premultiplied(), None)
+                    .map_err(|e| Error::RenderError(format!("brush: {e}")))?;
+                // windows-rs 0.62: D2D_POINT_2F replaced by windows_numerics::Vector2
+                let p0 = windows_numerics::Vector2 {
+                    X: x1 * scale,
+                    Y: y1 * scale,
+                };
+                let p1 = windows_numerics::Vector2 {
+                    X: x2 * scale,
+                    Y: y2 * scale,
+                };
+                self.dc.DrawLine(p0, p1, &brush, stroke_width * scale, None);
+            }
+            DrawOp::FillEllipse {
+                cx,
+                cy,
+                rx,
+                ry,
+                color,
+            } => {
+                let brush = self
+                    .dc
+                    .CreateSolidColorBrush(&color.to_d2d_premultiplied(), None)
+                    .map_err(|e| Error::RenderError(format!("brush: {e}")))?;
+                let ellipse = D2D1_ELLIPSE {
+                    point: windows_numerics::Vector2 {
+                        X: cx * scale,
+                        Y: cy * scale,
+                    },
+                    radiusX: rx * scale,
+                    radiusY: ry * scale,
+                };
+                self.dc.FillEllipse(&ellipse, &brush);
+            }
+            DrawOp::StrokeEllipse {
+                cx,
+                cy,
+                rx,
+                ry,
+                color,
+                stroke_width,
+            } => {
+                let brush = self
+                    .dc
+                    .CreateSolidColorBrush(&color.to_d2d_premultiplied(), None)
+                    .map_err(|e| Error::RenderError(format!("brush: {e}")))?;
+                let ellipse = D2D1_ELLIPSE {
+                    point: windows_numerics::Vector2 {
+                        X: cx * scale,
+                        Y: cy * scale,
+                    },
+                    radiusX: rx * scale,
+                    radiusY: ry * scale,
+                };
+                self.dc
+                    .DrawEllipse(&ellipse, &brush, stroke_width * scale, None);
+            }
+            DrawOp::DrawImage {
+                x,
+                y,
+                width,
+                height,
+                rgba,
+                img_width,
+                img_height,
+            } => {
+                let bgra_data = rgba_to_bgra(rgba);
+                let bmp = self
+                    .dc
+                    .CreateBitmap(
+                        D2D_SIZE_U {
+                            width: *img_width,
+                            height: *img_height,
+                        },
+                        Some(bgra_data.as_ptr() as *const c_void),
+                        *img_width * 4,
+                        &D2D1_BITMAP_PROPERTIES1 {
+                            pixelFormat: D2D1_PIXEL_FORMAT {
+                                format: DXGI_FORMAT_B8G8R8A8_UNORM,
+                                alphaMode: D2D1_ALPHA_MODE_PREMULTIPLIED,
+                            },
+                            dpiX: 96.0,
+                            dpiY: 96.0,
+                            bitmapOptions: D2D1_BITMAP_OPTIONS_NONE,
+                            ..Default::default()
+                        },
+                    )
+                    .map_err(|e| Error::RenderError(format!("CreateBitmap: {e}")))?;
+
+                let dest = D2D_RECT_F {
+                    left: x * scale,
+                    top: y * scale,
+                    right: (x + width) * scale,
+                    bottom: (y + height) * scale,
+                };
+                self.dc.DrawBitmap(
+                    &bmp,
+                    Some(&dest as *const D2D_RECT_F),
+                    1.0,
+                    D2D1_INTERPOLATION_MODE_HIGH_QUALITY_CUBIC,
+                    None,
+                    None,
+                );
+            }
+            DrawOp::FillRoundedRect {
+                x,
+                y,
+                width,
+                height,
+                radius,
+                color,
+            } => {
+                let brush = self
+                    .dc
+                    .CreateSolidColorBrush(&color.to_d2d_premultiplied(), None)
+                    .map_err(|e| Error::RenderError(format!("brush: {e}")))?;
+                let rr = D2D1_ROUNDED_RECT {
+                    rect: D2D_RECT_F {
+                        left: x * scale,
+                        top: y * scale,
+                        right: (x + width) * scale,
+                        bottom: (y + height) * scale,
+                    },
+                    radiusX: radius * scale,
+                    radiusY: radius * scale,
+                };
+                self.dc.FillRoundedRectangle(&rr, &brush);
+            }
+            DrawOp::StrokeRoundedRect {
+                x,
+                y,
+                width,
+                height,
+                radius,
+                color,
+                stroke_width,
+            } => {
+                let brush = self
+                    .dc
+                    .CreateSolidColorBrush(&color.to_d2d_premultiplied(), None)
+                    .map_err(|e| Error::RenderError(format!("brush: {e}")))?;
+                let rr = D2D1_ROUNDED_RECT {
+                    rect: D2D_RECT_F {
+                        left: x * scale,
+                        top: y * scale,
+                        right: (x + width) * scale,
+                        bottom: (y + height) * scale,
+                    },
+                    radiusX: radius * scale,
+                    radiusY: radius * scale,
+                };
+                self.dc
+                    .DrawRoundedRectangle(&rr, &brush, stroke_width * scale, None);
+            }
+        }
         Ok(())
     }
 }

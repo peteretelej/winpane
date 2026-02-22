@@ -23,3 +23,7 @@ path = "../../examples/rust/interactive_panel.rs"
 [[example]]
 name = "tray_ticker"
 path = "../../examples/rust/tray_ticker.rs"
+
+[[example]]
+name = "custom_draw"
+path = "../../examples/rust/custom_draw.rs"
