@@ -605,3 +605,592 @@ pub unsafe extern "C" fn winpane_poll_event(
         }
     }
 }
+
+// ============================================================
+// Surface creation
+// ============================================================
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_hud_create(
+    ctx: *mut WinpaneContext,
+    config: *const WinpaneHudConfig,
+    out: *mut *mut WinpaneSurface,
+) -> i32 {
+    ffi_try!({
+        require_non_null(ctx, "ctx")?;
+        require_non_null(config, "config")?;
+        require_non_null_mut(out, "out")?;
+        let ctx = unsafe { &*ctx };
+        let cfg = unsafe { &*config }.to_rust()?;
+        let hud = ctx.inner.create_hud(cfg).map_err(|e| e.to_string())?;
+        let surface = Box::new(WinpaneSurface {
+            inner: FfiSurface::Hud(hud),
+            canvas: None,
+        });
+        unsafe { *out = Box::into_raw(surface) };
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_panel_create(
+    ctx: *mut WinpaneContext,
+    config: *const WinpanePanelConfig,
+    out: *mut *mut WinpaneSurface,
+) -> i32 {
+    ffi_try!({
+        require_non_null(ctx, "ctx")?;
+        require_non_null(config, "config")?;
+        require_non_null_mut(out, "out")?;
+        let ctx = unsafe { &*ctx };
+        let cfg = unsafe { &*config }.to_rust()?;
+        let panel = ctx.inner.create_panel(cfg).map_err(|e| e.to_string())?;
+        let surface = Box::new(WinpaneSurface {
+            inner: FfiSurface::Panel(panel),
+            canvas: None,
+        });
+        unsafe { *out = Box::into_raw(surface) };
+        Ok(())
+    })
+}
+
+// ============================================================
+// Surface operations (unified for Hud and Panel)
+// ============================================================
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_surface_destroy(surface: *mut WinpaneSurface) {
+    if !surface.is_null() {
+        let _ = unsafe { Box::from_raw(surface) };
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_surface_id(surface: *const WinpaneSurface) -> u64 {
+    if surface.is_null() {
+        return 0;
+    }
+    unsafe { &*surface }.inner.id().0
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_surface_set_text(
+    surface: *mut WinpaneSurface,
+    key: *const c_char,
+    element: *const WinpaneTextElement,
+) -> i32 {
+    ffi_try!({
+        require_non_null(surface, "surface")?;
+        require_non_null(key, "key")?;
+        require_non_null(element, "element")?;
+        let surface = unsafe { &*surface };
+        let key = unsafe { cstr_to_string(key)? };
+        let elem = unsafe { &*element }.to_rust()?;
+        surface.inner.set_text(&key, elem);
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_surface_set_rect(
+    surface: *mut WinpaneSurface,
+    key: *const c_char,
+    element: *const WinpaneRectElement,
+) -> i32 {
+    ffi_try!({
+        require_non_null(surface, "surface")?;
+        require_non_null(key, "key")?;
+        require_non_null(element, "element")?;
+        let surface = unsafe { &*surface };
+        let key = unsafe { cstr_to_string(key)? };
+        let elem = unsafe { &*element }.to_rust();
+        surface.inner.set_rect(&key, elem);
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_surface_set_image(
+    surface: *mut WinpaneSurface,
+    key: *const c_char,
+    element: *const WinpaneImageElement,
+) -> i32 {
+    ffi_try!({
+        require_non_null(surface, "surface")?;
+        require_non_null(key, "key")?;
+        require_non_null(element, "element")?;
+        let surface = unsafe { &*surface };
+        let key = unsafe { cstr_to_string(key)? };
+        let elem = unsafe { &*element }.to_rust()?;
+        surface.inner.set_image(&key, elem);
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_surface_remove(
+    surface: *mut WinpaneSurface,
+    key: *const c_char,
+) -> i32 {
+    ffi_try!({
+        require_non_null(surface, "surface")?;
+        require_non_null(key, "key")?;
+        let surface = unsafe { &*surface };
+        let key = unsafe { cstr_to_string(key)? };
+        surface.inner.remove(&key);
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_surface_show(surface: *mut WinpaneSurface) -> i32 {
+    ffi_try!({
+        require_non_null(surface, "surface")?;
+        unsafe { &*surface }.inner.show();
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_surface_hide(surface: *mut WinpaneSurface) -> i32 {
+    ffi_try!({
+        require_non_null(surface, "surface")?;
+        unsafe { &*surface }.inner.hide();
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_surface_set_position(
+    surface: *mut WinpaneSurface,
+    x: i32,
+    y: i32,
+) -> i32 {
+    ffi_try!({
+        require_non_null(surface, "surface")?;
+        unsafe { &*surface }.inner.set_position(x, y);
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_surface_set_size(
+    surface: *mut WinpaneSurface,
+    width: u32,
+    height: u32,
+) -> i32 {
+    ffi_try!({
+        require_non_null(surface, "surface")?;
+        unsafe { &*surface }.inner.set_size(width, height);
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_surface_set_opacity(
+    surface: *mut WinpaneSurface,
+    opacity: f32,
+) -> i32 {
+    ffi_try!({
+        require_non_null(surface, "surface")?;
+        unsafe { &*surface }.inner.set_opacity(opacity);
+        Ok(())
+    })
+}
+
+// ============================================================
+// Tray
+// ============================================================
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_tray_create(
+    ctx: *mut WinpaneContext,
+    config: *const WinpaneTrayConfig,
+    out: *mut *mut WinpaneTray,
+) -> i32 {
+    ffi_try!({
+        require_non_null(ctx, "ctx")?;
+        require_non_null(config, "config")?;
+        require_non_null_mut(out, "out")?;
+        let ctx = unsafe { &*ctx };
+        let cfg = unsafe { &*config }.to_rust()?;
+        let tray = ctx.inner.create_tray(cfg).map_err(|e| e.to_string())?;
+        let boxed = Box::new(WinpaneTray { inner: tray });
+        unsafe { *out = Box::into_raw(boxed) };
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_tray_destroy(tray: *mut WinpaneTray) {
+    if !tray.is_null() {
+        let _ = unsafe { Box::from_raw(tray) };
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_tray_set_tooltip(
+    tray: *mut WinpaneTray,
+    tooltip: *const c_char,
+) -> i32 {
+    ffi_try!({
+        require_non_null(tray, "tray")?;
+        require_non_null(tooltip, "tooltip")?;
+        let tray = unsafe { &*tray };
+        let text = unsafe { cstr_to_string(tooltip)? };
+        tray.inner.set_tooltip(&text);
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_tray_set_icon(
+    tray: *mut WinpaneTray,
+    rgba: *const u8,
+    rgba_len: u32,
+    width: u32,
+    height: u32,
+) -> i32 {
+    ffi_try!({
+        require_non_null(tray, "tray")?;
+        require_non_null(rgba, "rgba")?;
+        let tray = unsafe { &*tray };
+        let data = unsafe { std::slice::from_raw_parts(rgba, rgba_len as usize) };
+        tray.inner.set_icon(data.to_vec(), width, height);
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_tray_set_popup(
+    tray: *mut WinpaneTray,
+    panel: *const WinpaneSurface,
+) -> i32 {
+    ffi_try!({
+        require_non_null(tray, "tray")?;
+        require_non_null(panel, "panel")?;
+        let tray = unsafe { &*tray };
+        let surface = unsafe { &*panel };
+        match &surface.inner {
+            FfiSurface::Panel(p) => {
+                tray.inner.set_popup(p);
+                Ok(())
+            }
+            FfiSurface::Hud(_) => Err("set_popup requires a panel surface, not a hud".into()),
+        }
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_tray_set_menu(
+    tray: *mut WinpaneTray,
+    items: *const WinpaneMenuItem,
+    count: u32,
+) -> i32 {
+    ffi_try!({
+        require_non_null(tray, "tray")?;
+        if count > 0 {
+            require_non_null(items, "items")?;
+        }
+        let tray = unsafe { &*tray };
+        let menu_items: Result<Vec<winpane::MenuItem>, String> = (0..count)
+            .map(|i| {
+                let item = unsafe { &*items.add(i as usize) };
+                let label = unsafe { cstr_to_string(item.label)? };
+                Ok(winpane::MenuItem {
+                    id: item.id,
+                    label,
+                    enabled: item.enabled != 0,
+                })
+            })
+            .collect();
+        tray.inner.set_menu(menu_items?);
+        Ok(())
+    })
+}
+
+// ============================================================
+// Custom draw (canvas)
+// ============================================================
+
+/// Begins a custom draw session on the surface. Returns a canvas handle
+/// through `out`. Only one canvas can be active per surface at a time.
+#[no_mangle]
+pub unsafe extern "C" fn winpane_surface_begin_draw(
+    surface: *mut WinpaneSurface,
+    out: *mut *mut WinpaneCanvas,
+) -> i32 {
+    ffi_try!({
+        require_non_null(surface, "surface")?;
+        require_non_null_mut(out, "out")?;
+        let surface = unsafe { &mut *surface };
+        if surface.canvas.is_some() {
+            return Err("a canvas is already active on this surface; call end_draw first".into());
+        }
+        let mut acc = Box::new(CanvasAccumulator { ops: Vec::new() });
+        let ops_ptr: *mut Vec<winpane::DrawOp> = &mut acc.ops;
+        surface.canvas = Some(acc);
+        let canvas = Box::new(WinpaneCanvas { ops: ops_ptr });
+        unsafe { *out = Box::into_raw(canvas) };
+        Ok(())
+    })
+}
+
+/// Ends the custom draw session, flushing all accumulated draw ops to the surface.
+/// The canvas handle is invalid after this call - do not use it.
+#[no_mangle]
+pub unsafe extern "C" fn winpane_surface_end_draw(surface: *mut WinpaneSurface) -> i32 {
+    ffi_try!({
+        require_non_null(surface, "surface")?;
+        let surface = unsafe { &mut *surface };
+        let acc = surface
+            .canvas
+            .take()
+            .ok_or_else(|| "no active canvas; call begin_draw first".to_string())?;
+        surface.inner.custom_draw(acc.ops);
+        Ok(())
+    })
+}
+
+// --- Canvas drawing functions ---
+// Each pushes a DrawOp to the accumulator.
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_canvas_clear(
+    canvas: *mut WinpaneCanvas,
+    color: WinpaneColor,
+) -> i32 {
+    ffi_try!({
+        require_non_null(canvas, "canvas")?;
+        let ops = unsafe { &mut *(*canvas).ops };
+        ops.push(winpane::DrawOp::Clear(color.to_rust()));
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_canvas_fill_rect(
+    canvas: *mut WinpaneCanvas,
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+    color: WinpaneColor,
+) -> i32 {
+    ffi_try!({
+        require_non_null(canvas, "canvas")?;
+        let ops = unsafe { &mut *(*canvas).ops };
+        ops.push(winpane::DrawOp::FillRect {
+            x,
+            y,
+            width: w,
+            height: h,
+            color: color.to_rust(),
+        });
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_canvas_stroke_rect(
+    canvas: *mut WinpaneCanvas,
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+    color: WinpaneColor,
+    width: f32,
+) -> i32 {
+    ffi_try!({
+        require_non_null(canvas, "canvas")?;
+        let ops = unsafe { &mut *(*canvas).ops };
+        ops.push(winpane::DrawOp::StrokeRect {
+            x,
+            y,
+            width: w,
+            height: h,
+            color: color.to_rust(),
+            stroke_width: width,
+        });
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_canvas_draw_text(
+    canvas: *mut WinpaneCanvas,
+    x: f32,
+    y: f32,
+    text: *const c_char,
+    font_size: f32,
+    color: WinpaneColor,
+) -> i32 {
+    ffi_try!({
+        require_non_null(canvas, "canvas")?;
+        let text_str = unsafe { cstr_to_string(text)? };
+        let ops = unsafe { &mut *(*canvas).ops };
+        ops.push(winpane::DrawOp::DrawText {
+            x,
+            y,
+            text: text_str,
+            font_size,
+            color: color.to_rust(),
+        });
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_canvas_draw_line(
+    canvas: *mut WinpaneCanvas,
+    x1: f32,
+    y1: f32,
+    x2: f32,
+    y2: f32,
+    color: WinpaneColor,
+    width: f32,
+) -> i32 {
+    ffi_try!({
+        require_non_null(canvas, "canvas")?;
+        let ops = unsafe { &mut *(*canvas).ops };
+        ops.push(winpane::DrawOp::DrawLine {
+            x1,
+            y1,
+            x2,
+            y2,
+            color: color.to_rust(),
+            stroke_width: width,
+        });
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_canvas_fill_ellipse(
+    canvas: *mut WinpaneCanvas,
+    cx: f32,
+    cy: f32,
+    rx: f32,
+    ry: f32,
+    color: WinpaneColor,
+) -> i32 {
+    ffi_try!({
+        require_non_null(canvas, "canvas")?;
+        let ops = unsafe { &mut *(*canvas).ops };
+        ops.push(winpane::DrawOp::FillEllipse {
+            cx,
+            cy,
+            rx,
+            ry,
+            color: color.to_rust(),
+        });
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_canvas_stroke_ellipse(
+    canvas: *mut WinpaneCanvas,
+    cx: f32,
+    cy: f32,
+    rx: f32,
+    ry: f32,
+    color: WinpaneColor,
+    width: f32,
+) -> i32 {
+    ffi_try!({
+        require_non_null(canvas, "canvas")?;
+        let ops = unsafe { &mut *(*canvas).ops };
+        ops.push(winpane::DrawOp::StrokeEllipse {
+            cx,
+            cy,
+            rx,
+            ry,
+            color: color.to_rust(),
+            stroke_width: width,
+        });
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_canvas_draw_image(
+    canvas: *mut WinpaneCanvas,
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+    rgba: *const u8,
+    rgba_len: u32,
+    img_w: u32,
+    img_h: u32,
+) -> i32 {
+    ffi_try!({
+        require_non_null(canvas, "canvas")?;
+        require_non_null(rgba, "rgba")?;
+        let data = unsafe { std::slice::from_raw_parts(rgba, rgba_len as usize) };
+        let ops = unsafe { &mut *(*canvas).ops };
+        ops.push(winpane::DrawOp::DrawImage {
+            x,
+            y,
+            width: w,
+            height: h,
+            rgba: data.to_vec(),
+            img_width: img_w,
+            img_height: img_h,
+        });
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_canvas_fill_rounded_rect(
+    canvas: *mut WinpaneCanvas,
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+    radius: f32,
+    color: WinpaneColor,
+) -> i32 {
+    ffi_try!({
+        require_non_null(canvas, "canvas")?;
+        let ops = unsafe { &mut *(*canvas).ops };
+        ops.push(winpane::DrawOp::FillRoundedRect {
+            x,
+            y,
+            width: w,
+            height: h,
+            radius,
+            color: color.to_rust(),
+        });
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_canvas_stroke_rounded_rect(
+    canvas: *mut WinpaneCanvas,
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+    radius: f32,
+    color: WinpaneColor,
+    width: f32,
+) -> i32 {
+    ffi_try!({
+        require_non_null(canvas, "canvas")?;
+        let ops = unsafe { &mut *(*canvas).ops };
+        ops.push(winpane::DrawOp::StrokeRoundedRect {
+            x,
+            y,
+            width: w,
+            height: h,
+            radius,
+            color: color.to_rust(),
+            stroke_width: width,
+        });
+        Ok(())
+    })
+}
