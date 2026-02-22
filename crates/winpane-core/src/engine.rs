@@ -67,6 +67,17 @@ impl EngineHandle {
     }
 }
 
+/// Wake the engine thread's message loop from any thread.
+/// This is a free function so that `Hud` (which only holds a `SendHwnd`)
+/// can wake the engine without needing the full `EngineHandle`.
+pub fn wake_engine(control_hwnd: SendHwnd) {
+    unsafe {
+        // Safety: PostMessageW is thread-safe by Win32 specification.
+        // SendHwnd wraps HWND to allow cross-thread use.
+        let _ = PostMessageW(control_hwnd.0, WM_APP, WPARAM(0), LPARAM(0));
+    }
+}
+
 // --- Engine thread main ---
 
 unsafe fn engine_thread_main(

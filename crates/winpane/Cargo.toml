@@ -11,3 +11,7 @@ workspace = true
 
 [dependencies]
 winpane-core = { version = "0.0.1", path = "../winpane-core" }
+
+[[example]]
+name = "hud_demo"
+path = "../../examples/rust/hud_demo.rs"

@@ -13,7 +13,7 @@ pub use types::*;
 
 // Bridge types for the winpane crate (not exposed to end users)
 pub use command::{Command, CommandSender};
-pub use engine::EngineHandle;
+pub use engine::{wake_engine, EngineHandle};
 pub use scene::Element;
 pub use types::SurfaceId;
 pub use window::SendHwnd;
