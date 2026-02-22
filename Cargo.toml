@@ -6,6 +6,7 @@ members = [
     "crates/winpane-ffi",
     "crates/winpane-host",
 ]
+exclude = ["bindings/node"]
 
 [workspace.package]
 edition = "2021"

@@ -1,0 +1,14 @@
+{
+  "name": "@winpane/win32-x64-msvc",
+  "version": "0.0.1",
+  "os": ["win32"],
+  "cpu": ["x64"],
+  "main": "winpane.win32-x64-msvc.node",
+  "files": ["winpane.win32-x64-msvc.node"],
+  "description": "winpane native addon for Windows x64",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/peteretelej/winpane"
+  }
+}

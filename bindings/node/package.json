@@ -2,6 +2,8 @@
   "name": "winpane",
   "version": "0.0.1",
   "description": "Windows companion surface SDK - overlays, HUDs, panels, widgets, tray indicators",
+  "main": "index.js",
+  "types": "index.d.ts",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -13,6 +15,33 @@
     "hud",
     "directcomposition",
     "direct2d",
-    "companion-surface"
-  ]
+    "companion-surface",
+    "native",
+    "napi-rs"
+  ],
+  "files": [
+    "index.js",
+    "index.d.ts"
+  ],
+  "napi": {
+    "name": "winpane",
+    "targets": [
+      "x86_64-pc-windows-msvc",
+      "aarch64-pc-windows-msvc"
+    ]
+  },
+  "engines": {
+    "node": ">= 10"
+  },
+  "optionalDependencies": {
+    "@winpane/win32-x64-msvc": "0.0.1",
+    "@winpane/win32-arm64-msvc": "0.0.1"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^3"
+  },
+  "scripts": {
+    "build": "napi build --platform --release",
+    "prepublishOnly": "napi prepublish -t npm"
+  }
 }
