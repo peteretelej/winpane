@@ -466,3 +466,6 @@ pub(crate) unsafe fn set_capture_excluded(hwnd: HWND, excluded: bool) {
 
     let _ = SetWindowDisplayAffinity(hwnd, affinity);
 }
+
+#[cfg(not(target_os = "windows"))]
+pub(crate) unsafe fn set_capture_excluded(_hwnd: HWND, _excluded: bool) {}
