@@ -1,5 +1,12 @@
 /target
 Cargo.lock
+*.rlib
+*.d
+*.exe
+*.dll
+*.dylib
+*.so
+*.pdb
 
 # IDE
 .idea/
