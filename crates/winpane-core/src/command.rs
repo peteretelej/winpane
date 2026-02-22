@@ -3,7 +3,7 @@ use std::sync::mpsc;
 use crate::scene::Element;
 use crate::types::{Error, HudConfig, SurfaceId};
 
-pub(crate) enum Command {
+pub enum Command {
     CreateHud {
         config: HudConfig,
         reply: mpsc::Sender<Result<SurfaceId, Error>>,
@@ -37,5 +37,5 @@ pub(crate) enum Command {
     Shutdown,
 }
 
-pub(crate) type CommandSender = mpsc::Sender<Command>;
-pub(crate) type CommandReceiver = mpsc::Receiver<Command>;
+pub type CommandSender = mpsc::Sender<Command>;
+pub type CommandReceiver = mpsc::Receiver<Command>;

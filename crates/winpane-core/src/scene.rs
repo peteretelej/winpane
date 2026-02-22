@@ -3,7 +3,7 @@ use indexmap::IndexMap;
 use crate::types::{ImageElement, RectElement, TextElement};
 
 #[derive(Debug, Clone)]
-pub(crate) enum Element {
+pub enum Element {
     Text(TextElement),
     Rect(RectElement),
     Image(ImageElement),

@@ -155,7 +155,7 @@ impl std::error::Error for Error {}
 // --- SurfaceId ---
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub(crate) struct SurfaceId(pub u64);
+pub struct SurfaceId(pub u64);
 
 // --- Tests ---
 

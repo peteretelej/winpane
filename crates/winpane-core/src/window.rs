@@ -23,7 +23,7 @@ thread_local! {
 /// Wrapper around HWND that implements Send.
 /// Safety: PostMessage to an HWND is thread-safe by Win32 specification.
 #[derive(Clone, Copy)]
-pub(crate) struct SendHwnd(pub HWND);
+pub struct SendHwnd(pub HWND);
 unsafe impl Send for SendHwnd {}
 
 // --- Window class registration ---
