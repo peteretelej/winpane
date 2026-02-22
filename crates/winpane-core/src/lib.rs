@@ -6,6 +6,7 @@ pub(crate) mod engine;
 pub(crate) mod input;
 pub(crate) mod renderer;
 pub(crate) mod scene;
+pub(crate) mod tray;
 pub mod types;
 pub(crate) mod window;
 
