@@ -6,6 +6,16 @@
 //!
 //! Run on Windows: cargo run -p winpane --example interactive_panel
 
+// ── winpane design tokens ──────────────────────────────────────
+// Surface base:   rgb(18, 18, 22)  Glass: a=228  Solid: a=255  Muted: a=242
+// Elevated:       rgb(28, 28, 33)  Interactive:  rgba(38, 38, 44, 255)
+// Border:         rgba(255,255,255, 18)     Hover:       rgba(48, 48, 56, 255)
+// Text primary:   rgba(232, 232, 237, 255)  Secondary:   rgba(148, 148, 160, 255)
+// Accent:         rgba(82, 139, 255, 255)   Accent hover:rgba(110, 160, 255, 255)
+// Success:        rgba(52, 211, 153, 255)   Warning:     rgba(251, 191, 36, 255)
+// Danger:         rgba(239, 68, 68, 255)    Radius: 10/6 px
+// ────────────────────────────────────────────────────────────────
+
 #[allow(clippy::print_stdout)]
 fn main() -> Result<(), winpane::Error> {
     use winpane::{Color, Context, Event, PanelConfig, RectElement, TextElement};
@@ -18,7 +28,7 @@ fn main() -> Result<(), winpane::Error> {
         width: 280,
         height: 220,
         draggable: true,
-        drag_height: 36,
+        drag_height: 32,
     })?;
 
     // Dark background
@@ -29,9 +39,9 @@ fn main() -> Result<(), winpane::Error> {
             y: 0.0,
             width: 280.0,
             height: 220.0,
-            fill: Color::rgba(25, 25, 35, 230),
-            corner_radius: 8.0,
-            border_color: Some(Color::rgba(60, 60, 90, 200)),
+            fill: Color::rgba(18, 18, 22, 255),
+            corner_radius: 10.0,
+            border_color: Some(Color::rgba(255, 255, 255, 23)),
             border_width: 1.0,
             interactive: false,
         },
@@ -44,8 +54,8 @@ fn main() -> Result<(), winpane::Error> {
             text: "Interactive Panel".into(),
             x: 12.0,
             y: 8.0,
-            font_size: 15.0,
-            color: Color::WHITE,
+            font_size: 16.0,
+            color: Color::rgba(232, 232, 237, 255),
             bold: true,
             ..Default::default()
         },
@@ -56,10 +66,10 @@ fn main() -> Result<(), winpane::Error> {
         "sep",
         RectElement {
             x: 12.0,
-            y: 36.0,
+            y: 34.0,
             width: 256.0,
             height: 1.0,
-            fill: Color::rgba(80, 80, 120, 120),
+            fill: Color::rgba(255, 255, 255, 18),
             corner_radius: 0.0,
             border_color: None,
             border_width: 0.0,
@@ -75,9 +85,9 @@ fn main() -> Result<(), winpane::Error> {
             y: 50.0,
             width: 240.0,
             height: 40.0,
-            fill: Color::rgba(50, 80, 140, 200),
+            fill: Color::rgba(38, 38, 44, 255),
             corner_radius: 6.0,
-            border_color: Some(Color::rgba(80, 120, 200, 180)),
+            border_color: Some(Color::rgba(255, 255, 255, 23)),
             border_width: 1.0,
             interactive: true,
         },
@@ -88,8 +98,8 @@ fn main() -> Result<(), winpane::Error> {
             text: "Say Hello".into(),
             x: 100.0,
             y: 60.0,
-            font_size: 14.0,
-            color: Color::WHITE,
+            font_size: 13.0,
+            color: Color::rgba(232, 232, 237, 255),
             ..Default::default()
         },
     );
@@ -102,9 +112,9 @@ fn main() -> Result<(), winpane::Error> {
             y: 100.0,
             width: 240.0,
             height: 40.0,
-            fill: Color::rgba(50, 80, 140, 200),
+            fill: Color::rgba(38, 38, 44, 255),
             corner_radius: 6.0,
-            border_color: Some(Color::rgba(80, 120, 200, 180)),
+            border_color: Some(Color::rgba(255, 255, 255, 23)),
             border_width: 1.0,
             interactive: true,
         },
@@ -115,8 +125,8 @@ fn main() -> Result<(), winpane::Error> {
             text: "Count: 0".into(),
             x: 100.0,
             y: 110.0,
-            font_size: 14.0,
-            color: Color::WHITE,
+            font_size: 13.0,
+            color: Color::rgba(232, 232, 237, 255),
             ..Default::default()
         },
     );
@@ -129,7 +139,7 @@ fn main() -> Result<(), winpane::Error> {
             x: 20.0,
             y: 160.0,
             font_size: 11.0,
-            color: Color::rgba(140, 140, 180, 200),
+            color: Color::rgba(96, 96, 107, 255),
             ..Default::default()
         },
     );
@@ -157,7 +167,7 @@ fn main() -> Result<(), winpane::Error> {
                                 x: 20.0,
                                 y: 160.0,
                                 font_size: 11.0,
-                                color: Color::rgba(100, 220, 160, 255),
+                                color: Color::rgba(52, 211, 153, 255),
                                 ..Default::default()
                             },
                         );
@@ -171,8 +181,8 @@ fn main() -> Result<(), winpane::Error> {
                                 text: format!("Count: {count}"),
                                 x: 100.0,
                                 y: 110.0,
-                                font_size: 14.0,
-                                color: Color::WHITE,
+                                font_size: 13.0,
+                                color: Color::rgba(232, 232, 237, 255),
                                 ..Default::default()
                             },
                         );
@@ -192,9 +202,9 @@ fn main() -> Result<(), winpane::Error> {
                                 y,
                                 width: 240.0,
                                 height: 40.0,
-                                fill: Color::rgba(70, 100, 170, 220),
+                                fill: Color::rgba(48, 48, 56, 255),
                                 corner_radius: 6.0,
-                                border_color: Some(Color::rgba(100, 140, 220, 220)),
+                                border_color: Some(Color::rgba(255, 255, 255, 31)),
                                 border_width: 1.0,
                                 interactive: true,
                             },
@@ -214,9 +224,9 @@ fn main() -> Result<(), winpane::Error> {
                                 y,
                                 width: 240.0,
                                 height: 40.0,
-                                fill: Color::rgba(50, 80, 140, 200),
+                                fill: Color::rgba(38, 38, 44, 255),
                                 corner_radius: 6.0,
-                                border_color: Some(Color::rgba(80, 120, 200, 180)),
+                                border_color: Some(Color::rgba(255, 255, 255, 23)),
                                 border_width: 1.0,
                                 interactive: true,
                             },

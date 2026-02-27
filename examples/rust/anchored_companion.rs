@@ -5,6 +5,16 @@
 //!
 //! Run on Windows: cargo run -p winpane --example anchored_companion
 
+// ── winpane design tokens ──────────────────────────────────────
+// Surface base:   rgb(18, 18, 22)  Glass: a=228  Solid: a=255  Muted: a=242
+// Elevated:       rgb(28, 28, 33)  Interactive:  rgba(38, 38, 44, 255)
+// Border:         rgba(255,255,255, 18)     Hover:       rgba(48, 48, 56, 255)
+// Text primary:   rgba(232, 232, 237, 255)  Secondary:   rgba(148, 148, 160, 255)
+// Accent:         rgba(82, 139, 255, 255)   Accent hover:rgba(110, 160, 255, 255)
+// Success:        rgba(52, 211, 153, 255)   Warning:     rgba(251, 191, 36, 255)
+// Danger:         rgba(239, 68, 68, 255)    Radius: 10/6 px
+// ────────────────────────────────────────────────────────────────
+
 use winpane::{Anchor, Color, Context, Event, PanelConfig, RectElement, TextElement};
 
 #[cfg(target_os = "windows")]
@@ -55,9 +65,9 @@ fn main() -> Result<(), winpane::Error> {
             y: 0.0,
             width: 180.0,
             height: 120.0,
-            fill: Color::rgba(20, 20, 35, 230),
-            corner_radius: 8.0,
-            border_color: Some(Color::rgba(80, 120, 255, 180)),
+            fill: Color::rgba(18, 18, 22, 228),
+            corner_radius: 10.0,
+            border_color: Some(Color::rgba(255, 255, 255, 18)),
             border_width: 1.0,
             interactive: false,
         },
@@ -69,8 +79,8 @@ fn main() -> Result<(), winpane::Error> {
             text: "Companion".into(),
             x: 12.0,
             y: 10.0,
-            font_size: 14.0,
-            color: Color::rgba(80, 120, 255, 255),
+            font_size: 16.0,
+            color: Color::rgba(130, 170, 255, 255),
             bold: true,
             ..Default::default()
         },
@@ -82,8 +92,8 @@ fn main() -> Result<(), winpane::Error> {
             text: "Tracking target window.\nMove it around!".into(),
             x: 12.0,
             y: 40.0,
-            font_size: 11.0,
-            color: Color::rgba(180, 180, 200, 255),
+            font_size: 13.0,
+            color: Color::rgba(148, 148, 160, 255),
             ..Default::default()
         },
     );

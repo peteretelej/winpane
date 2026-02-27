@@ -5,6 +5,16 @@
 //!
 //! Run on Windows: cargo run -p winpane --example custom_draw
 
+// ── winpane design tokens ──────────────────────────────────────
+// Surface base:   rgb(18, 18, 22)  Glass: a=228  Solid: a=255  Muted: a=242
+// Elevated:       rgb(28, 28, 33)  Interactive:  rgba(38, 38, 44, 255)
+// Border:         rgba(255,255,255, 18)     Hover:       rgba(48, 48, 56, 255)
+// Text primary:   rgba(232, 232, 237, 255)  Secondary:   rgba(148, 148, 160, 255)
+// Accent:         rgba(82, 139, 255, 255)   Accent hover:rgba(110, 160, 255, 255)
+// Success:        rgba(52, 211, 153, 255)   Warning:     rgba(251, 191, 36, 255)
+// Danger:         rgba(239, 68, 68, 255)    Radius: 10/6 px
+// ────────────────────────────────────────────────────────────────
+
 use winpane::{Color, Context, DrawOp, HudConfig, RectElement};
 
 #[allow(clippy::print_stdout)]
@@ -26,9 +36,9 @@ fn main() -> Result<(), winpane::Error> {
             y: 0.0,
             width: 400.0,
             height: 300.0,
-            fill: Color::rgba(15, 15, 25, 220),
-            corner_radius: 8.0,
-            border_color: Some(Color::rgba(60, 60, 100, 180)),
+            fill: Color::rgba(18, 18, 22, 228),
+            corner_radius: 10.0,
+            border_color: Some(Color::rgba(255, 255, 255, 18)),
             border_width: 1.0,
             interactive: false,
         },
@@ -41,10 +51,10 @@ fn main() -> Result<(), winpane::Error> {
 
     // Custom draw: bar chart with labels
     let bar_colors = [
-        Color::rgba(80, 160, 255, 255),
-        Color::rgba(100, 220, 160, 255),
-        Color::rgba(255, 180, 80, 255),
-        Color::rgba(255, 100, 120, 255),
+        Color::rgba(82, 139, 255, 255),
+        Color::rgba(52, 211, 153, 255),
+        Color::rgba(251, 191, 36, 255),
+        Color::rgba(239, 68, 68, 255),
     ];
     let bar_values: [f32; 4] = [0.7, 0.45, 0.9, 0.3];
     let bar_labels = ["Mon", "Tue", "Wed", "Thu"];
@@ -56,8 +66,8 @@ fn main() -> Result<(), winpane::Error> {
         x: 20.0,
         y: 15.0,
         text: "Weekly Activity".into(),
-        font_size: 18.0,
-        color: Color::WHITE,
+        font_size: 16.0,
+        color: Color::rgba(232, 232, 237, 255),
     });
 
     // Horizontal baseline
@@ -66,7 +76,7 @@ fn main() -> Result<(), winpane::Error> {
         y1: 240.0,
         x2: 370.0,
         y2: 240.0,
-        color: Color::rgba(80, 80, 120, 200),
+        color: Color::rgba(255, 255, 255, 18),
         stroke_width: 1.0,
     });
 
@@ -95,8 +105,8 @@ fn main() -> Result<(), winpane::Error> {
             x: x + 15.0,
             y: 248.0,
             text: bar_labels[i].into(),
-            font_size: 12.0,
-            color: Color::rgba(160, 160, 180, 255),
+            font_size: 13.0,
+            color: Color::rgba(148, 148, 160, 255),
         });
 
         // Value above bar
@@ -115,7 +125,7 @@ fn main() -> Result<(), winpane::Error> {
         cy: 30.0,
         rx: 12.0,
         ry: 12.0,
-        color: Color::rgba(100, 180, 255, 120),
+        color: Color::rgba(82, 139, 255, 120),
         stroke_width: 1.5,
     });
 

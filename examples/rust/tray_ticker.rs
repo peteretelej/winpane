@@ -5,6 +5,16 @@
 //!
 //! Run on Windows: cargo run -p winpane --example tray_ticker
 
+// ── winpane design tokens ──────────────────────────────────────
+// Surface base:   rgb(18, 18, 22)  Glass: a=228  Solid: a=255  Muted: a=242
+// Elevated:       rgb(28, 28, 33)  Interactive:  rgba(38, 38, 44, 255)
+// Border:         rgba(255,255,255, 18)     Hover:       rgba(48, 48, 56, 255)
+// Text primary:   rgba(232, 232, 237, 255)  Secondary:   rgba(148, 148, 160, 255)
+// Accent:         rgba(82, 139, 255, 255)   Accent hover:rgba(110, 160, 255, 255)
+// Success:        rgba(52, 211, 153, 255)   Warning:     rgba(251, 191, 36, 255)
+// Danger:         rgba(239, 68, 68, 255)    Radius: 10/6 px
+// ────────────────────────────────────────────────────────────────
+
 #[allow(clippy::print_stdout)]
 fn main() -> Result<(), winpane::Error> {
     use winpane::{
@@ -50,9 +60,9 @@ fn main() -> Result<(), winpane::Error> {
             y: 0.0,
             width: 220.0,
             height: 140.0,
-            fill: Color::rgba(30, 30, 40, 240),
-            corner_radius: 8.0,
-            border_color: Some(Color::rgba(60, 60, 90, 200)),
+            fill: Color::rgba(18, 18, 22, 255),
+            corner_radius: 10.0,
+            border_color: Some(Color::rgba(255, 255, 255, 23)),
             border_width: 1.0,
             interactive: false,
         },
@@ -65,7 +75,7 @@ fn main() -> Result<(), winpane::Error> {
             x: 16.0,
             y: 12.0,
             font_size: 16.0,
-            color: Color::WHITE,
+            color: Color::rgba(232, 232, 237, 255),
             bold: true,
             ..Default::default()
         },
@@ -77,8 +87,8 @@ fn main() -> Result<(), winpane::Error> {
             text: "Left-click tray to toggle\nRight-click for menu".into(),
             x: 16.0,
             y: 45.0,
-            font_size: 12.0,
-            color: Color::rgba(180, 180, 200, 255),
+            font_size: 13.0,
+            color: Color::rgba(148, 148, 160, 255),
             ..Default::default()
         },
     );
@@ -89,8 +99,8 @@ fn main() -> Result<(), winpane::Error> {
             text: "Status: idle".into(),
             x: 16.0,
             y: 100.0,
-            font_size: 12.0,
-            color: Color::rgba(100, 200, 160, 255),
+            font_size: 11.0,
+            color: Color::rgba(52, 211, 153, 255),
             ..Default::default()
         },
     );
@@ -154,8 +164,8 @@ fn main() -> Result<(), winpane::Error> {
                     text: format!("Status: uptime {secs}s"),
                     x: 16.0,
                     y: 100.0,
-                    font_size: 12.0,
-                    color: Color::rgba(100, 200, 160, 255),
+                    font_size: 11.0,
+                    color: Color::rgba(52, 211, 153, 255),
                     ..Default::default()
                 },
             );
