@@ -55,24 +55,6 @@ macro_rules! ffi_try {
     }};
 }
 
-// Variant for functions that return a value through an out-pointer.
-// The Ok branch yields the value; error paths use early return.
-macro_rules! ffi_try_with {
-    ($body:expr) => {{
-        match std::panic::catch_unwind(AssertUnwindSafe(|| $body)) {
-            Ok(Ok(val)) => val,
-            Ok(Err(e)) => {
-                set_last_error(&e);
-                return -1_i32;
-            }
-            Err(_) => {
-                set_last_error("panic caught at FFI boundary");
-                return -2_i32;
-            }
-        }
-    }};
-}
-
 // --- Null pointer validation helpers ---
 
 fn require_non_null<T>(ptr: *const T, name: &str) -> Result<(), String> {
@@ -99,10 +81,10 @@ unsafe fn cstr_to_string(ptr: *const c_char) -> Result<String, String> {
     if ptr.is_null() {
         return Err("string pointer is null".into());
     }
-    // Safety: caller guarantees valid null-terminated UTF-8
+    // SAFETY: caller guarantees valid null-terminated UTF-8
     unsafe { CStr::from_ptr(ptr) }
         .to_str()
-        .map(|s| s.to_owned())
+        .map(ToOwned::to_owned)
         .map_err(|e| format!("invalid UTF-8: {e}"))
 }
 
@@ -125,7 +107,7 @@ pub struct WinpaneColor {
 }
 
 impl WinpaneColor {
-    fn to_rust(&self) -> winpane::Color {
+    fn to_rust(self) -> winpane::Color {
         winpane::Color::rgba(self.r, self.g, self.b, self.a)
     }
 }
@@ -150,11 +132,11 @@ impl WinpaneHudConfig {
                 self.version, WINPANE_CONFIG_VERSION
             ));
         }
-        if (self.size as usize) < std::mem::size_of::<Self>() {
+        if (self.size as usize) < size_of::<Self>() {
             return Err(format!(
                 "config size {} too small (expected at least {})",
                 self.size,
-                std::mem::size_of::<Self>()
+                size_of::<Self>()
             ));
         }
         Ok(winpane::HudConfig {
@@ -186,11 +168,11 @@ impl WinpanePanelConfig {
                 self.version, WINPANE_CONFIG_VERSION
             ));
         }
-        if (self.size as usize) < std::mem::size_of::<Self>() {
+        if (self.size as usize) < size_of::<Self>() {
             return Err(format!(
                 "config size {} too small (expected at least {})",
                 self.size,
-                std::mem::size_of::<Self>()
+                size_of::<Self>()
             ));
         }
         Ok(winpane::PanelConfig {
@@ -223,16 +205,18 @@ impl WinpaneTrayConfig {
                 self.version, WINPANE_CONFIG_VERSION
             ));
         }
-        if (self.size as usize) < std::mem::size_of::<Self>() {
+        if (self.size as usize) < size_of::<Self>() {
             return Err(format!(
                 "config size {} too small (expected at least {})",
                 self.size,
-                std::mem::size_of::<Self>()
+                size_of::<Self>()
             ));
         }
         require_non_null(self.icon_rgba, "icon_rgba")?;
+        // SAFETY: icon_rgba validated non-null above; caller guarantees valid RGBA buffer of icon_rgba_len bytes
         let icon_data =
             unsafe { std::slice::from_raw_parts(self.icon_rgba, self.icon_rgba_len as usize) };
+        // SAFETY: caller guarantees tooltip is a valid null-terminated C string
         let tooltip = unsafe { cstr_to_string(self.tooltip)? };
         Ok(winpane::TrayConfig {
             icon_rgba: icon_data.to_vec(),
@@ -264,11 +248,11 @@ impl WinpanePipConfig {
                 self.version, WINPANE_CONFIG_VERSION
             ));
         }
-        if (self.size as usize) < std::mem::size_of::<Self>() {
+        if (self.size as usize) < size_of::<Self>() {
             return Err(format!(
                 "config size {} too small (expected at least {})",
                 self.size,
-                std::mem::size_of::<Self>()
+                size_of::<Self>()
             ));
         }
         Ok(winpane::PipConfig {
@@ -293,7 +277,7 @@ pub struct WinpaneSourceRect {
 }
 
 impl WinpaneSourceRect {
-    fn to_rust(&self) -> winpane::SourceRect {
+    fn to_rust(self) -> winpane::SourceRect {
         winpane::SourceRect {
             x: self.x,
             y: self.y,
@@ -314,7 +298,7 @@ pub enum WinpaneBackdrop {
 }
 
 impl WinpaneBackdrop {
-    fn to_rust(&self) -> winpane::Backdrop {
+    fn to_rust(self) -> winpane::Backdrop {
         match self {
             WinpaneBackdrop::None => winpane::Backdrop::None,
             WinpaneBackdrop::Mica => winpane::Backdrop::Mica,
@@ -335,7 +319,7 @@ pub enum WinpaneAnchor {
 }
 
 impl WinpaneAnchor {
-    fn to_rust(&self) -> winpane::Anchor {
+    fn to_rust(self) -> winpane::Anchor {
         match self {
             WinpaneAnchor::TopLeft => winpane::Anchor::TopLeft,
             WinpaneAnchor::TopRight => winpane::Anchor::TopRight,
@@ -362,10 +346,12 @@ pub struct WinpaneTextElement {
 
 impl WinpaneTextElement {
     unsafe fn to_rust(&self) -> Result<winpane::TextElement, String> {
+        // SAFETY: caller guarantees self.text is a valid null-terminated C string
         let text = unsafe { cstr_to_string(self.text)? };
         let font_family = if self.font_family.is_null() {
             None
         } else {
+            // SAFETY: caller guarantees self.font_family is a valid null-terminated C string
             Some(unsafe { cstr_to_string(self.font_family)? })
         };
         Ok(winpane::TextElement {
@@ -433,6 +419,7 @@ pub struct WinpaneImageElement {
 impl WinpaneImageElement {
     unsafe fn to_rust(&self) -> Result<winpane::ImageElement, String> {
         require_non_null(self.data, "image data")?;
+        // SAFETY: self.data validated non-null above; caller guarantees valid RGBA buffer of data_len bytes
         let data = unsafe { std::slice::from_raw_parts(self.data, self.data_len as usize) };
         Ok(winpane::ImageElement {
             x: self.x,
@@ -760,15 +747,16 @@ pub unsafe extern "C" fn winpane_create(out: *mut *mut WinpaneContext) -> i32 {
         require_non_null_mut(out, "out")?;
         let ctx = winpane::Context::new().map_err(|e| e.to_string())?;
         let boxed = Box::new(WinpaneContext { inner: ctx });
+        // SAFETY: out validated non-null above
         unsafe { *out = Box::into_raw(boxed) };
-        Ok(())
+        Ok::<(), String>(())
     })
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn winpane_destroy(ctx: *mut WinpaneContext) {
     if !ctx.is_null() {
-        // Safety: ctx was created by winpane_create via Box::into_raw
+        // SAFETY: ctx was created by winpane_create via Box::into_raw
         let _ = unsafe { Box::from_raw(ctx) };
     }
 }
@@ -787,15 +775,18 @@ pub unsafe extern "C" fn winpane_poll_event(
     match std::panic::catch_unwind(AssertUnwindSafe(|| {
         require_non_null(ctx, "ctx")?;
         require_non_null_mut(event, "event")?;
+        // SAFETY: ctx validated non-null above
         let ctx = unsafe { &*ctx };
         match ctx.inner.poll_event() {
             Some(e) => {
+                // SAFETY: event validated non-null above
                 unsafe { *event = WinpaneEvent::from_rust(&e) };
-                Ok(true) // event available
+                Ok::<bool, String>(true) // event available
             }
             None => {
+                // SAFETY: event validated non-null above
                 unsafe { (*event).event_type = WinpaneEventType::None };
-                Ok(false) // no event
+                Ok::<bool, String>(false) // no event
             }
         }
     })) {
@@ -826,15 +817,18 @@ pub unsafe extern "C" fn winpane_hud_create(
         require_non_null(ctx, "ctx")?;
         require_non_null(config, "config")?;
         require_non_null_mut(out, "out")?;
+        // SAFETY: ctx validated non-null above
         let ctx = unsafe { &*ctx };
+        // SAFETY: config validated non-null above
         let cfg = unsafe { &*config }.to_rust()?;
         let hud = ctx.inner.create_hud(cfg).map_err(|e| e.to_string())?;
         let surface = Box::new(WinpaneSurface {
             inner: FfiSurface::Hud(hud),
             canvas: None,
         });
+        // SAFETY: out validated non-null above
         unsafe { *out = Box::into_raw(surface) };
-        Ok(())
+        Ok::<(), String>(())
     })
 }
 
@@ -848,15 +842,18 @@ pub unsafe extern "C" fn winpane_panel_create(
         require_non_null(ctx, "ctx")?;
         require_non_null(config, "config")?;
         require_non_null_mut(out, "out")?;
+        // SAFETY: ctx validated non-null above
         let ctx = unsafe { &*ctx };
+        // SAFETY: config validated non-null above
         let cfg = unsafe { &*config }.to_rust()?;
         let panel = ctx.inner.create_panel(cfg).map_err(|e| e.to_string())?;
         let surface = Box::new(WinpaneSurface {
             inner: FfiSurface::Panel(panel),
             canvas: None,
         });
+        // SAFETY: out validated non-null above
         unsafe { *out = Box::into_raw(surface) };
-        Ok(())
+        Ok::<(), String>(())
     })
 }
 
@@ -867,6 +864,7 @@ pub unsafe extern "C" fn winpane_panel_create(
 #[no_mangle]
 pub unsafe extern "C" fn winpane_surface_destroy(surface: *mut WinpaneSurface) {
     if !surface.is_null() {
+        // SAFETY: surface was created by winpane_*_create via Box::into_raw
         let _ = unsafe { Box::from_raw(surface) };
     }
 }
@@ -876,6 +874,7 @@ pub unsafe extern "C" fn winpane_surface_id(surface: *const WinpaneSurface) -> u
     if surface.is_null() {
         return 0;
     }
+    // SAFETY: surface checked non-null above
     unsafe { &*surface }.inner.id().0
 }
 
@@ -889,11 +888,14 @@ pub unsafe extern "C" fn winpane_surface_set_text(
         require_non_null(surface, "surface")?;
         require_non_null(key, "key")?;
         require_non_null(element, "element")?;
+        // SAFETY: surface validated non-null above
         let surface = unsafe { &*surface };
+        // SAFETY: key validated non-null above; caller guarantees valid C string
         let key = unsafe { cstr_to_string(key)? };
-        let elem = unsafe { &*element }.to_rust()?;
+        // SAFETY: element validated non-null above; to_rust reads fields and dereferences inner pointers
+        let elem = unsafe { (*element).to_rust()? };
         surface.inner.set_text(&key, elem)?;
-        Ok(())
+        Ok::<(), String>(())
     })
 }
 
@@ -907,11 +909,14 @@ pub unsafe extern "C" fn winpane_surface_set_rect(
         require_non_null(surface, "surface")?;
         require_non_null(key, "key")?;
         require_non_null(element, "element")?;
+        // SAFETY: surface validated non-null above
         let surface = unsafe { &*surface };
+        // SAFETY: key validated non-null above; caller guarantees valid C string
         let key = unsafe { cstr_to_string(key)? };
+        // SAFETY: element validated non-null above
         let elem = unsafe { &*element }.to_rust();
         surface.inner.set_rect(&key, elem)?;
-        Ok(())
+        Ok::<(), String>(())
     })
 }
 
@@ -925,11 +930,14 @@ pub unsafe extern "C" fn winpane_surface_set_image(
         require_non_null(surface, "surface")?;
         require_non_null(key, "key")?;
         require_non_null(element, "element")?;
+        // SAFETY: surface validated non-null above
         let surface = unsafe { &*surface };
+        // SAFETY: key validated non-null above; caller guarantees valid C string
         let key = unsafe { cstr_to_string(key)? };
-        let elem = unsafe { &*element }.to_rust()?;
+        // SAFETY: element validated non-null above; to_rust reads fields and dereferences inner pointers
+        let elem = unsafe { (*element).to_rust()? };
         surface.inner.set_image(&key, elem)?;
-        Ok(())
+        Ok::<(), String>(())
     })
 }
 
@@ -941,10 +949,12 @@ pub unsafe extern "C" fn winpane_surface_remove(
     ffi_try!({
         require_non_null(surface, "surface")?;
         require_non_null(key, "key")?;
+        // SAFETY: surface validated non-null above
         let surface = unsafe { &*surface };
+        // SAFETY: key validated non-null above; caller guarantees valid C string
         let key = unsafe { cstr_to_string(key)? };
         surface.inner.remove(&key)?;
-        Ok(())
+        Ok::<(), String>(())
     })
 }
 
@@ -952,8 +962,9 @@ pub unsafe extern "C" fn winpane_surface_remove(
 pub unsafe extern "C" fn winpane_surface_show(surface: *mut WinpaneSurface) -> i32 {
     ffi_try!({
         require_non_null(surface, "surface")?;
+        // SAFETY: surface validated non-null above
         unsafe { &*surface }.inner.show();
-        Ok(())
+        Ok::<(), String>(())
     })
 }
 
@@ -961,8 +972,9 @@ pub unsafe extern "C" fn winpane_surface_show(surface: *mut WinpaneSurface) -> i
 pub unsafe extern "C" fn winpane_surface_hide(surface: *mut WinpaneSurface) -> i32 {
     ffi_try!({
         require_non_null(surface, "surface")?;
+        // SAFETY: surface validated non-null above
         unsafe { &*surface }.inner.hide();
-        Ok(())
+        Ok::<(), String>(())
     })
 }
 
@@ -974,8 +986,9 @@ pub unsafe extern "C" fn winpane_surface_set_position(
 ) -> i32 {
     ffi_try!({
         require_non_null(surface, "surface")?;
+        // SAFETY: surface validated non-null above
         unsafe { &*surface }.inner.set_position(x, y);
-        Ok(())
+        Ok::<(), String>(())
     })
 }
 
@@ -987,8 +1000,9 @@ pub unsafe extern "C" fn winpane_surface_set_size(
 ) -> i32 {
     ffi_try!({
         require_non_null(surface, "surface")?;
+        // SAFETY: surface validated non-null above
         unsafe { &*surface }.inner.set_size(width, height);
-        Ok(())
+        Ok::<(), String>(())
     })
 }
 
@@ -999,8 +1013,9 @@ pub unsafe extern "C" fn winpane_surface_set_opacity(
 ) -> i32 {
     ffi_try!({
         require_non_null(surface, "surface")?;
+        // SAFETY: surface validated non-null above
         unsafe { &*surface }.inner.set_opacity(opacity);
-        Ok(())
+        Ok::<(), String>(())
     })
 }
 
@@ -1018,18 +1033,22 @@ pub unsafe extern "C" fn winpane_tray_create(
         require_non_null(ctx, "ctx")?;
         require_non_null(config, "config")?;
         require_non_null_mut(out, "out")?;
+        // SAFETY: ctx validated non-null above
         let ctx = unsafe { &*ctx };
-        let cfg = unsafe { &*config }.to_rust()?;
+        // SAFETY: config validated non-null above; to_rust reads fields and dereferences inner pointers
+        let cfg = unsafe { (*config).to_rust()? };
         let tray = ctx.inner.create_tray(cfg).map_err(|e| e.to_string())?;
         let boxed = Box::new(WinpaneTray { inner: tray });
+        // SAFETY: out validated non-null above
         unsafe { *out = Box::into_raw(boxed) };
-        Ok(())
+        Ok::<(), String>(())
     })
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn winpane_tray_destroy(tray: *mut WinpaneTray) {
     if !tray.is_null() {
+        // SAFETY: tray was created by winpane_tray_create via Box::into_raw
         let _ = unsafe { Box::from_raw(tray) };
     }
 }
@@ -1042,10 +1061,12 @@ pub unsafe extern "C" fn winpane_tray_set_tooltip(
     ffi_try!({
         require_non_null(tray, "tray")?;
         require_non_null(tooltip, "tooltip")?;
+        // SAFETY: tray validated non-null above
         let tray = unsafe { &*tray };
+        // SAFETY: tooltip validated non-null above; caller guarantees valid C string
         let text = unsafe { cstr_to_string(tooltip)? };
         tray.inner.set_tooltip(&text);
-        Ok(())
+        Ok::<(), String>(())
     })
 }
 
@@ -1060,10 +1081,12 @@ pub unsafe extern "C" fn winpane_tray_set_icon(
     ffi_try!({
         require_non_null(tray, "tray")?;
         require_non_null(rgba, "rgba")?;
+        // SAFETY: tray validated non-null above
         let tray = unsafe { &*tray };
+        // SAFETY: rgba validated non-null above; caller guarantees valid RGBA buffer of rgba_len bytes
         let data = unsafe { std::slice::from_raw_parts(rgba, rgba_len as usize) };
         tray.inner.set_icon(data.to_vec(), width, height);
-        Ok(())
+        Ok::<(), String>(())
     })
 }
 
@@ -1075,12 +1098,14 @@ pub unsafe extern "C" fn winpane_tray_set_popup(
     ffi_try!({
         require_non_null(tray, "tray")?;
         require_non_null(panel, "panel")?;
+        // SAFETY: tray validated non-null above
         let tray = unsafe { &*tray };
+        // SAFETY: panel validated non-null above
         let surface = unsafe { &*panel };
         match &surface.inner {
             FfiSurface::Panel(p) => {
                 tray.inner.set_popup(p);
-                Ok(())
+                Ok::<(), String>(())
             }
             _ => Err("set_popup requires a panel surface".into()),
         }
@@ -1098,10 +1123,13 @@ pub unsafe extern "C" fn winpane_tray_set_menu(
         if count > 0 {
             require_non_null(items, "items")?;
         }
+        // SAFETY: tray validated non-null above
         let tray = unsafe { &*tray };
         let menu_items: Result<Vec<winpane::MenuItem>, String> = (0..count)
             .map(|i| {
+                // SAFETY: items validated non-null above; i < count so offset is in bounds
                 let item = unsafe { &*items.add(i as usize) };
+                // SAFETY: item.label is a caller-provided C string pointer
                 let label = unsafe { cstr_to_string(item.label)? };
                 Ok(winpane::MenuItem {
                     id: item.id,
@@ -1111,7 +1139,7 @@ pub unsafe extern "C" fn winpane_tray_set_menu(
             })
             .collect();
         tray.inner.set_menu(menu_items?);
-        Ok(())
+        Ok::<(), String>(())
     })
 }
 
@@ -1129,6 +1157,7 @@ pub unsafe extern "C" fn winpane_surface_begin_draw(
     ffi_try!({
         require_non_null(surface, "surface")?;
         require_non_null_mut(out, "out")?;
+        // SAFETY: surface validated non-null above; mutable access is exclusive per FFI contract
         let surface = unsafe { &mut *surface };
         if surface.canvas.is_some() {
             return Err("a canvas is already active on this surface; call end_draw first".into());
@@ -1137,8 +1166,9 @@ pub unsafe extern "C" fn winpane_surface_begin_draw(
         let ops_ptr: *mut Vec<winpane::DrawOp> = &mut acc.ops;
         surface.canvas = Some(acc);
         let canvas = Box::new(WinpaneCanvas { ops: ops_ptr });
+        // SAFETY: out validated non-null above
         unsafe { *out = Box::into_raw(canvas) };
-        Ok(())
+        Ok::<(), String>(())
     })
 }
 
@@ -1148,13 +1178,14 @@ pub unsafe extern "C" fn winpane_surface_begin_draw(
 pub unsafe extern "C" fn winpane_surface_end_draw(surface: *mut WinpaneSurface) -> i32 {
     ffi_try!({
         require_non_null(surface, "surface")?;
+        // SAFETY: surface validated non-null above; mutable access is exclusive per FFI contract
         let surface = unsafe { &mut *surface };
         let acc = surface
             .canvas
             .take()
             .ok_or_else(|| "no active canvas; call begin_draw first".to_string())?;
         surface.inner.custom_draw(acc.ops)?;
-        Ok(())
+        Ok::<(), String>(())
     })
 }
 
@@ -1168,9 +1199,10 @@ pub unsafe extern "C" fn winpane_canvas_clear(
 ) -> i32 {
     ffi_try!({
         require_non_null(canvas, "canvas")?;
+        // SAFETY: canvas validated non-null; ops pointer is valid while canvas is active
         let ops = unsafe { &mut *(*canvas).ops };
         ops.push(winpane::DrawOp::Clear(color.to_rust()));
-        Ok(())
+        Ok::<(), String>(())
     })
 }
 
@@ -1185,6 +1217,7 @@ pub unsafe extern "C" fn winpane_canvas_fill_rect(
 ) -> i32 {
     ffi_try!({
         require_non_null(canvas, "canvas")?;
+        // SAFETY: canvas validated non-null; ops pointer is valid while canvas is active
         let ops = unsafe { &mut *(*canvas).ops };
         ops.push(winpane::DrawOp::FillRect {
             x,
@@ -1193,7 +1226,7 @@ pub unsafe extern "C" fn winpane_canvas_fill_rect(
             height: h,
             color: color.to_rust(),
         });
-        Ok(())
+        Ok::<(), String>(())
     })
 }
 
@@ -1209,6 +1242,7 @@ pub unsafe extern "C" fn winpane_canvas_stroke_rect(
 ) -> i32 {
     ffi_try!({
         require_non_null(canvas, "canvas")?;
+        // SAFETY: canvas validated non-null; ops pointer is valid while canvas is active
         let ops = unsafe { &mut *(*canvas).ops };
         ops.push(winpane::DrawOp::StrokeRect {
             x,
@@ -1218,7 +1252,7 @@ pub unsafe extern "C" fn winpane_canvas_stroke_rect(
             color: color.to_rust(),
             stroke_width: width,
         });
-        Ok(())
+        Ok::<(), String>(())
     })
 }
 
@@ -1233,7 +1267,9 @@ pub unsafe extern "C" fn winpane_canvas_draw_text(
 ) -> i32 {
     ffi_try!({
         require_non_null(canvas, "canvas")?;
+        // SAFETY: text is a caller-provided C string pointer
         let text_str = unsafe { cstr_to_string(text)? };
+        // SAFETY: canvas validated non-null; ops pointer is valid while canvas is active
         let ops = unsafe { &mut *(*canvas).ops };
         ops.push(winpane::DrawOp::DrawText {
             x,
@@ -1242,7 +1278,7 @@ pub unsafe extern "C" fn winpane_canvas_draw_text(
             font_size,
             color: color.to_rust(),
         });
-        Ok(())
+        Ok::<(), String>(())
     })
 }
 
@@ -1258,6 +1294,7 @@ pub unsafe extern "C" fn winpane_canvas_draw_line(
 ) -> i32 {
     ffi_try!({
         require_non_null(canvas, "canvas")?;
+        // SAFETY: canvas validated non-null; ops pointer is valid while canvas is active
         let ops = unsafe { &mut *(*canvas).ops };
         ops.push(winpane::DrawOp::DrawLine {
             x1,
@@ -1267,7 +1304,7 @@ pub unsafe extern "C" fn winpane_canvas_draw_line(
             color: color.to_rust(),
             stroke_width: width,
         });
-        Ok(())
+        Ok::<(), String>(())
     })
 }
 
@@ -1282,6 +1319,7 @@ pub unsafe extern "C" fn winpane_canvas_fill_ellipse(
 ) -> i32 {
     ffi_try!({
         require_non_null(canvas, "canvas")?;
+        // SAFETY: canvas validated non-null; ops pointer is valid while canvas is active
         let ops = unsafe { &mut *(*canvas).ops };
         ops.push(winpane::DrawOp::FillEllipse {
             cx,
@@ -1290,7 +1328,7 @@ pub unsafe extern "C" fn winpane_canvas_fill_ellipse(
             ry,
             color: color.to_rust(),
         });
-        Ok(())
+        Ok::<(), String>(())
     })
 }
 
@@ -1306,6 +1344,7 @@ pub unsafe extern "C" fn winpane_canvas_stroke_ellipse(
 ) -> i32 {
     ffi_try!({
         require_non_null(canvas, "canvas")?;
+        // SAFETY: canvas validated non-null; ops pointer is valid while canvas is active
         let ops = unsafe { &mut *(*canvas).ops };
         ops.push(winpane::DrawOp::StrokeEllipse {
             cx,
@@ -1315,7 +1354,7 @@ pub unsafe extern "C" fn winpane_canvas_stroke_ellipse(
             color: color.to_rust(),
             stroke_width: width,
         });
-        Ok(())
+        Ok::<(), String>(())
     })
 }
 
@@ -1334,7 +1373,9 @@ pub unsafe extern "C" fn winpane_canvas_draw_image(
     ffi_try!({
         require_non_null(canvas, "canvas")?;
         require_non_null(rgba, "rgba")?;
+        // SAFETY: rgba validated non-null above; caller guarantees valid buffer of rgba_len bytes
         let data = unsafe { std::slice::from_raw_parts(rgba, rgba_len as usize) };
+        // SAFETY: canvas validated non-null; ops pointer is valid while canvas is active
         let ops = unsafe { &mut *(*canvas).ops };
         ops.push(winpane::DrawOp::DrawImage {
             x,
@@ -1345,7 +1386,7 @@ pub unsafe extern "C" fn winpane_canvas_draw_image(
             img_width: img_w,
             img_height: img_h,
         });
-        Ok(())
+        Ok::<(), String>(())
     })
 }
 
@@ -1361,6 +1402,7 @@ pub unsafe extern "C" fn winpane_canvas_fill_rounded_rect(
 ) -> i32 {
     ffi_try!({
         require_non_null(canvas, "canvas")?;
+        // SAFETY: canvas validated non-null; ops pointer is valid while canvas is active
         let ops = unsafe { &mut *(*canvas).ops };
         ops.push(winpane::DrawOp::FillRoundedRect {
             x,
@@ -1370,7 +1412,7 @@ pub unsafe extern "C" fn winpane_canvas_fill_rounded_rect(
             radius,
             color: color.to_rust(),
         });
-        Ok(())
+        Ok::<(), String>(())
     })
 }
 
@@ -1387,6 +1429,7 @@ pub unsafe extern "C" fn winpane_canvas_stroke_rounded_rect(
 ) -> i32 {
     ffi_try!({
         require_non_null(canvas, "canvas")?;
+        // SAFETY: canvas validated non-null; ops pointer is valid while canvas is active
         let ops = unsafe { &mut *(*canvas).ops };
         ops.push(winpane::DrawOp::StrokeRoundedRect {
             x,
@@ -1397,7 +1440,7 @@ pub unsafe extern "C" fn winpane_canvas_stroke_rounded_rect(
             color: color.to_rust(),
             stroke_width: width,
         });
-        Ok(())
+        Ok::<(), String>(())
     })
 }
 
@@ -1415,15 +1458,18 @@ pub unsafe extern "C" fn winpane_pip_create(
         require_non_null(ctx, "ctx")?;
         require_non_null(config, "config")?;
         require_non_null_mut(out, "out")?;
+        // SAFETY: ctx validated non-null above
         let ctx = unsafe { &*ctx };
+        // SAFETY: config validated non-null above
         let cfg = unsafe { &*config }.to_rust()?;
         let pip = ctx.inner.create_pip(cfg).map_err(|e| e.to_string())?;
         let surface = Box::new(WinpaneSurface {
             inner: FfiSurface::Pip(pip),
             canvas: None,
         });
+        // SAFETY: out validated non-null above
         unsafe { *out = Box::into_raw(surface) };
-        Ok(())
+        Ok::<(), String>(())
     })
 }
 
@@ -1439,12 +1485,14 @@ pub unsafe extern "C" fn winpane_surface_set_source_region(
     ffi_try!({
         require_non_null(surface, "surface")?;
         require_non_null(rect, "rect")?;
+        // SAFETY: surface validated non-null above
         let surface = unsafe { &*surface };
         match &surface.inner {
             FfiSurface::Pip(p) => {
+                // SAFETY: rect validated non-null above
                 let r = unsafe { &*rect }.to_rust();
                 p.set_source_region(r);
-                Ok(())
+                Ok::<(), String>(())
             }
             _ => Err("set_source_region is only valid on PiP surfaces".into()),
         }
@@ -1455,11 +1503,12 @@ pub unsafe extern "C" fn winpane_surface_set_source_region(
 pub unsafe extern "C" fn winpane_surface_clear_source_region(surface: *mut WinpaneSurface) -> i32 {
     ffi_try!({
         require_non_null(surface, "surface")?;
+        // SAFETY: surface validated non-null above
         let surface = unsafe { &*surface };
         match &surface.inner {
             FfiSurface::Pip(p) => {
                 p.clear_source_region();
-                Ok(())
+                Ok::<(), String>(())
             }
             _ => Err("clear_source_region is only valid on PiP surfaces".into()),
         }
@@ -1480,11 +1529,12 @@ pub unsafe extern "C" fn winpane_surface_anchor_to(
 ) -> i32 {
     ffi_try!({
         require_non_null(surface, "surface")?;
+        // SAFETY: surface validated non-null above
         let surface = unsafe { &*surface };
         surface
             .inner
             .anchor_to(target_hwnd, anchor.to_rust(), (offset_x, offset_y));
-        Ok(())
+        Ok::<(), String>(())
     })
 }
 
@@ -1492,9 +1542,10 @@ pub unsafe extern "C" fn winpane_surface_anchor_to(
 pub unsafe extern "C" fn winpane_surface_unanchor(surface: *mut WinpaneSurface) -> i32 {
     ffi_try!({
         require_non_null(surface, "surface")?;
+        // SAFETY: surface validated non-null above
         let surface = unsafe { &*surface };
         surface.inner.unanchor();
-        Ok(())
+        Ok::<(), String>(())
     })
 }
 
@@ -1509,9 +1560,10 @@ pub unsafe extern "C" fn winpane_surface_set_capture_excluded(
 ) -> i32 {
     ffi_try!({
         require_non_null(surface, "surface")?;
+        // SAFETY: surface validated non-null above
         let surface = unsafe { &*surface };
         surface.inner.set_capture_excluded(excluded != 0);
-        Ok(())
+        Ok::<(), String>(())
     })
 }
 
@@ -1526,9 +1578,10 @@ pub unsafe extern "C" fn winpane_surface_set_backdrop(
 ) -> i32 {
     ffi_try!({
         require_non_null(surface, "surface")?;
+        // SAFETY: surface validated non-null above
         let surface = unsafe { &*surface };
         surface.inner.set_backdrop(backdrop.to_rust());
-        Ok(())
+        Ok::<(), String>(())
     })
 }
 
@@ -1552,8 +1605,9 @@ pub unsafe extern "C" fn winpane_surface_fade_in(
 ) -> i32 {
     ffi_try!({
         require_non_null(surface, "surface")?;
+        // SAFETY: surface validated non-null above
         unsafe { &*surface }.inner.fade_in(duration_ms);
-        Ok(())
+        Ok::<(), String>(())
     })
 }
 
@@ -1564,7 +1618,8 @@ pub unsafe extern "C" fn winpane_surface_fade_out(
 ) -> i32 {
     ffi_try!({
         require_non_null(surface, "surface")?;
+        // SAFETY: surface validated non-null above
         unsafe { &*surface }.inner.fade_out(duration_ms);
-        Ok(())
+        Ok::<(), String>(())
     })
 }

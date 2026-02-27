@@ -12,8 +12,8 @@ fn find_window_by_title(title: &str) -> Option<isize> {
     use windows::core::HSTRING;
     use windows::Win32::UI::WindowsAndMessaging::FindWindowW;
     let title = HSTRING::from(title);
-    // SAFETY: FindWindowW is safe to call with a valid HSTRING; returns null on failure.
-    let hwnd = unsafe { FindWindowW(None, &title) };
+    // SAFETY: FindWindowW is safe to call with a valid HSTRING; returns an error on failure.
+    let hwnd = unsafe { FindWindowW(None, &title) }.ok()?;
     if hwnd.0.is_null() {
         None
     } else {
@@ -96,14 +96,9 @@ fn main() -> Result<(), winpane::Error> {
     println!("Minimize the target to see the companion hide. Press Ctrl+C to exit.");
 
     loop {
-        if let Some(event) = ctx.poll_event() {
-            match event {
-                Event::AnchorTargetClosed { .. } => {
-                    println!("Target window closed.");
-                    break;
-                }
-                _ => {}
-            }
+        if let Some(Event::AnchorTargetClosed { .. }) = ctx.poll_event() {
+            println!("Target window closed.");
+            break;
         }
         std::thread::sleep(std::time::Duration::from_millis(16));
     }

@@ -11,6 +11,6 @@ fn main() {
     {
         bindings.write_to_file(format!("{crate_dir}/include/winpane.h"));
     } else {
-        eprintln!("cargo:warning=cbindgen failed to generate header; skipping for now");
+        println!("cargo:warning=cbindgen failed to generate header; skipping for now");
     }
 }

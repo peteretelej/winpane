@@ -4,9 +4,10 @@
 #[cfg(target_os = "windows")]
 use windows::Win32::{
     Foundation::HWND,
-    UI::Accessibility::{
-        SetWinEventHook, UnhookWinEvent, EVENT_OBJECT_LOCATIONCHANGE, EVENT_SYSTEM_MINIMIZEEND,
-        EVENT_SYSTEM_MINIMIZESTART, HWINEVENTHOOK, WINEVENT_OUTOFCONTEXT,
+    UI::Accessibility::{SetWinEventHook, UnhookWinEvent, HWINEVENTHOOK},
+    UI::WindowsAndMessaging::{
+        EVENT_OBJECT_LOCATIONCHANGE, EVENT_SYSTEM_MINIMIZEEND, EVENT_SYSTEM_MINIMIZESTART,
+        WINEVENT_OUTOFCONTEXT,
     },
 };
 
@@ -28,7 +29,7 @@ thread_local! {
     pub(crate) static PENDING_MONITOR_EVENTS: RefCell<Vec<MonitorEvent>> =
         const { RefCell::new(Vec::new()) };
     static WATCHED_HWNDS: RefCell<HashSet<isize>> =
-        const { RefCell::new(HashSet::new()) };
+        RefCell::new(HashSet::new());
 }
 
 // --- Watch tracking ---
@@ -36,7 +37,11 @@ thread_local! {
 #[derive(Debug, Clone)]
 pub(crate) enum WatchReason {
     PipSource,
-    AnchorTarget { anchor: Anchor, offset: (i32, i32) },
+    #[allow(dead_code)]
+    AnchorTarget {
+        anchor: Anchor,
+        offset: (i32, i32),
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -65,6 +70,7 @@ impl WindowMonitor {
         }
     }
 
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.watched.is_empty()
     }
@@ -122,10 +128,11 @@ impl WindowMonitor {
 
     /// Returns all watchers for a given HWND.
     pub fn get_watches(&self, hwnd: isize) -> Option<&[Watch]> {
-        self.watched.get(&hwnd).map(|v| v.as_slice())
+        self.watched.get(&hwnd).map(Vec::as_slice)
     }
 
     /// Returns all watched HWNDs.
+    #[allow(dead_code)]
     pub fn watched_hwnds(&self) -> impl Iterator<Item = &isize> {
         self.watched.keys()
     }
@@ -139,6 +146,7 @@ impl WindowMonitor {
         if !self.hooks.is_empty() {
             return; // already registered
         }
+        // SAFETY: SetWinEventHook with valid callback; hooks stored for later cleanup.
         unsafe {
             // Hook 1: location changes (move/resize)
             let h1 = SetWinEventHook(
@@ -172,6 +180,7 @@ impl WindowMonitor {
 
     fn unregister_hooks(&mut self) {
         for hook in self.hooks.drain(..) {
+            // SAFETY: UnhookWinEvent with handles obtained from SetWinEventHook.
             unsafe {
                 let _ = UnhookWinEvent(hook);
             }
@@ -188,6 +197,9 @@ impl WindowMonitor {
 // --- WinEvent callback ---
 
 #[cfg(target_os = "windows")]
+/// Safety: Called by SetWinEventHook. Parameters come directly from Windows.
+/// We validate id_object == 0 (window-level) and check WATCHED_HWNDS before processing.
+#[allow(dead_code)]
 unsafe extern "system" fn monitor_event_callback(
     _hook: HWINEVENTHOOK,
     event: u32,

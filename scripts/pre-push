@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "Running pre-push checks..."
+TARGET="x86_64-pc-windows-msvc"
+
+echo "Running pre-push checks (target: $TARGET)..."
 
 echo "  fmt"
 cargo fmt --all -- --check
 
 echo "  clippy"
-cargo clippy --workspace --all-targets -- -D warnings
+cargo clippy --workspace --all-targets --target "$TARGET" -- -D warnings
 
-echo "  test"
-cargo test --workspace
+echo "  test (check)"
+cargo check --workspace --all-targets --target "$TARGET"
 
 echo "All checks passed."

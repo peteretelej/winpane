@@ -21,8 +21,8 @@ use crate::types::{
 };
 use crate::window::{
     create_control_window, create_hud_window, create_panel_window, ensure_classes_registered,
-    get_dpi_scale, try_set_dpi_awareness, DpiChangeEvent, FadeCompleteEvent, SendHwnd,
-    PENDING_DPI_CHANGES, PENDING_FADE_COMPLETIONS, PENDING_TRAY_EVENTS,
+    get_dpi_scale, try_set_dpi_awareness, SendHwnd, PENDING_DPI_CHANGES, PENDING_FADE_COMPLETIONS,
+    PENDING_TRAY_EVENTS,
 };
 
 use windows::Win32::Graphics::Dwm::{
@@ -43,6 +43,7 @@ pub(crate) struct PipState {
     /// DWM thumbnail handle (HTHUMBNAIL). Zero if invalid.
     pub thumbnail: isize,
     /// Source window HWND as isize.
+    #[allow(dead_code)]
     pub source_hwnd: isize,
     /// Optional source crop region.
     pub source_region: Option<SourceRect>,
@@ -84,8 +85,9 @@ impl EngineHandle {
 
         let handle = std::thread::Builder::new()
             .name("winpane-engine".into())
-            .spawn(move || unsafe {
-                engine_thread_main(cmd_rx, event_tx, ready_tx);
+            .spawn(move || {
+                // SAFETY: Engine thread entry with COM, window, and GPU initialization.
+                unsafe { engine_thread_main(cmd_rx, event_tx, ready_tx) };
             })
             .map_err(|_| Error::ThreadSpawnFailed)?;
 
@@ -111,8 +113,9 @@ impl EngineHandle {
 
     /// Wake the engine thread's message loop via PostMessageW.
     pub fn wake(&self) {
+        // SAFETY: PostMessageW is thread-safe; SendHwnd wraps HWND for cross-thread use.
         unsafe {
-            let _ = PostMessageW(self.control_hwnd.0, WM_APP, WPARAM(0), LPARAM(0));
+            let _ = PostMessageW(Some(self.control_hwnd.0), WM_APP, WPARAM(0), LPARAM(0));
         }
     }
 }
@@ -121,10 +124,10 @@ impl EngineHandle {
 /// This is a free function so that `Hud` (which only holds a `SendHwnd`)
 /// can wake the engine without needing the full `EngineHandle`.
 pub fn wake_engine(control_hwnd: SendHwnd) {
+    // SAFETY: PostMessageW is thread-safe by Win32 specification.
+    // SendHwnd wraps HWND to allow cross-thread use.
     unsafe {
-        // Safety: PostMessageW is thread-safe by Win32 specification.
-        // SendHwnd wraps HWND to allow cross-thread use.
-        let _ = PostMessageW(control_hwnd.0, WM_APP, WPARAM(0), LPARAM(0));
+        let _ = PostMessageW(Some(control_hwnd.0), WM_APP, WPARAM(0), LPARAM(0));
     }
 }
 
@@ -136,6 +139,7 @@ struct CoInitGuard;
 
 impl Drop for CoInitGuard {
     fn drop(&mut self) {
+        // SAFETY: CoUninitialize pairs with CoInitializeEx called on this thread.
         unsafe {
             CoUninitialize();
         }
@@ -144,475 +148,506 @@ impl Drop for CoInitGuard {
 
 // --- Engine thread main ---
 
+#[allow(clippy::print_stderr)]
 unsafe fn engine_thread_main(
     cmd_rx: CommandReceiver,
     event_tx: mpsc::Sender<Event>,
     ready_tx: mpsc::Sender<Result<SendHwnd, Error>>,
 ) {
-    // 1. STA for message loop thread
-    if let Err(e) = CoInitializeEx(None, COINIT_APARTMENTTHREADED) {
-        let _ = ready_tx.send(Err(Error::DeviceCreation(format!("CoInitializeEx: {e}"))));
-        return;
-    }
-    let _co_guard = CoInitGuard;
-
-    // 2. DPI awareness
-    try_set_dpi_awareness();
-
-    // 3. Register window classes
-    ensure_classes_registered();
-
-    // 4. GPU resources
-    let mut gpu = match GpuResources::new() {
-        Ok(gpu) => gpu,
-        Err(e) => {
-            let _ = ready_tx.send(Err(e));
+    // SAFETY: Engine thread entry with COM, window, and GPU initialization.
+    unsafe {
+        // 1. STA for message loop thread
+        if let Err(e) = CoInitializeEx(None, COINIT_APARTMENTTHREADED).ok() {
+            let _ = ready_tx.send(Err(Error::DeviceCreation(format!("CoInitializeEx: {e}"))));
             return;
         }
-    };
+        let _co_guard = CoInitGuard;
 
-    // 5. Control window (message-only, for PostMessage wakeups)
-    let control_hwnd = match create_control_window() {
-        Ok(hwnd) => hwnd,
-        Err(e) => {
-            let _ = ready_tx.send(Err(e));
-            return;
-        }
-    };
+        // 2. DPI awareness
+        try_set_dpi_awareness();
 
-    // 6. Signal ready
-    let _ = ready_tx.send(Ok(SendHwnd(control_hwnd)));
+        // 3. Register window classes
+        ensure_classes_registered();
 
-    // 7. Initialize surface storage
-    let mut surfaces: HashMap<SurfaceId, Surface> = HashMap::new();
-    let mut next_id = SurfaceId(1);
+        // 4. GPU resources
+        let mut gpu = match GpuResources::new() {
+            Ok(gpu) => gpu,
+            Err(e) => {
+                let _ = ready_tx.send(Err(e));
+                return;
+            }
+        };
 
-    // 8. Tray state
-    let mut trays: HashMap<TrayId, TrayState> = HashMap::new();
-    let mut next_tray_id = TrayId(1);
+        // 5. Control window (message-only, for PostMessage wakeups)
+        let control_hwnd = match create_control_window() {
+            Ok(hwnd) => hwnd,
+            Err(e) => {
+                let _ = ready_tx.send(Err(e));
+                return;
+            }
+        };
 
-    // 8b. Window monitor and anchor state
-    let mut monitor = WindowMonitor::new();
-    let mut anchor_states: HashMap<SurfaceId, AnchorState> = HashMap::new();
+        // 6. Signal ready
+        let _ = ready_tx.send(Ok(SendHwnd(control_hwnd)));
 
-    // 9. Message loop
-    let mut msg = MSG::default();
-    loop {
-        let ret = GetMessageW(&mut msg, None, 0, 0);
-        if !ret.as_bool() {
-            break; // WM_QUIT
-        }
+        // 7. Initialize surface storage
+        let mut surfaces: HashMap<SurfaceId, Surface> = HashMap::new();
+        let mut next_id = SurfaceId(1);
 
-        let _ = TranslateMessage(&msg);
-        DispatchMessageW(&msg);
+        // 8. Tray state
+        let mut trays: HashMap<TrayId, TrayState> = HashMap::new();
+        let mut next_tray_id = TrayId(1);
 
-        // Process pending DPI changes from wndproc
-        process_dpi_changes(&gpu, &mut surfaces);
+        // 8b. Window monitor and anchor state
+        let mut monitor = WindowMonitor::new();
+        let mut anchor_states: HashMap<SurfaceId, AnchorState> = HashMap::new();
 
-        // Process tray events from control_wndproc
-        process_tray_events(&event_tx, &mut trays, &mut surfaces);
+        // 9. Message loop
+        let mut msg = MSG::default();
+        loop {
+            let ret = GetMessageW(&mut msg, None, 0, 0);
+            if !ret.as_bool() {
+                break; // WM_QUIT
+            }
 
-        // Process window monitor events (PiP source close, anchor position updates)
-        process_monitor_events(&mut surfaces, &mut anchor_states, &mut monitor, &event_tx);
+            let _ = TranslateMessage(&msg);
+            DispatchMessageW(&msg);
 
-        // Process fade completion events
-        process_fade_completions(&mut surfaces);
+            // Process pending DPI changes from wndproc
+            process_dpi_changes(&gpu, &mut surfaces);
 
-        // Drain command queue (non-blocking)
-        while let Ok(cmd) = cmd_rx.try_recv() {
-            match cmd {
-                // --- Surface lifecycle ---
-                Command::CreateHud { config, reply } => {
-                    let result = create_hud_surface(&gpu, &mut surfaces, &mut next_id, config);
-                    let _ = reply.send(result);
-                }
-                Command::CreatePanel { config, reply } => {
-                    let result =
-                        create_panel_surface(&gpu, &mut surfaces, &mut next_id, config, &event_tx);
-                    let _ = reply.send(result);
-                }
-                Command::CreatePip { config, reply } => {
-                    let result = create_pip_surface(
-                        &config,
-                        &gpu,
-                        &mut surfaces,
-                        &mut next_id,
-                        &mut monitor,
-                    );
-                    let _ = reply.send(result);
-                }
-                Command::DestroySurface(id) => {
-                    if let Some(surface) = surfaces.remove(&id) {
-                        match &surface.kind {
-                            SurfaceKind::Panel(_) => {
-                                let _ = SetWindowLongPtrW(surface.renderer.hwnd, GWLP_USERDATA, 0);
+            // Process tray events from control_wndproc
+            process_tray_events(&event_tx, &mut trays, &mut surfaces);
+
+            // Process window monitor events (PiP source close, anchor position updates)
+            process_monitor_events(&mut surfaces, &mut anchor_states, &mut monitor, &event_tx);
+
+            // Process fade completion events
+            process_fade_completions(&mut surfaces);
+
+            // Drain command queue (non-blocking)
+            while let Ok(cmd) = cmd_rx.try_recv() {
+                match cmd {
+                    // --- Surface lifecycle ---
+                    Command::CreateHud { config, reply } => {
+                        let result = create_hud_surface(&gpu, &mut surfaces, &mut next_id, config);
+                        let _ = reply.send(result);
+                    }
+                    Command::CreatePanel { config, reply } => {
+                        let result = create_panel_surface(
+                            &gpu,
+                            &mut surfaces,
+                            &mut next_id,
+                            config,
+                            &event_tx,
+                        );
+                        let _ = reply.send(result);
+                    }
+                    Command::CreatePip { config, reply } => {
+                        let result = create_pip_surface(
+                            &config,
+                            &gpu,
+                            &mut surfaces,
+                            &mut next_id,
+                            &mut monitor,
+                        );
+                        let _ = reply.send(result);
+                    }
+                    Command::DestroySurface(id) => {
+                        if let Some(surface) = surfaces.remove(&id) {
+                            match &surface.kind {
+                                SurfaceKind::Panel(_) => {
+                                    let _ =
+                                        SetWindowLongPtrW(surface.renderer.hwnd, GWLP_USERDATA, 0);
+                                }
+                                SurfaceKind::Pip(pip) => {
+                                    let _ = DwmUnregisterThumbnail(pip.thumbnail);
+                                    monitor.unwatch_surface(id);
+                                }
+                                SurfaceKind::Hud => {}
                             }
-                            SurfaceKind::Pip(pip) => {
-                                let _ = DwmUnregisterThumbnail(pip.thumbnail);
+                            // Also remove anchor state if this surface was anchored
+                            if anchor_states.remove(&id).is_some() {
                                 monitor.unwatch_surface(id);
                             }
-                            SurfaceKind::Hud => {}
+                            let _ = DestroyWindow(surface.renderer.hwnd);
                         }
-                        // Also remove anchor state if this surface was anchored
-                        if anchor_states.remove(&id).is_some() {
-                            monitor.unwatch_surface(id);
+                    }
+                    Command::Shutdown => {
+                        // Destroy all trays
+                        for (_, state) in trays.drain() {
+                            destroy_tray_icon(state.hwnd, state.icon_id, state.hicon);
                         }
-                        let _ = DestroyWindow(surface.renderer.hwnd);
-                    }
-                }
-                Command::Shutdown => {
-                    // Destroy all trays
-                    for (_, state) in trays.drain() {
-                        destroy_tray_icon(state.hwnd, state.icon_id, state.hicon);
-                    }
-                    // Destroy all surfaces
-                    for (_, surface) in surfaces.drain() {
-                        match &surface.kind {
-                            SurfaceKind::Panel(_) => {
-                                let _ = SetWindowLongPtrW(surface.renderer.hwnd, GWLP_USERDATA, 0);
+                        // Destroy all surfaces
+                        for (_, surface) in surfaces.drain() {
+                            match &surface.kind {
+                                SurfaceKind::Panel(_) => {
+                                    let _ =
+                                        SetWindowLongPtrW(surface.renderer.hwnd, GWLP_USERDATA, 0);
+                                }
+                                SurfaceKind::Pip(pip) => {
+                                    let _ = DwmUnregisterThumbnail(pip.thumbnail);
+                                }
+                                SurfaceKind::Hud => {}
                             }
-                            SurfaceKind::Pip(pip) => {
-                                let _ = DwmUnregisterThumbnail(pip.thumbnail);
-                            }
-                            SurfaceKind::Hud => {}
+                            let _ = DestroyWindow(surface.renderer.hwnd);
                         }
-                        let _ = DestroyWindow(surface.renderer.hwnd);
+                        let _ = DestroyWindow(control_hwnd);
+                        return;
                     }
-                    let _ = DestroyWindow(control_hwnd);
-                    return;
-                }
 
-                // --- Scene graph ---
-                Command::SetElement {
-                    surface,
-                    key,
-                    element,
-                } => {
-                    if let Some(s) = surfaces.get_mut(&surface) {
-                        // PiP surfaces have no scene graph
-                        if matches!(s.kind, SurfaceKind::Pip(_)) {
-                            continue;
-                        }
-                        s.scene.set(key, element);
-                        // Rebuild hit-test map for panels
-                        if let SurfaceKind::Panel(ref mut state) = s.kind {
-                            state.hit_test_map.rebuild(&s.scene, s.renderer.dpi_scale);
-                        }
-                    }
-                }
-                Command::RemoveElement { surface, key } => {
-                    if let Some(s) = surfaces.get_mut(&surface) {
-                        // PiP surfaces have no scene graph
-                        if matches!(s.kind, SurfaceKind::Pip(_)) {
-                            continue;
-                        }
-                        s.scene.remove(&key);
-                        // Rebuild hit-test map for panels
-                        if let SurfaceKind::Panel(ref mut state) = s.kind {
-                            state.hit_test_map.rebuild(&s.scene, s.renderer.dpi_scale);
+                    // --- Scene graph ---
+                    Command::SetElement {
+                        surface,
+                        key,
+                        element,
+                    } => {
+                        if let Some(s) = surfaces.get_mut(&surface) {
+                            // PiP surfaces have no scene graph
+                            if matches!(s.kind, SurfaceKind::Pip(_)) {
+                                continue;
+                            }
+                            s.scene.set(key, element);
+                            // Rebuild hit-test map for panels
+                            if let SurfaceKind::Panel(ref mut state) = s.kind {
+                                state.hit_test_map.rebuild(&s.scene, s.renderer.dpi_scale);
+                            }
                         }
                     }
-                }
+                    Command::RemoveElement { surface, key } => {
+                        if let Some(s) = surfaces.get_mut(&surface) {
+                            // PiP surfaces have no scene graph
+                            if matches!(s.kind, SurfaceKind::Pip(_)) {
+                                continue;
+                            }
+                            s.scene.remove(&key);
+                            // Rebuild hit-test map for panels
+                            if let SurfaceKind::Panel(ref mut state) = s.kind {
+                                state.hit_test_map.rebuild(&s.scene, s.renderer.dpi_scale);
+                            }
+                        }
+                    }
 
-                // --- Surface properties ---
-                Command::Show(id) => {
-                    if let Some(s) = surfaces.get_mut(&id) {
-                        if s.fading_out {
-                            let _ = s.renderer.set_opacity(&gpu.dcomp_device, 1.0);
-                            s.opacity = 1.0;
-                            s.fading_out = false;
-                        }
-                        let _ = ShowWindow(s.renderer.hwnd, SW_SHOWNOACTIVATE);
-                        s.visible = true;
-                        s.scene.set_dirty();
-                    }
-                }
-                Command::Hide(id) => {
-                    if let Some(s) = surfaces.get_mut(&id) {
-                        let _ = ShowWindow(s.renderer.hwnd, SW_HIDE);
-                        s.visible = false;
-                    }
-                }
-                Command::SetPosition { surface, x, y } => {
-                    if let Some(s) = surfaces.get(&surface) {
-                        let scale = s.renderer.dpi_scale;
-                        let _ = SetWindowPos(
-                            s.renderer.hwnd,
-                            None,
-                            (x as f32 * scale) as i32,
-                            (y as f32 * scale) as i32,
-                            0,
-                            0,
-                            SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
-                        );
-                    }
-                }
-                Command::SetSize {
-                    surface,
-                    width,
-                    height,
-                } => {
-                    if let Some(s) = surfaces.get_mut(&surface) {
-                        let _ = s.renderer.resize(&gpu, width, height);
-                        match &s.kind {
-                            SurfaceKind::Pip(pip) => {
-                                update_pip_thumbnail_properties(s.renderer.hwnd, pip, &s.renderer);
+                    // --- Surface properties ---
+                    Command::Show(id) => {
+                        if let Some(s) = surfaces.get_mut(&id) {
+                            if s.fading_out {
+                                let _ = s.renderer.set_opacity(&gpu.dcomp_device, 1.0);
+                                s.opacity = 1.0;
+                                s.fading_out = false;
                             }
-                            _ => {
-                                s.scene.set_dirty();
-                            }
-                        }
-                    }
-                }
-                Command::SetOpacity { surface, opacity } => {
-                    if let Some(s) = surfaces.get_mut(&surface) {
-                        let clamped = opacity.clamp(0.0, 1.0);
-                        match &mut s.kind {
-                            SurfaceKind::Pip(ref mut pip) => {
-                                pip.opacity = clamped;
-                                update_pip_thumbnail_properties(s.renderer.hwnd, pip, &s.renderer);
-                            }
-                            _ => {
-                                let _ = s.renderer.set_opacity(&gpu.dcomp_device, clamped);
-                            }
-                        }
-                        s.opacity = clamped;
-                    }
-                }
-                Command::SetBackdrop { surface, backdrop } => {
-                    if let Some(s) = surfaces.get(&surface) {
-                        crate::window::set_window_backdrop(s.renderer.hwnd, backdrop);
-                    }
-                }
-                Command::FadeIn {
-                    surface,
-                    duration_ms,
-                } => {
-                    if let Some(s) = surfaces.get_mut(&surface) {
-                        if !s.visible {
                             let _ = ShowWindow(s.renderer.hwnd, SW_SHOWNOACTIVATE);
                             s.visible = true;
                             s.scene.set_dirty();
                         }
-                        let _ =
-                            s.renderer
-                                .animate_opacity(&gpu.dcomp_device, 0.0, 1.0, duration_ms);
-                        s.fading_out = false;
-                        s.opacity = 1.0;
                     }
-                }
-                Command::FadeOut {
-                    surface,
-                    duration_ms,
-                } => {
-                    if let Some(s) = surfaces.get_mut(&surface) {
-                        if s.visible {
+                    Command::Hide(id) => {
+                        if let Some(s) = surfaces.get_mut(&id) {
+                            let _ = ShowWindow(s.renderer.hwnd, SW_HIDE);
+                            s.visible = false;
+                        }
+                    }
+                    Command::SetPosition { surface, x, y } => {
+                        if let Some(s) = surfaces.get(&surface) {
+                            let scale = s.renderer.dpi_scale;
+                            let _ = SetWindowPos(
+                                s.renderer.hwnd,
+                                None,
+                                (x as f32 * scale) as i32,
+                                (y as f32 * scale) as i32,
+                                0,
+                                0,
+                                SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
+                            );
+                        }
+                    }
+                    Command::SetSize {
+                        surface,
+                        width,
+                        height,
+                    } => {
+                        if let Some(s) = surfaces.get_mut(&surface) {
+                            let _ = s.renderer.resize(&gpu, width, height);
+                            match &s.kind {
+                                SurfaceKind::Pip(pip) => {
+                                    update_pip_thumbnail_properties(
+                                        s.renderer.hwnd,
+                                        pip,
+                                        &s.renderer,
+                                    );
+                                }
+                                _ => {
+                                    s.scene.set_dirty();
+                                }
+                            }
+                        }
+                    }
+                    Command::SetOpacity { surface, opacity } => {
+                        if let Some(s) = surfaces.get_mut(&surface) {
+                            let clamped = opacity.clamp(0.0, 1.0);
+                            match &mut s.kind {
+                                SurfaceKind::Pip(ref mut pip) => {
+                                    pip.opacity = clamped;
+                                    update_pip_thumbnail_properties(
+                                        s.renderer.hwnd,
+                                        pip,
+                                        &s.renderer,
+                                    );
+                                }
+                                _ => {
+                                    let _ = s.renderer.set_opacity(&gpu.dcomp_device, clamped);
+                                }
+                            }
+                            s.opacity = clamped;
+                        }
+                    }
+                    Command::SetBackdrop { surface, backdrop } => {
+                        if let Some(s) = surfaces.get(&surface) {
+                            crate::window::set_window_backdrop(s.renderer.hwnd, backdrop);
+                        }
+                    }
+                    Command::FadeIn {
+                        surface,
+                        duration_ms,
+                    } => {
+                        if let Some(s) = surfaces.get_mut(&surface) {
+                            if !s.visible {
+                                let _ = ShowWindow(s.renderer.hwnd, SW_SHOWNOACTIVATE);
+                                s.visible = true;
+                                s.scene.set_dirty();
+                            }
                             let _ = s.renderer.animate_opacity(
                                 &gpu.dcomp_device,
-                                s.opacity,
                                 0.0,
+                                1.0,
                                 duration_ms,
                             );
-                            s.fading_out = true;
-                            let _ =
-                                SetTimer(s.renderer.hwnd, surface.0 as usize, duration_ms, None);
+                            s.fading_out = false;
+                            s.opacity = 1.0;
                         }
                     }
-                }
-
-                // --- Tray ---
-                Command::CreateTray { config, reply } => {
-                    let result = create_tray(&mut trays, &mut next_tray_id, control_hwnd, config);
-                    let _ = reply.send(result);
-                }
-                Command::SetTrayTooltip { tray, tooltip } => {
-                    if let Some(state) = trays.get(&tray) {
-                        let _ = update_tray_tooltip(state.hwnd, state.icon_id, &tooltip);
-                    }
-                }
-                Command::SetTrayIcon {
-                    tray,
-                    rgba,
-                    width,
-                    height,
-                } => {
-                    if let Some(state) = trays.get_mut(&tray) {
-                        if let Ok(new_icon) = create_hicon_from_rgba(&rgba, width, height) {
-                            let old_icon = state.hicon;
-                            state.hicon = new_icon;
-                            let _ = update_tray_icon(state.hwnd, state.icon_id, new_icon);
-                            let _ = DestroyIcon(old_icon);
-                        }
-                    }
-                }
-                Command::SetTrayPopup { tray, surface } => {
-                    if let Some(state) = trays.get_mut(&tray) {
-                        state.popup_surface = Some(surface);
-                        state.popup_visible = false;
-                    }
-                }
-                Command::SetTrayMenu { tray, items } => {
-                    if let Some(state) = trays.get_mut(&tray) {
-                        state.menu_items = items;
-                    }
-                }
-                Command::DestroyTray(id) => {
-                    if let Some(state) = trays.remove(&id) {
-                        destroy_tray_icon(state.hwnd, state.icon_id, state.hicon);
-                    }
-                }
-
-                // --- Custom draw ---
-                Command::CustomDraw { surface, ops } => {
-                    if let Some(s) = surfaces.get(&surface) {
-                        // PiP has no D2D rendering
-                        if matches!(s.kind, SurfaceKind::Pip(_)) {
-                            continue;
-                        }
-                        match s.renderer.execute_draw_ops(&s.scene, &gpu, &ops) {
-                            Err(RenderError::DeviceLost) => {
-                                recover_device(&mut gpu, &mut surfaces, &event_tx);
+                    Command::FadeOut {
+                        surface,
+                        duration_ms,
+                    } => {
+                        if let Some(s) = surfaces.get_mut(&surface) {
+                            if s.visible {
+                                let _ = s.renderer.animate_opacity(
+                                    &gpu.dcomp_device,
+                                    s.opacity,
+                                    0.0,
+                                    duration_ms,
+                                );
+                                s.fading_out = true;
+                                let _ = SetTimer(
+                                    Some(s.renderer.hwnd),
+                                    surface.0 as usize,
+                                    duration_ms,
+                                    None,
+                                );
                             }
-                            Err(RenderError::Other(msg)) => {
-                                eprintln!("[winpane] custom draw error: {msg}");
+                        }
+                    }
+
+                    // --- Tray ---
+                    Command::CreateTray { config, reply } => {
+                        let result =
+                            create_tray(&mut trays, &mut next_tray_id, control_hwnd, config);
+                        let _ = reply.send(result);
+                    }
+                    Command::SetTrayTooltip { tray, tooltip } => {
+                        if let Some(state) = trays.get(&tray) {
+                            let _ = update_tray_tooltip(state.hwnd, state.icon_id, &tooltip);
+                        }
+                    }
+                    Command::SetTrayIcon {
+                        tray,
+                        rgba,
+                        width,
+                        height,
+                    } => {
+                        if let Some(state) = trays.get_mut(&tray) {
+                            if let Ok(new_icon) = create_hicon_from_rgba(&rgba, width, height) {
+                                let old_icon = state.hicon;
+                                state.hicon = new_icon;
+                                let _ = update_tray_icon(state.hwnd, state.icon_id, new_icon);
+                                let _ = DestroyIcon(old_icon);
                             }
-                            Ok(()) => {}
                         }
                     }
-                }
+                    Command::SetTrayPopup { tray, surface } => {
+                        if let Some(state) = trays.get_mut(&tray) {
+                            state.popup_surface = Some(surface);
+                            state.popup_visible = false;
+                        }
+                    }
+                    Command::SetTrayMenu { tray, items } => {
+                        if let Some(state) = trays.get_mut(&tray) {
+                            state.menu_items = items;
+                        }
+                    }
+                    Command::DestroyTray(id) => {
+                        if let Some(state) = trays.remove(&id) {
+                            destroy_tray_icon(state.hwnd, state.icon_id, state.hicon);
+                        }
+                    }
 
-                // --- Window tracking ---
-                Command::SetSourceRegion { surface, rect } => {
-                    if let Some(s) = surfaces.get_mut(&surface) {
-                        if let SurfaceKind::Pip(ref mut pip) = s.kind {
-                            pip.source_region = Some(rect);
-                            update_pip_thumbnail_properties(s.renderer.hwnd, pip, &s.renderer);
+                    // --- Custom draw ---
+                    Command::CustomDraw { surface, ops } => {
+                        if let Some(s) = surfaces.get(&surface) {
+                            // PiP has no D2D rendering
+                            if matches!(s.kind, SurfaceKind::Pip(_)) {
+                                continue;
+                            }
+                            match s.renderer.execute_draw_ops(&s.scene, &gpu, &ops) {
+                                Err(RenderError::DeviceLost) => {
+                                    recover_device(&mut gpu, &mut surfaces, &event_tx);
+                                }
+                                Err(RenderError::Other(msg)) => {
+                                    eprintln!("[winpane] custom draw error: {msg}");
+                                }
+                                Ok(()) => {}
+                            }
                         }
                     }
-                }
-                Command::ClearSourceRegion { surface } => {
-                    if let Some(s) = surfaces.get_mut(&surface) {
-                        if let SurfaceKind::Pip(ref mut pip) = s.kind {
-                            pip.source_region = None;
-                            update_pip_thumbnail_properties(s.renderer.hwnd, pip, &s.renderer);
-                        }
-                    }
-                }
-                Command::AnchorTo {
-                    surface,
-                    target_hwnd,
-                    anchor,
-                    offset,
-                } => {
-                    if surfaces.contains_key(&surface) {
-                        // Remove previous anchor if any
-                        if let Some(old) = anchor_states.remove(&surface) {
-                            monitor.unwatch(old.target_hwnd, surface);
-                        }
 
-                        // Store new anchor state
-                        anchor_states.insert(
-                            surface,
-                            AnchorState {
+                    // --- Window tracking ---
+                    Command::SetSourceRegion { surface, rect } => {
+                        if let Some(s) = surfaces.get_mut(&surface) {
+                            if let SurfaceKind::Pip(ref mut pip) = s.kind {
+                                pip.source_region = Some(rect);
+                                update_pip_thumbnail_properties(s.renderer.hwnd, pip, &s.renderer);
+                            }
+                        }
+                    }
+                    Command::ClearSourceRegion { surface } => {
+                        if let Some(s) = surfaces.get_mut(&surface) {
+                            if let SurfaceKind::Pip(ref mut pip) = s.kind {
+                                pip.source_region = None;
+                                update_pip_thumbnail_properties(s.renderer.hwnd, pip, &s.renderer);
+                            }
+                        }
+                    }
+                    Command::AnchorTo {
+                        surface,
+                        target_hwnd,
+                        anchor,
+                        offset,
+                    } => {
+                        if surfaces.contains_key(&surface) {
+                            // Remove previous anchor if any
+                            if let Some(old) = anchor_states.remove(&surface) {
+                                monitor.unwatch(old.target_hwnd, surface);
+                            }
+
+                            // Store new anchor state
+                            anchor_states.insert(
+                                surface,
+                                AnchorState {
+                                    target_hwnd,
+                                    anchor,
+                                    offset,
+                                    was_visible_before_minimize: false,
+                                },
+                            );
+
+                            // Register in monitor
+                            monitor.watch(
                                 target_hwnd,
-                                anchor,
-                                offset,
-                                was_visible_before_minimize: false,
-                            },
-                        );
+                                surface,
+                                WatchReason::AnchorTarget { anchor, offset },
+                            );
 
-                        // Register in monitor
-                        monitor.watch(
-                            target_hwnd,
-                            surface,
-                            WatchReason::AnchorTarget { anchor, offset },
-                        );
-
-                        // Immediate initial positioning
-                        apply_anchor_position(&surfaces, &anchor_states, surface);
+                            // Immediate initial positioning
+                            apply_anchor_position(&surfaces, &anchor_states, surface);
+                        }
                     }
-                }
-                Command::Unanchor { surface } => {
-                    if let Some(state) = anchor_states.remove(&surface) {
-                        monitor.unwatch(state.target_hwnd, surface);
+                    Command::Unanchor { surface } => {
+                        if let Some(state) = anchor_states.remove(&surface) {
+                            monitor.unwatch(state.target_hwnd, surface);
+                        }
                     }
-                }
-                Command::SetCaptureExcluded { surface, excluded } => {
-                    if let Some(s) = surfaces.get(&surface) {
-                        crate::window::set_capture_excluded(s.renderer.hwnd, excluded);
+                    Command::SetCaptureExcluded { surface, excluded } => {
+                        if let Some(s) = surfaces.get(&surface) {
+                            crate::window::set_capture_excluded(s.renderer.hwnd, excluded);
+                        }
                     }
                 }
             }
-        }
 
-        // Render dirty visible surfaces
-        let mut device_lost = false;
-        for surface in surfaces.values_mut() {
-            if surface.visible && surface.scene.take_dirty() {
-                // DWM handles PiP rendering
-                if matches!(surface.kind, SurfaceKind::Pip(_)) {
-                    continue;
-                }
-                match surface.renderer.render(&surface.scene, &gpu) {
-                    Err(RenderError::DeviceLost) => {
-                        device_lost = true;
-                        break;
+            // Render dirty visible surfaces
+            let mut device_lost = false;
+            for surface in surfaces.values_mut() {
+                if surface.visible && surface.scene.take_dirty() {
+                    // DWM handles PiP rendering
+                    if matches!(surface.kind, SurfaceKind::Pip(_)) {
+                        continue;
                     }
-                    Err(RenderError::Other(msg)) => {
-                        eprintln!("[winpane] render error: {msg}");
+                    match surface.renderer.render(&surface.scene, &gpu) {
+                        Err(RenderError::DeviceLost) => {
+                            device_lost = true;
+                            break;
+                        }
+                        Err(RenderError::Other(msg)) => {
+                            eprintln!("[winpane] render error: {msg}");
+                        }
+                        Ok(()) => {}
                     }
-                    Ok(()) => {}
                 }
             }
-        }
 
-        // Commit all DComp changes from this render pass atomically
-        if !device_lost {
-            let _ = gpu.dcomp_device.Commit();
-        }
+            // Commit all DComp changes from this render pass atomically
+            if !device_lost {
+                let _ = gpu.dcomp_device.Commit();
+            }
 
-        if device_lost {
-            recover_device(&mut gpu, &mut surfaces, &event_tx);
+            if device_lost {
+                recover_device(&mut gpu, &mut surfaces, &event_tx);
+            }
         }
-    }
+    } // unsafe
 }
 
 /// Attempt GPU device recovery after device loss.
 /// Recreates GpuResources and all per-surface device-dependent resources,
 /// then sends a DeviceRecovered event.
+#[allow(clippy::print_stderr)]
 unsafe fn recover_device(
     gpu: &mut GpuResources,
     surfaces: &mut HashMap<SurfaceId, Surface>,
     event_tx: &mpsc::Sender<Event>,
 ) {
-    // Log the reason for device removal
-    let reason = gpu.d3d_device.GetDeviceRemovedReason();
-    eprintln!("[winpane] device lost, removed reason: {reason:?}");
+    // SAFETY: GPU device recovery with valid device references.
+    unsafe {
+        // Log the reason for device removal
+        let reason = gpu.d3d_device.GetDeviceRemovedReason();
+        eprintln!("[winpane] device lost, removed reason: {reason:?}");
 
-    // Recreate GPU resources
-    let new_gpu = match GpuResources::new() {
-        Ok(g) => g,
-        Err(e) => {
-            eprintln!("[winpane] device recovery failed: {e}");
-            return;
+        // Recreate GPU resources
+        let new_gpu = match GpuResources::new() {
+            Ok(g) => g,
+            Err(e) => {
+                eprintln!("[winpane] device recovery failed: {e}");
+                return;
+            }
+        };
+        *gpu = new_gpu;
+
+        // Recreate per-surface device resources
+        let mut all_ok = true;
+        for surface in surfaces.values_mut() {
+            if let Err(e) = surface.renderer.create_device_resources(gpu) {
+                eprintln!("[winpane] surface recovery failed: {e}");
+                all_ok = false;
+            } else {
+                surface.scene.set_dirty();
+            }
         }
-    };
-    *gpu = new_gpu;
 
-    // Recreate per-surface device resources
-    let mut all_ok = true;
-    for surface in surfaces.values_mut() {
-        if let Err(e) = surface.renderer.create_device_resources(gpu) {
-            eprintln!("[winpane] surface recovery failed: {e}");
-            all_ok = false;
-        } else {
-            surface.scene.set_dirty();
+        if all_ok {
+            let _ = event_tx.send(Event::DeviceRecovered);
         }
-    }
-
-    if all_ok {
-        let _ = event_tx.send(Event::DeviceRecovered);
-    }
+    } // unsafe
 }
 
 // --- DPI change processing ---
@@ -624,6 +659,7 @@ fn process_dpi_changes(gpu: &GpuResources, surfaces: &mut HashMap<SurfaceId, Sur
                 if surface.renderer.hwnd == event.hwnd {
                     let new_scale = event.new_dpi as f32 / 96.0;
                     surface.renderer.dpi_scale = new_scale;
+                    // SAFETY: Resize with valid GPU resources after DPI change.
                     let _ = unsafe {
                         surface.renderer.resize(
                             gpu,
@@ -648,18 +684,21 @@ fn process_dpi_changes(gpu: &GpuResources, surfaces: &mut HashMap<SurfaceId, Sur
 // --- Fade completion processing ---
 
 unsafe fn process_fade_completions(surfaces: &mut HashMap<SurfaceId, Surface>) {
-    PENDING_FADE_COMPLETIONS.with(|completions| {
-        for event in completions.borrow_mut().drain(..) {
-            for surface in surfaces.values_mut() {
-                if surface.renderer.hwnd == event.hwnd {
-                    surface.visible = false;
-                    surface.opacity = 0.0;
-                    let _ = ShowWindow(surface.renderer.hwnd, SW_HIDE);
-                    break;
+    // SAFETY: ShowWindow with HWND from engine-owned surfaces.
+    unsafe {
+        PENDING_FADE_COMPLETIONS.with(|completions| {
+            for event in completions.borrow_mut().drain(..) {
+                for surface in surfaces.values_mut() {
+                    if surface.renderer.hwnd == event.hwnd {
+                        surface.visible = false;
+                        surface.opacity = 0.0;
+                        let _ = ShowWindow(surface.renderer.hwnd, SW_HIDE);
+                        break;
+                    }
                 }
             }
-        }
-    });
+        });
+    } // unsafe
 }
 
 // --- Tray event processing ---
@@ -676,74 +715,77 @@ unsafe fn process_tray_events(
     trays: &mut HashMap<TrayId, TrayState>,
     surfaces: &mut HashMap<SurfaceId, Surface>,
 ) {
-    debug_assert!(trays.len() <= 1, "winpane V1 supports at most one tray");
-    PENDING_TRAY_EVENTS.with(|events| {
-        for notification in events.borrow_mut().drain(..) {
-            // Find the tray (for single-tray V1, there's at most one)
-            let Some((_, tray_state)) = trays.iter_mut().next() else {
-                continue;
-            };
+    // SAFETY: Win32 tray/cursor/window APIs with engine-owned HWNDs.
+    unsafe {
+        debug_assert!(trays.len() <= 1, "winpane V1 supports at most one tray");
+        PENDING_TRAY_EVENTS.with(|events| {
+            for notification in events.borrow_mut().drain(..) {
+                // Find the tray (for single-tray V1, there's at most one)
+                let Some((_, tray_state)) = trays.iter_mut().next() else {
+                    continue;
+                };
 
-            match notification.event {
-                // Left-click: toggle popup + send event
-                WM_LBUTTONUP => {
-                    if let Some(surface_id) = tray_state.popup_surface {
-                        if let Some(surface) = surfaces.get_mut(&surface_id) {
-                            if tray_state.popup_visible {
-                                let _ = ShowWindow(surface.renderer.hwnd, SW_HIDE);
-                                surface.visible = false;
-                                tray_state.popup_visible = false;
-                            } else {
-                                // Position near cursor
-                                let mut cursor = POINT::default();
-                                let _ = GetCursorPos(&mut cursor);
-                                let scale = surface.renderer.dpi_scale;
-                                let phys_h = (surface.renderer.height as f32 * scale) as i32;
-                                let _ = SetWindowPos(
-                                    surface.renderer.hwnd,
-                                    None,
-                                    cursor.x,
-                                    cursor.y - phys_h,
-                                    0,
-                                    0,
-                                    SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
-                                );
-                                let _ = ShowWindow(surface.renderer.hwnd, SW_SHOWNOACTIVATE);
-                                surface.visible = true;
-                                surface.scene.set_dirty();
-                                tray_state.popup_visible = true;
+                match notification.event {
+                    // Left-click: toggle popup + send event
+                    WM_LBUTTONUP => {
+                        if let Some(surface_id) = tray_state.popup_surface {
+                            if let Some(surface) = surfaces.get_mut(&surface_id) {
+                                if tray_state.popup_visible {
+                                    let _ = ShowWindow(surface.renderer.hwnd, SW_HIDE);
+                                    surface.visible = false;
+                                    tray_state.popup_visible = false;
+                                } else {
+                                    // Position near cursor
+                                    let mut cursor = POINT::default();
+                                    let _ = GetCursorPos(&mut cursor);
+                                    let scale = surface.renderer.dpi_scale;
+                                    let phys_h = (surface.renderer.height as f32 * scale) as i32;
+                                    let _ = SetWindowPos(
+                                        surface.renderer.hwnd,
+                                        None,
+                                        cursor.x,
+                                        cursor.y - phys_h,
+                                        0,
+                                        0,
+                                        SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
+                                    );
+                                    let _ = ShowWindow(surface.renderer.hwnd, SW_SHOWNOACTIVATE);
+                                    surface.visible = true;
+                                    surface.scene.set_dirty();
+                                    tray_state.popup_visible = true;
+                                }
                             }
                         }
+                        let _ = event_tx.send(Event::TrayClicked {
+                            button: MouseButton::Left,
+                        });
                     }
-                    let _ = event_tx.send(Event::TrayClicked {
-                        button: MouseButton::Left,
-                    });
-                }
 
-                // Right-click: show context menu + send event
-                WM_RBUTTONUP => {
-                    if !tray_state.menu_items.is_empty() {
-                        let selected =
-                            show_tray_context_menu(tray_state.hwnd, &tray_state.menu_items);
-                        if selected > 0 {
-                            let _ = event_tx.send(Event::TrayMenuItemClicked { id: selected });
+                    // Right-click: show context menu + send event
+                    WM_RBUTTONUP => {
+                        if !tray_state.menu_items.is_empty() {
+                            let selected =
+                                show_tray_context_menu(tray_state.hwnd, &tray_state.menu_items);
+                            if selected > 0 {
+                                let _ = event_tx.send(Event::TrayMenuItemClicked { id: selected });
+                            }
                         }
+                        let _ = event_tx.send(Event::TrayClicked {
+                            button: MouseButton::Right,
+                        });
                     }
-                    let _ = event_tx.send(Event::TrayClicked {
-                        button: MouseButton::Right,
-                    });
-                }
 
-                WM_MBUTTONUP => {
-                    let _ = event_tx.send(Event::TrayClicked {
-                        button: MouseButton::Middle,
-                    });
-                }
+                    WM_MBUTTONUP => {
+                        let _ = event_tx.send(Event::TrayClicked {
+                            button: MouseButton::Middle,
+                        });
+                    }
 
-                _ => {} // Ignore other notifications (WM_MOUSEMOVE, etc.)
+                    _ => {} // Ignore other notifications (WM_MOUSEMOVE, etc.)
+                }
             }
-        }
-    });
+        });
+    } // unsafe
 }
 
 // --- Monitor event processing ---
@@ -755,76 +797,91 @@ unsafe fn process_monitor_events(
     monitor: &mut WindowMonitor,
     event_tx: &mpsc::Sender<Event>,
 ) {
-    use windows::Win32::UI::WindowsAndMessaging::IsWindow;
+    // SAFETY: IsWindow check and window position APIs.
+    unsafe {
+        use windows::Win32::UI::WindowsAndMessaging::IsWindow;
 
-    let events: Vec<MonitorEvent> =
-        PENDING_MONITOR_EVENTS.with(|cell| cell.borrow_mut().drain(..).collect());
+        let events: Vec<MonitorEvent> =
+            PENDING_MONITOR_EVENTS.with(|cell| cell.borrow_mut().drain(..).collect());
 
-    for event in events {
-        match event {
-            MonitorEvent::LocationChanged { hwnd } => {
-                // Check if window still exists (detect close)
-                let target = HWND(hwnd as *mut _);
-                if !IsWindow(target).as_bool() {
-                    handle_watched_window_closed(hwnd, surfaces, anchor_states, monitor, event_tx);
-                    continue;
+        for event in events {
+            match event {
+                MonitorEvent::LocationChanged { hwnd } => {
+                    // Check if window still exists (detect close)
+                    let target = HWND(hwnd as *mut _);
+                    if !IsWindow(Some(target)).as_bool() {
+                        handle_watched_window_closed(
+                            hwnd,
+                            surfaces,
+                            anchor_states,
+                            monitor,
+                            event_tx,
+                        );
+                        continue;
+                    }
+
+                    // Reposition all anchored surfaces targeting this HWND
+                    let surface_ids: Vec<SurfaceId> = anchor_states
+                        .iter()
+                        .filter(|(_, state)| state.target_hwnd == hwnd)
+                        .map(|(id, _)| *id)
+                        .collect();
+
+                    for sid in surface_ids {
+                        apply_anchor_position(surfaces, anchor_states, sid);
+                    }
                 }
+                MonitorEvent::Minimized { hwnd } => {
+                    if !IsWindow(Some(HWND(hwnd as *mut _))).as_bool() {
+                        handle_watched_window_closed(
+                            hwnd,
+                            surfaces,
+                            anchor_states,
+                            monitor,
+                            event_tx,
+                        );
+                        continue;
+                    }
 
-                // Reposition all anchored surfaces targeting this HWND
-                let surface_ids: Vec<SurfaceId> = anchor_states
-                    .iter()
-                    .filter(|(_, state)| state.target_hwnd == hwnd)
-                    .map(|(id, _)| *id)
-                    .collect();
-
-                for sid in surface_ids {
-                    apply_anchor_position(surfaces, anchor_states, sid);
-                }
-            }
-            MonitorEvent::Minimized { hwnd } => {
-                if !IsWindow(HWND(hwnd as *mut _)).as_bool() {
-                    handle_watched_window_closed(hwnd, surfaces, anchor_states, monitor, event_tx);
-                    continue;
-                }
-
-                // Hide all anchored surfaces targeting this HWND
-                for (sid, state) in anchor_states.iter_mut() {
-                    if state.target_hwnd == hwnd {
-                        if let Some(surface) = surfaces.get_mut(sid) {
-                            state.was_visible_before_minimize = surface.visible;
-                            if surface.visible {
-                                let _ = ShowWindow(surface.renderer.hwnd, SW_HIDE);
-                                surface.visible = false;
+                    // Hide all anchored surfaces targeting this HWND
+                    for (sid, state) in anchor_states.iter_mut() {
+                        if state.target_hwnd == hwnd {
+                            if let Some(surface) = surfaces.get_mut(sid) {
+                                state.was_visible_before_minimize = surface.visible;
+                                if surface.visible {
+                                    let _ = ShowWindow(surface.renderer.hwnd, SW_HIDE);
+                                    surface.visible = false;
+                                }
                             }
                         }
                     }
                 }
-            }
-            MonitorEvent::Restored { hwnd } => {
-                // Show all previously-visible anchored surfaces targeting this HWND
-                for (sid, state) in anchor_states.iter_mut() {
-                    if state.target_hwnd == hwnd && state.was_visible_before_minimize {
-                        if let Some(surface) = surfaces.get_mut(sid) {
-                            let _ = ShowWindow(surface.renderer.hwnd, SW_SHOWNOACTIVATE);
-                            surface.visible = true;
-                            surface.scene.set_dirty();
+                MonitorEvent::Restored { hwnd } => {
+                    // Show all previously-visible anchored surfaces targeting this HWND
+                    for (sid, state) in anchor_states.iter_mut() {
+                        if state.target_hwnd == hwnd && state.was_visible_before_minimize {
+                            if let Some(surface) = surfaces.get_mut(sid) {
+                                let _ = ShowWindow(surface.renderer.hwnd, SW_SHOWNOACTIVATE);
+                                surface.visible = true;
+                                surface.scene.set_dirty();
+                            }
+                            state.was_visible_before_minimize = false;
                         }
-                        state.was_visible_before_minimize = false;
                     }
-                }
 
-                // Reposition
-                let surface_ids: Vec<SurfaceId> = anchor_states
-                    .iter()
-                    .filter(|(_, state)| state.target_hwnd == hwnd)
-                    .map(|(id, _)| *id)
-                    .collect();
-                for sid in surface_ids {
-                    apply_anchor_position(surfaces, anchor_states, sid);
+                    // Reposition
+                    let surface_ids: Vec<SurfaceId> = anchor_states
+                        .iter()
+                        .filter(|(_, state)| state.target_hwnd == hwnd)
+                        .map(|(id, _)| *id)
+                        .collect();
+                    for sid in surface_ids {
+                        apply_anchor_position(surfaces, anchor_states, sid);
+                    }
                 }
             }
         }
-    }
+    } // unsafe
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -849,7 +906,7 @@ unsafe fn handle_watched_window_closed(
     // Get all watchers for this HWND before removing
     let watches: Vec<Watch> = monitor
         .get_watches(hwnd)
-        .map(|w| w.to_vec())
+        .map(<[Watch]>::to_vec)
         .unwrap_or_default();
 
     for watch in &watches {
@@ -876,34 +933,37 @@ unsafe fn handle_watched_window_closed(
 
 #[cfg(target_os = "windows")]
 unsafe fn update_pip_thumbnail_properties(hwnd: HWND, pip: &PipState, renderer: &SurfaceRenderer) {
-    let dpi = get_dpi_scale(hwnd);
-    let phys_w = (renderer.width as f32 * dpi) as i32;
-    let phys_h = (renderer.height as f32 * dpi) as i32;
+    // SAFETY: DWM thumbnail API with valid thumbnail handle.
+    unsafe {
+        let dpi = get_dpi_scale(hwnd);
+        let phys_w = (renderer.width as f32 * dpi) as i32;
+        let phys_h = (renderer.height as f32 * dpi) as i32;
 
-    let mut props = DWM_THUMBNAIL_PROPERTIES {
-        dwFlags: DWM_TNP_RECTDESTINATION | DWM_TNP_VISIBLE | DWM_TNP_OPACITY,
-        rcDestination: RECT {
-            left: 0,
-            top: 0,
-            right: phys_w,
-            bottom: phys_h,
-        },
-        fVisible: TRUE,
-        opacity: (pip.opacity * 255.0) as u8,
-        ..Default::default()
-    };
-
-    if let Some(ref region) = pip.source_region {
-        props.dwFlags |= DWM_TNP_RECTSOURCE;
-        props.rcSource = RECT {
-            left: region.x,
-            top: region.y,
-            right: region.x + region.width,
-            bottom: region.y + region.height,
+        let mut props = DWM_THUMBNAIL_PROPERTIES {
+            dwFlags: DWM_TNP_RECTDESTINATION | DWM_TNP_VISIBLE | DWM_TNP_OPACITY,
+            rcDestination: RECT {
+                left: 0,
+                top: 0,
+                right: phys_w,
+                bottom: phys_h,
+            },
+            fVisible: TRUE,
+            opacity: (pip.opacity * 255.0) as u8,
+            ..Default::default()
         };
-    }
 
-    let _ = DwmUpdateThumbnailProperties(pip.thumbnail, &props);
+        if let Some(ref region) = pip.source_region {
+            props.dwFlags |= DWM_TNP_RECTSOURCE;
+            props.rcSource = RECT {
+                left: region.x,
+                top: region.y,
+                right: region.x + region.width,
+                bottom: region.y + region.height,
+            };
+        }
+
+        let _ = DwmUpdateThumbnailProperties(pip.thumbnail, std::ptr::from_ref(&props));
+    } // unsafe
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -922,47 +982,48 @@ unsafe fn apply_anchor_position(
     anchor_states: &HashMap<SurfaceId, AnchorState>,
     surface_id: SurfaceId,
 ) {
-    use windows::Win32::UI::WindowsAndMessaging::GetWindowRect;
+    // SAFETY: GetWindowRect and SetWindowPos with valid HWNDs.
+    unsafe {
+        use windows::Win32::UI::WindowsAndMessaging::GetWindowRect;
 
-    let state = match anchor_states.get(&surface_id) {
-        Some(s) => s,
-        None => return,
-    };
-    let surface = match surfaces.get(&surface_id) {
-        Some(s) => s,
-        None => return,
-    };
+        let Some(state) = anchor_states.get(&surface_id) else {
+            return;
+        };
+        let Some(surface) = surfaces.get(&surface_id) else {
+            return;
+        };
 
-    let target_hwnd = HWND(state.target_hwnd as *mut _);
-    let mut target_rect = RECT::default();
-    if GetWindowRect(target_hwnd, &mut target_rect).is_err() {
-        return;
-    }
+        let target_hwnd = HWND(state.target_hwnd as *mut _);
+        let mut target_rect = RECT::default();
+        if GetWindowRect(target_hwnd, &mut target_rect).is_err() {
+            return;
+        }
 
-    let (base_x, base_y) = match state.anchor {
-        Anchor::TopLeft => (target_rect.left, target_rect.top),
-        Anchor::TopRight => (target_rect.right, target_rect.top),
-        Anchor::BottomLeft => (target_rect.left, target_rect.bottom),
-        Anchor::BottomRight => (target_rect.right, target_rect.bottom),
-    };
+        let (base_x, base_y) = match state.anchor {
+            Anchor::TopLeft => (target_rect.left, target_rect.top),
+            Anchor::TopRight => (target_rect.right, target_rect.top),
+            Anchor::BottomLeft => (target_rect.left, target_rect.bottom),
+            Anchor::BottomRight => (target_rect.right, target_rect.bottom),
+        };
 
-    // Offset is stored in logical pixels (from the public API); GetWindowRect
-    // returns physical screen coordinates. Scale the offset to physical pixels
-    // using the surface's current DPI scale so anchoring is correct on
-    // non-100% DPI monitors and adapts automatically on DPI changes.
-    let dpi_scale = surface.renderer.dpi_scale;
-    let x = base_x + (state.offset.0 as f32 * dpi_scale) as i32;
-    let y = base_y + (state.offset.1 as f32 * dpi_scale) as i32;
+        // Offset is stored in logical pixels (from the public API); GetWindowRect
+        // returns physical screen coordinates. Scale the offset to physical pixels
+        // using the surface's current DPI scale so anchoring is correct on
+        // non-100% DPI monitors and adapts automatically on DPI changes.
+        let dpi_scale = surface.renderer.dpi_scale;
+        let x = base_x + (state.offset.0 as f32 * dpi_scale) as i32;
+        let y = base_y + (state.offset.1 as f32 * dpi_scale) as i32;
 
-    let _ = SetWindowPos(
-        surface.renderer.hwnd,
-        HWND_TOPMOST,
-        x,
-        y,
-        0,
-        0,
-        SWP_NOSIZE | SWP_NOACTIVATE,
-    );
+        let _ = SetWindowPos(
+            surface.renderer.hwnd,
+            Some(HWND_TOPMOST),
+            x,
+            y,
+            0,
+            0,
+            SWP_NOSIZE | SWP_NOACTIVATE,
+        );
+    } // unsafe
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -981,44 +1042,47 @@ unsafe fn create_hud_surface(
     next_id: &mut SurfaceId,
     config: HudConfig,
 ) -> Result<SurfaceId, Error> {
-    let hwnd = create_hud_window(config.x, config.y, config.width, config.height)?;
+    // SAFETY: Window and renderer creation with valid GPU resources.
+    unsafe {
+        let hwnd = create_hud_window(config.x, config.y, config.width, config.height)?;
 
-    let renderer = match SurfaceRenderer::new(gpu, hwnd, config.width, config.height) {
-        Ok(r) => r,
-        Err(e) => {
-            let _ = DestroyWindow(hwnd);
-            return Err(e);
-        }
-    };
+        let renderer = match SurfaceRenderer::new(gpu, hwnd, config.width, config.height) {
+            Ok(r) => r,
+            Err(e) => {
+                let _ = DestroyWindow(hwnd);
+                return Err(e);
+            }
+        };
 
-    // Adjust window position/size for DPI (CreateWindowExW uses physical pixels under PMv2)
-    let scale = renderer.dpi_scale;
-    let _ = SetWindowPos(
-        hwnd,
-        None,
-        (config.x as f32 * scale) as i32,
-        (config.y as f32 * scale) as i32,
-        (config.width as f32 * scale) as i32,
-        (config.height as f32 * scale) as i32,
-        SWP_NOZORDER | SWP_NOACTIVATE,
-    );
+        // Adjust window position/size for DPI (CreateWindowExW uses physical pixels under PMv2)
+        let scale = renderer.dpi_scale;
+        let _ = SetWindowPos(
+            hwnd,
+            None,
+            (config.x as f32 * scale) as i32,
+            (config.y as f32 * scale) as i32,
+            (config.width as f32 * scale) as i32,
+            (config.height as f32 * scale) as i32,
+            SWP_NOZORDER | SWP_NOACTIVATE,
+        );
 
-    let id = *next_id;
-    next_id.0 += 1;
+        let id = *next_id;
+        next_id.0 += 1;
 
-    surfaces.insert(
-        id,
-        Surface {
-            renderer,
-            scene: SceneGraph::new(),
-            visible: false,
-            kind: SurfaceKind::Hud,
-            opacity: 1.0,
-            fading_out: false,
-        },
-    );
+        surfaces.insert(
+            id,
+            Surface {
+                renderer,
+                scene: SceneGraph::new(),
+                visible: false,
+                kind: SurfaceKind::Hud,
+                opacity: 1.0,
+                fading_out: false,
+            },
+        );
 
-    Ok(id)
+        Ok(id)
+    } // unsafe
 }
 
 unsafe fn create_panel_surface(
@@ -1028,62 +1092,65 @@ unsafe fn create_panel_surface(
     config: PanelConfig,
     event_tx: &mpsc::Sender<Event>,
 ) -> Result<SurfaceId, Error> {
-    // 1. Create panel window
-    let hwnd = create_panel_window(config.x, config.y, config.width, config.height)?;
+    // SAFETY: Panel window creation with valid GPU resources and event sender.
+    unsafe {
+        // 1. Create panel window
+        let hwnd = create_panel_window(config.x, config.y, config.width, config.height)?;
 
-    // 2. Create renderer (same pipeline as HUD)
-    let renderer = match SurfaceRenderer::new(gpu, hwnd, config.width, config.height) {
-        Ok(r) => r,
-        Err(e) => {
-            let _ = DestroyWindow(hwnd);
-            return Err(e);
-        }
-    };
+        // 2. Create renderer (same pipeline as HUD)
+        let renderer = match SurfaceRenderer::new(gpu, hwnd, config.width, config.height) {
+            Ok(r) => r,
+            Err(e) => {
+                let _ = DestroyWindow(hwnd);
+                return Err(e);
+            }
+        };
 
-    // 3. DPI-scaled SetWindowPos (CreateWindowExW uses physical pixels under PMv2)
-    let scale = renderer.dpi_scale;
-    let _ = SetWindowPos(
-        hwnd,
-        None,
-        (config.x as f32 * scale) as i32,
-        (config.y as f32 * scale) as i32,
-        (config.width as f32 * scale) as i32,
-        (config.height as f32 * scale) as i32,
-        SWP_NOZORDER | SWP_NOACTIVATE,
-    );
+        // 3. DPI-scaled SetWindowPos (CreateWindowExW uses physical pixels under PMv2)
+        let scale = renderer.dpi_scale;
+        let _ = SetWindowPos(
+            hwnd,
+            None,
+            (config.x as f32 * scale) as i32,
+            (config.y as f32 * scale) as i32,
+            (config.width as f32 * scale) as i32,
+            (config.height as f32 * scale) as i32,
+            SWP_NOZORDER | SWP_NOACTIVATE,
+        );
 
-    // 4. Create PanelState and store pointer in GWLP_USERDATA
-    let id = *next_id;
-    let panel_state = Box::new(PanelState {
-        hit_test_map: HitTestMap::new(),
-        event_sender: event_tx.clone(),
-        surface_id: id,
-        hovered_key: RefCell::new(None),
-        draggable: config.draggable,
-        drag_height: config.drag_height as f32 * scale,
-        tracking_mouse: Cell::new(false),
-    });
+        // 4. Create PanelState and store pointer in GWLP_USERDATA
+        let id = *next_id;
+        let panel_state = Box::new(PanelState {
+            hit_test_map: HitTestMap::new(),
+            event_sender: event_tx.clone(),
+            surface_id: id,
+            hovered_key: RefCell::new(None),
+            draggable: config.draggable,
+            drag_height: config.drag_height as f32 * scale,
+            tracking_mouse: Cell::new(false),
+        });
 
-    // Safety: Box provides stable heap address. Pointer remains valid as long
-    // as the Box exists (owned by Surface in the HashMap). GWLP_USERDATA is
-    // cleared before the Box is dropped (in DestroySurface / Shutdown).
-    let state_ptr = &*panel_state as *const PanelState as isize;
-    let _ = SetWindowLongPtrW(hwnd, GWLP_USERDATA, state_ptr);
+        // Safety: Box provides stable heap address. Pointer remains valid as long
+        // as the Box exists (owned by Surface in the HashMap). GWLP_USERDATA is
+        // cleared before the Box is dropped (in DestroySurface / Shutdown).
+        let state_ptr = std::ptr::from_ref(&*panel_state) as isize;
+        let _ = SetWindowLongPtrW(hwnd, GWLP_USERDATA, state_ptr);
 
-    next_id.0 += 1;
-    surfaces.insert(
-        id,
-        Surface {
-            renderer,
-            scene: SceneGraph::new(),
-            visible: false,
-            kind: SurfaceKind::Panel(panel_state),
-            opacity: 1.0,
-            fading_out: false,
-        },
-    );
+        next_id.0 += 1;
+        surfaces.insert(
+            id,
+            Surface {
+                renderer,
+                scene: SceneGraph::new(),
+                visible: false,
+                kind: SurfaceKind::Panel(panel_state),
+                opacity: 1.0,
+                fading_out: false,
+            },
+        );
 
-    Ok(id)
+        Ok(id)
+    } // unsafe
 }
 
 // --- PiP surface creation ---
@@ -1096,90 +1163,92 @@ unsafe fn create_pip_surface(
     next_id: &mut SurfaceId,
     monitor: &mut WindowMonitor,
 ) -> Result<SurfaceId, Error> {
-    use windows::Win32::UI::WindowsAndMessaging::IsWindow;
+    // SAFETY: PiP window and DWM thumbnail creation.
+    unsafe {
+        use windows::Win32::UI::WindowsAndMessaging::IsWindow;
 
-    // Validate source window exists
-    let source_hwnd = HWND(config.source_hwnd as *mut _);
-    if !IsWindow(source_hwnd).as_bool() {
-        return Err(Error::WindowCreation("source window is not valid".into()));
-    }
-
-    // Create window (same as HUD - click-through, topmost)
-    let hwnd = create_hud_window(config.x, config.y, config.width, config.height)?;
-
-    // Create SurfaceRenderer (GPU resources - unused for PiP but keeps Surface struct uniform)
-    let renderer = match SurfaceRenderer::new(gpu, hwnd, config.width, config.height) {
-        Ok(r) => r,
-        Err(e) => {
-            let _ = DestroyWindow(hwnd);
-            return Err(e);
+        // Validate source window exists
+        let source_hwnd = HWND(config.source_hwnd as *mut _);
+        if !IsWindow(Some(source_hwnd)).as_bool() {
+            return Err(Error::WindowCreation("source window is not valid".into()));
         }
-    };
 
-    // Get DPI scale for initial positioning
-    let dpi = get_dpi_scale(hwnd);
+        // Create window (same as HUD - click-through, topmost)
+        let hwnd = create_hud_window(config.x, config.y, config.width, config.height)?;
 
-    // Apply DPI-scaled position
-    let _ = SetWindowPos(
-        hwnd,
-        HWND_TOPMOST,
-        (config.x as f32 * dpi) as i32,
-        (config.y as f32 * dpi) as i32,
-        (config.width as f32 * dpi) as i32,
-        (config.height as f32 * dpi) as i32,
-        SWP_NOACTIVATE,
-    );
+        // Create SurfaceRenderer (GPU resources - unused for PiP but keeps Surface struct uniform)
+        let renderer = match SurfaceRenderer::new(gpu, hwnd, config.width, config.height) {
+            Ok(r) => r,
+            Err(e) => {
+                let _ = DestroyWindow(hwnd);
+                return Err(e);
+            }
+        };
 
-    // Register DWM thumbnail
-    let mut thumbnail: isize = 0;
-    DwmRegisterThumbnail(hwnd, source_hwnd, &mut thumbnail)
-        .map_err(|e| Error::WindowCreation(format!("DwmRegisterThumbnail: {e}")))?;
+        // Get DPI scale for initial positioning
+        let dpi = get_dpi_scale(hwnd);
 
-    // Set initial thumbnail properties: fill the entire destination window, visible
-    let phys_w = (config.width as f32 * dpi) as i32;
-    let phys_h = (config.height as f32 * dpi) as i32;
+        // Apply DPI-scaled position
+        let _ = SetWindowPos(
+            hwnd,
+            Some(HWND_TOPMOST),
+            (config.x as f32 * dpi) as i32,
+            (config.y as f32 * dpi) as i32,
+            (config.width as f32 * dpi) as i32,
+            (config.height as f32 * dpi) as i32,
+            SWP_NOACTIVATE,
+        );
 
-    let props = DWM_THUMBNAIL_PROPERTIES {
-        dwFlags: DWM_TNP_RECTDESTINATION | DWM_TNP_VISIBLE | DWM_TNP_OPACITY,
-        rcDestination: RECT {
-            left: 0,
-            top: 0,
-            right: phys_w,
-            bottom: phys_h,
-        },
-        fVisible: TRUE,
-        opacity: 255,
-        ..Default::default()
-    };
-    DwmUpdateThumbnailProperties(thumbnail, &props)
-        .map_err(|e| Error::WindowCreation(format!("DwmUpdateThumbnailProperties: {e}")))?;
+        // Register DWM thumbnail
+        let thumbnail = DwmRegisterThumbnail(hwnd, source_hwnd)
+            .map_err(|e| Error::WindowCreation(format!("DwmRegisterThumbnail: {e}")))?;
 
-    let id = *next_id;
-    next_id.0 += 1;
+        // Set initial thumbnail properties: fill the entire destination window, visible
+        let phys_w = (config.width as f32 * dpi) as i32;
+        let phys_h = (config.height as f32 * dpi) as i32;
 
-    let pip_state = PipState {
-        thumbnail,
-        source_hwnd: config.source_hwnd,
-        source_region: None,
-        opacity: 1.0,
-    };
+        let props = DWM_THUMBNAIL_PROPERTIES {
+            dwFlags: DWM_TNP_RECTDESTINATION | DWM_TNP_VISIBLE | DWM_TNP_OPACITY,
+            rcDestination: RECT {
+                left: 0,
+                top: 0,
+                right: phys_w,
+                bottom: phys_h,
+            },
+            fVisible: TRUE,
+            opacity: 255,
+            ..Default::default()
+        };
+        DwmUpdateThumbnailProperties(thumbnail, std::ptr::from_ref(&props))
+            .map_err(|e| Error::WindowCreation(format!("DwmUpdateThumbnailProperties: {e}")))?;
 
-    surfaces.insert(
-        id,
-        Surface {
-            renderer,
-            scene: SceneGraph::new(),
-            visible: false,
-            kind: SurfaceKind::Pip(pip_state),
+        let id = *next_id;
+        next_id.0 += 1;
+
+        let pip_state = PipState {
+            thumbnail,
+            source_hwnd: config.source_hwnd,
+            source_region: None,
             opacity: 1.0,
-            fading_out: false,
-        },
-    );
+        };
 
-    // Register source window in monitor for close detection
-    monitor.watch(config.source_hwnd, id, WatchReason::PipSource);
+        surfaces.insert(
+            id,
+            Surface {
+                renderer,
+                scene: SceneGraph::new(),
+                visible: false,
+                kind: SurfaceKind::Pip(pip_state),
+                opacity: 1.0,
+                fading_out: false,
+            },
+        );
 
-    Ok(id)
+        // Register source window in monitor for close detection
+        monitor.watch(config.source_hwnd, id, WatchReason::PipSource);
+
+        Ok(id)
+    } // unsafe
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -1201,25 +1270,29 @@ unsafe fn create_tray(
     control_hwnd: HWND,
     config: TrayConfig,
 ) -> Result<TrayId, Error> {
-    let hicon = create_hicon_from_rgba(&config.icon_rgba, config.icon_width, config.icon_height)?;
+    // SAFETY: Tray icon creation with valid HWND and RGBA data.
+    unsafe {
+        let hicon =
+            create_hicon_from_rgba(&config.icon_rgba, config.icon_width, config.icon_height)?;
 
-    let icon_id = next_id.0 as u32;
-    create_tray_icon(control_hwnd, icon_id, hicon, &config.tooltip)?;
+        let icon_id = next_id.0 as u32;
+        create_tray_icon(control_hwnd, icon_id, hicon, &config.tooltip)?;
 
-    let id = *next_id;
-    next_id.0 += 1;
+        let id = *next_id;
+        next_id.0 += 1;
 
-    trays.insert(
-        id,
-        TrayState {
-            hwnd: control_hwnd,
-            icon_id,
-            hicon,
-            popup_surface: None,
-            popup_visible: false,
-            menu_items: Vec::new(),
-        },
-    );
+        trays.insert(
+            id,
+            TrayState {
+                hwnd: control_hwnd,
+                icon_id,
+                hicon,
+                popup_surface: None,
+                popup_visible: false,
+                menu_items: Vec::new(),
+            },
+        );
 
-    Ok(id)
+        Ok(id)
+    } // unsafe
 }

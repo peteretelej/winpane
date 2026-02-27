@@ -7,7 +7,7 @@ use winpane::{
 };
 
 use crate::protocol::{INTERNAL_ERROR, INVALID_PARAMS, METHOD_NOT_FOUND};
-use crate::util::{extract_optional_color, load_image_rgba, parse_color};
+use crate::util::{extract_optional_color, load_image_rgba};
 
 // ---------------------------------------------------------------------------
 // SurfaceHandle
@@ -218,7 +218,7 @@ impl SurfaceHandle {
 fn get_i32(params: &Value, key: &str) -> Result<i32, (i32, String)> {
     params
         .get(key)
-        .and_then(|v| v.as_i64())
+        .and_then(Value::as_i64)
         .map(|v| v as i32)
         .ok_or_else(|| {
             (
@@ -231,7 +231,7 @@ fn get_i32(params: &Value, key: &str) -> Result<i32, (i32, String)> {
 fn get_u32(params: &Value, key: &str) -> Result<u32, (i32, String)> {
     params
         .get(key)
-        .and_then(|v| v.as_u64())
+        .and_then(Value::as_u64)
         .map(|v| v as u32)
         .ok_or_else(|| {
             (
@@ -244,7 +244,7 @@ fn get_u32(params: &Value, key: &str) -> Result<u32, (i32, String)> {
 fn get_f32(params: &Value, key: &str) -> Result<f32, (i32, String)> {
     params
         .get(key)
-        .and_then(|v| v.as_f64())
+        .and_then(Value::as_f64)
         .map(|v| v as f32)
         .ok_or_else(|| {
             (
@@ -264,7 +264,7 @@ fn get_str<'a>(params: &'a Value, key: &str) -> Result<&'a str, (i32, String)> {
 }
 
 fn get_bool(params: &Value, key: &str) -> Result<bool, (i32, String)> {
-    params.get(key).and_then(|v| v.as_bool()).ok_or_else(|| {
+    params.get(key).and_then(Value::as_bool).ok_or_else(|| {
         (
             INVALID_PARAMS,
             format!("missing or invalid {key} (expected boolean)"),
@@ -273,15 +273,15 @@ fn get_bool(params: &Value, key: &str) -> Result<bool, (i32, String)> {
 }
 
 fn opt_i32(params: &Value, key: &str) -> Option<i32> {
-    params.get(key).and_then(|v| v.as_i64()).map(|v| v as i32)
+    params.get(key).and_then(Value::as_i64).map(|v| v as i32)
 }
 
 fn opt_u32(params: &Value, key: &str) -> Option<u32> {
-    params.get(key).and_then(|v| v.as_u64()).map(|v| v as u32)
+    params.get(key).and_then(Value::as_u64).map(|v| v as u32)
 }
 
 fn opt_f32(params: &Value, key: &str) -> Option<f32> {
-    params.get(key).and_then(|v| v.as_f64()).map(|v| v as f32)
+    params.get(key).and_then(Value::as_f64).map(|v| v as f32)
 }
 
 fn opt_str<'a>(params: &'a Value, key: &str) -> Option<&'a str> {
@@ -289,7 +289,7 @@ fn opt_str<'a>(params: &'a Value, key: &str) -> Option<&'a str> {
 }
 
 fn opt_bool(params: &Value, key: &str) -> Option<bool> {
-    params.get(key).and_then(|v| v.as_bool())
+    params.get(key).and_then(Value::as_bool)
 }
 
 fn parse_anchor(s: &str) -> Result<Anchor, (i32, String)> {
@@ -444,7 +444,7 @@ impl Dispatcher {
     fn create_pip(&mut self, params: &Value) -> Result<Value, (i32, String)> {
         let source_hwnd = params
             .get("source_hwnd")
-            .and_then(|v| v.as_i64())
+            .and_then(Value::as_i64)
             .ok_or_else(|| {
                 (
                     INVALID_PARAMS,
@@ -714,7 +714,7 @@ impl Dispatcher {
 
         let target_hwnd = params
             .get("target_hwnd")
-            .and_then(|v| v.as_i64())
+            .and_then(Value::as_i64)
             .ok_or_else(|| {
                 (
                     INVALID_PARAMS,

@@ -45,7 +45,7 @@ impl Color {
     /// The swap chain uses `DXGI_ALPHA_MODE_PREMULTIPLIED`, so Direct2D
     /// handles premultiplication internally when compositing.
     #[cfg(target_os = "windows")]
-    pub(crate) fn to_d2d_color(&self) -> D2D1_COLOR_F {
+    pub(crate) fn to_d2d_color(self) -> D2D1_COLOR_F {
         D2D1_COLOR_F {
             r: self.r as f32 / 255.0,
             g: self.g as f32 / 255.0,
@@ -360,6 +360,13 @@ impl fmt::Display for Error {
 }
 
 impl std::error::Error for Error {}
+
+#[cfg(target_os = "windows")]
+impl From<windows::core::Error> for Error {
+    fn from(e: windows::core::Error) -> Self {
+        Error::RenderError(e.to_string())
+    }
+}
 
 // --- SurfaceId ---
 

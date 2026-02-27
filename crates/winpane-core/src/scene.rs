@@ -51,6 +51,7 @@ impl SceneGraph {
     }
 
     /// Check dirty without clearing.
+    #[allow(dead_code)]
     pub fn is_dirty(&self) -> bool {
         self.dirty
     }

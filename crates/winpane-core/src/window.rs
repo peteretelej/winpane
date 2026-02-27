@@ -1,9 +1,12 @@
 use std::cell::RefCell;
+use std::mem::size_of;
 
 use windows::{
     core::*,
     Win32::Foundation::*,
+    Win32::Graphics::Gdi::ScreenToClient,
     Win32::System::LibraryLoader::*,
+    Win32::UI::Controls::WM_MOUSELEAVE,
     Win32::UI::HiDpi::*,
     Win32::UI::Input::KeyboardAndMouse::{TrackMouseEvent, TME_LEAVE, TRACKMOUSEEVENT},
     Win32::UI::WindowsAndMessaging::*,
@@ -20,7 +23,7 @@ pub(crate) struct DpiChangeEvent {
 }
 
 thread_local! {
-    pub(crate) static PENDING_DPI_CHANGES: RefCell<Vec<DpiChangeEvent>> = RefCell::new(Vec::new());
+    pub(crate) static PENDING_DPI_CHANGES: RefCell<Vec<DpiChangeEvent>> = const { RefCell::new(Vec::new()) };
 }
 
 // --- Tray notification queue (thread-local, same thread as message loop) ---
@@ -30,7 +33,7 @@ pub(crate) struct TrayNotification {
 }
 
 thread_local! {
-    pub(crate) static PENDING_TRAY_EVENTS: RefCell<Vec<TrayNotification>> = RefCell::new(Vec::new());
+    pub(crate) static PENDING_TRAY_EVENTS: RefCell<Vec<TrayNotification>> = const { RefCell::new(Vec::new()) };
 }
 
 // --- Fade completion queue (thread-local, same thread as message loop) ---
@@ -40,7 +43,7 @@ pub(crate) struct FadeCompleteEvent {
 }
 
 thread_local! {
-    pub(crate) static PENDING_FADE_COMPLETIONS: RefCell<Vec<FadeCompleteEvent>> = RefCell::new(Vec::new());
+    pub(crate) static PENDING_FADE_COMPLETIONS: RefCell<Vec<FadeCompleteEvent>> = const { RefCell::new(Vec::new()) };
 }
 
 /// Tray icon callback message. WM_APP (0x8000) is used for command wake;
@@ -50,9 +53,9 @@ pub(crate) const WM_TRAY_CALLBACK: u32 = 0x8001;
 // --- SendHwnd wrapper ---
 
 /// Wrapper around HWND that implements Send.
-/// Safety: PostMessage to an HWND is thread-safe by Win32 specification.
 #[derive(Clone, Copy)]
 pub struct SendHwnd(pub HWND);
+// SAFETY: PostMessage to an HWND is thread-safe by Win32 specification.
 unsafe impl Send for SendHwnd {}
 
 // --- Window class registration ---
@@ -61,35 +64,38 @@ static REGISTER_CLASSES: std::sync::Once = std::sync::Once::new();
 
 pub(crate) unsafe fn ensure_classes_registered() {
     REGISTER_CLASSES.call_once(|| {
-        let instance = GetModuleHandleW(None).unwrap();
+        // SAFETY: Window class registration with valid module handle and wndproc.
+        unsafe {
+            let instance = GetModuleHandleW(None).unwrap();
 
-        let hud_class = WNDCLASSEXW {
-            cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
-            lpfnWndProc: Some(hud_wndproc),
-            hInstance: instance.into(),
-            lpszClassName: w!("winpane_hud"),
-            ..Default::default()
-        };
-        RegisterClassExW(&hud_class);
+            let hud_class = WNDCLASSEXW {
+                cbSize: size_of::<WNDCLASSEXW>() as u32,
+                lpfnWndProc: Some(hud_wndproc),
+                hInstance: instance.into(),
+                lpszClassName: w!("winpane_hud"),
+                ..Default::default()
+            };
+            RegisterClassExW(&hud_class);
 
-        let ctrl_class = WNDCLASSEXW {
-            cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
-            lpfnWndProc: Some(control_wndproc),
-            hInstance: instance.into(),
-            lpszClassName: w!("winpane_control"),
-            ..Default::default()
-        };
-        RegisterClassExW(&ctrl_class);
+            let ctrl_class = WNDCLASSEXW {
+                cbSize: size_of::<WNDCLASSEXW>() as u32,
+                lpfnWndProc: Some(control_wndproc),
+                hInstance: instance.into(),
+                lpszClassName: w!("winpane_control"),
+                ..Default::default()
+            };
+            RegisterClassExW(&ctrl_class);
 
-        // Panel window class (interactive)
-        let panel_class = WNDCLASSEXW {
-            cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
-            lpfnWndProc: Some(panel_wndproc),
-            hInstance: instance.into(),
-            lpszClassName: w!("winpane_panel"),
-            ..Default::default()
-        };
-        RegisterClassExW(&panel_class);
+            // Panel window class (interactive)
+            let panel_class = WNDCLASSEXW {
+                cbSize: size_of::<WNDCLASSEXW>() as u32,
+                lpfnWndProc: Some(panel_wndproc),
+                hInstance: instance.into(),
+                lpszClassName: w!("winpane_panel"),
+                ..Default::default()
+            };
+            RegisterClassExW(&panel_class);
+        }
     });
 }
 
@@ -100,22 +106,25 @@ pub(crate) unsafe fn create_hud_window(
     y: i32,
     width: u32,
     height: u32,
-) -> Result<HWND, Error> {
-    CreateWindowExW(
-        WS_EX_NOREDIRECTIONBITMAP | WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
-        w!("winpane_hud"),
-        w!("winpane"),
-        WS_POPUP,
-        x,
-        y,
-        width as i32,
-        height as i32,
-        None,
-        None,
-        Some(GetModuleHandleW(None).unwrap().into()),
-        None,
-    )
-    .map_err(|e| Error::WindowCreation(e.to_string()))
+) -> std::result::Result<HWND, Error> {
+    // SAFETY: CreateWindowExW with registered class and valid parameters.
+    unsafe {
+        CreateWindowExW(
+            WS_EX_NOREDIRECTIONBITMAP | WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
+            w!("winpane_hud"),
+            w!("winpane"),
+            WS_POPUP,
+            x,
+            y,
+            width as i32,
+            height as i32,
+            None,
+            None,
+            Some(GetModuleHandleW(None).unwrap().into()),
+            None,
+        )
+        .map_err(|e| Error::WindowCreation(e.to_string()))
+    }
 }
 
 pub(crate) unsafe fn create_panel_window(
@@ -123,56 +132,63 @@ pub(crate) unsafe fn create_panel_window(
     y: i32,
     width: u32,
     height: u32,
-) -> Result<HWND, Error> {
-    CreateWindowExW(
-        WS_EX_NOREDIRECTIONBITMAP | WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
-        w!("winpane_panel"),
-        w!("winpane_panel"),
-        WS_POPUP,
-        x,
-        y,
-        width as i32,
-        height as i32,
-        None,
-        None,
-        Some(
-            GetModuleHandleW(None)
-                .map_err(|e| Error::WindowCreation(format!("GetModuleHandleW: {e}")))?
-                .into(),
-        ),
-        None,
-    )
-    .map_err(|e| Error::WindowCreation(format!("CreateWindowExW panel: {e}")))
+) -> std::result::Result<HWND, Error> {
+    // SAFETY: CreateWindowExW with registered class and valid parameters.
+    unsafe {
+        CreateWindowExW(
+            WS_EX_NOREDIRECTIONBITMAP | WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
+            w!("winpane_panel"),
+            w!("winpane_panel"),
+            WS_POPUP,
+            x,
+            y,
+            width as i32,
+            height as i32,
+            None,
+            None,
+            Some(
+                GetModuleHandleW(None)
+                    .map_err(|e| Error::WindowCreation(format!("GetModuleHandleW: {e}")))?
+                    .into(),
+            ),
+            None,
+        )
+        .map_err(|e| Error::WindowCreation(format!("CreateWindowExW panel: {e}")))
+    }
 }
 
-pub(crate) unsafe fn create_control_window() -> Result<HWND, Error> {
-    CreateWindowExW(
-        WINDOW_EX_STYLE::default(),
-        w!("winpane_control"),
-        w!("winpane_ctrl"),
-        WS_POPUP,
-        0,
-        0,
-        0,
-        0,
-        HWND_MESSAGE,
-        None,
-        Some(GetModuleHandleW(None).unwrap().into()),
-        None,
-    )
-    .map_err(|e| Error::WindowCreation(e.to_string()))
+pub(crate) unsafe fn create_control_window() -> std::result::Result<HWND, Error> {
+    // SAFETY: CreateWindowExW with registered class and valid parameters.
+    unsafe {
+        CreateWindowExW(
+            WINDOW_EX_STYLE::default(),
+            w!("winpane_control"),
+            w!("winpane_ctrl"),
+            WS_POPUP,
+            0,
+            0,
+            0,
+            0,
+            Some(HWND_MESSAGE),
+            None,
+            Some(GetModuleHandleW(None).unwrap().into()),
+            None,
+        )
+        .map_err(|e| Error::WindowCreation(e.to_string()))
+    }
 }
 
 // --- Window procedures ---
 
 extern "system" fn hud_wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    // SAFETY: Win32 message handler with HWND/LPARAM from the OS.
     unsafe {
         match msg {
             WM_NCHITTEST => LRESULT(-1), // HTTRANSPARENT - click through
 
             WM_TIMER => {
                 let timer_id = wparam.0;
-                let _ = KillTimer(hwnd, timer_id);
+                let _ = KillTimer(Some(hwnd), timer_id);
                 PENDING_FADE_COMPLETIONS.with(|completions| {
                     completions.borrow_mut().push(FadeCompleteEvent { hwnd });
                 });
@@ -214,6 +230,7 @@ extern "system" fn hud_wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPA
 }
 
 extern "system" fn panel_wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    // SAFETY: Win32 message handler with HWND/LPARAM from the OS.
     unsafe {
         // Get PanelState from GWLP_USERDATA.
         // Returns 0 during CreateWindowExW and after cleanup.
@@ -280,7 +297,7 @@ extern "system" fn panel_wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: L
                 let cx = (lparam.0 & 0xFFFF) as i16 as f32;
                 let cy = ((lparam.0 >> 16) & 0xFFFF) as i16 as f32;
 
-                let new_key = state.hit_test_map.hit_test(cx, cy).map(|s| s.to_string());
+                let new_key = state.hit_test_map.hit_test(cx, cy).map(ToString::to_string);
 
                 // Detect hover changes
                 let current_key = state.hovered_key.borrow().clone();
@@ -305,7 +322,7 @@ extern "system" fn panel_wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: L
                 // Ensure we get WM_MOUSELEAVE when cursor exits the window
                 if !state.tracking_mouse.get() {
                     let mut tme = TRACKMOUSEEVENT {
-                        cbSize: std::mem::size_of::<TRACKMOUSEEVENT>() as u32,
+                        cbSize: size_of::<TRACKMOUSEEVENT>() as u32,
                         dwFlags: TME_LEAVE,
                         hwndTrack: hwnd,
                         dwHoverTime: 0,
@@ -338,7 +355,7 @@ extern "system" fn panel_wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: L
 
             WM_TIMER => {
                 let timer_id = wparam.0;
-                let _ = KillTimer(hwnd, timer_id);
+                let _ = KillTimer(Some(hwnd), timer_id);
                 PENDING_FADE_COMPLETIONS.with(|completions| {
                     completions.borrow_mut().push(FadeCompleteEvent { hwnd });
                 });
@@ -384,6 +401,7 @@ extern "system" fn control_wndproc(
     wparam: WPARAM,
     lparam: LPARAM,
 ) -> LRESULT {
+    // SAFETY: Win32 message handler with HWND/LPARAM from the OS.
     unsafe {
         match msg {
             WM_TRAY_CALLBACK => {
@@ -410,18 +428,24 @@ extern "system" fn control_wndproc(
 
 /// Returns the DPI scale factor for a window (1.0 at 96 DPI, 1.5 at 144 DPI, etc.)
 pub(crate) unsafe fn get_dpi_scale(hwnd: HWND) -> f32 {
-    let dpi = GetDpiForWindow(hwnd);
-    if dpi == 0 {
-        1.0
-    } else {
-        dpi as f32 / 96.0
+    // SAFETY: GetDpiForWindow with valid HWND from caller.
+    unsafe {
+        let dpi = GetDpiForWindow(hwnd);
+        if dpi == 0 {
+            1.0
+        } else {
+            dpi as f32 / 96.0
+        }
     }
 }
 
 /// Attempts to set per-monitor DPI awareness for the process.
 /// Silently fails if already set (e.g., by the host application).
 pub(crate) unsafe fn try_set_dpi_awareness() {
-    let _ = SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+    // SAFETY: DPI awareness setting; harmless if already set.
+    unsafe {
+        let _ = SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+    }
 }
 
 // --- Capture exclusion utilities ---
@@ -431,7 +455,9 @@ static WINDOWS_BUILD_NUMBER: std::sync::OnceLock<u32> = std::sync::OnceLock::new
 
 #[cfg(target_os = "windows")]
 pub(crate) fn get_windows_build_number() -> u32 {
-    *WINDOWS_BUILD_NUMBER.get_or_init(|| unsafe { rtl_get_version_build() })
+    *WINDOWS_BUILD_NUMBER.get_or_init(||
+        // SAFETY: RtlGetVersion via GetProcAddress from ntdll.dll.
+        unsafe { rtl_get_version_build() })
 }
 
 #[cfg(target_os = "windows")]
@@ -441,27 +467,26 @@ unsafe fn rtl_get_version_build() -> u32 {
 
     type RtlGetVersionFn = unsafe extern "system" fn(*mut OSVERSIONINFOW) -> NTSTATUS;
 
-    let ntdll = GetModuleHandleW(w!("ntdll.dll"));
-    let ntdll = match ntdll {
-        Ok(h) => h,
-        Err(_) => return 0,
-    };
+    // SAFETY: RtlGetVersion via GetProcAddress from ntdll.dll.
+    unsafe {
+        let Ok(ntdll) = GetModuleHandleW(w!("ntdll.dll")) else {
+            return 0;
+        };
 
-    let proc = GetProcAddress(ntdll, windows::core::s!("RtlGetVersion"));
-    let proc = match proc {
-        Some(p) => p,
-        None => return 0,
-    };
+        let Some(proc) = GetProcAddress(ntdll, windows::core::s!("RtlGetVersion")) else {
+            return 0;
+        };
 
-    let rtl_get_version: RtlGetVersionFn = std::mem::transmute(proc);
-    let mut info: OSVERSIONINFOW = std::mem::zeroed();
-    info.dwOSVersionInfoSize = std::mem::size_of::<OSVERSIONINFOW>() as u32;
+        let rtl_get_version: RtlGetVersionFn = std::mem::transmute(proc);
+        let mut info: OSVERSIONINFOW = std::mem::zeroed();
+        info.dwOSVersionInfoSize = size_of::<OSVERSIONINFOW>() as u32;
 
-    let status = rtl_get_version(&mut info);
-    if status.is_ok() {
-        info.dwBuildNumber
-    } else {
-        0
+        let status = rtl_get_version(&mut info);
+        if status.is_ok() {
+            info.dwBuildNumber
+        } else {
+            0
+        }
     }
 }
 
@@ -486,7 +511,10 @@ pub(crate) unsafe fn set_capture_excluded(hwnd: HWND, excluded: bool) {
         WINDOW_DISPLAY_AFFINITY(0x00000001) // WDA_MONITOR
     };
 
-    let _ = SetWindowDisplayAffinity(hwnd, affinity);
+    // SAFETY: SetWindowDisplayAffinity with valid HWND.
+    unsafe {
+        let _ = SetWindowDisplayAffinity(hwnd, affinity);
+    }
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -517,29 +545,32 @@ pub(crate) unsafe fn set_window_backdrop(hwnd: HWND, backdrop: crate::types::Bac
         return false;
     }
 
-    // Extend DWM frame over entire client area (required for backdrop to show)
-    let margins = MARGINS {
-        cxLeftWidth: -1,
-        cxRightWidth: -1,
-        cyTopHeight: -1,
-        cyBottomHeight: -1,
-    };
-    let _ = DwmExtendFrameIntoClientArea(hwnd, &margins);
+    // SAFETY: DWM APIs with valid HWND and correct attribute size.
+    unsafe {
+        // Extend DWM frame over entire client area (required for backdrop to show)
+        let margins = MARGINS {
+            cxLeftWidth: -1,
+            cxRightWidth: -1,
+            cyTopHeight: -1,
+            cyBottomHeight: -1,
+        };
+        let _ = DwmExtendFrameIntoClientArea(hwnd, &margins);
 
-    // DWMWA_SYSTEMBACKDROP_TYPE = 38
-    let backdrop_type: u32 = match backdrop {
-        crate::types::Backdrop::None => 1,    // DWMSBT_NONE
-        crate::types::Backdrop::Mica => 2,    // DWMSBT_MAINWINDOW
-        crate::types::Backdrop::Acrylic => 3, // DWMSBT_TRANSIENTWINDOW
-    };
+        // DWMWA_SYSTEMBACKDROP_TYPE = 38
+        let backdrop_type: u32 = match backdrop {
+            crate::types::Backdrop::None => 1,    // DWMSBT_NONE
+            crate::types::Backdrop::Mica => 2,    // DWMSBT_MAINWINDOW
+            crate::types::Backdrop::Acrylic => 3, // DWMSBT_TRANSIENTWINDOW
+        };
 
-    DwmSetWindowAttribute(
-        hwnd,
-        windows::Win32::Graphics::Dwm::DWMWINDOWATTRIBUTE(38),
-        &backdrop_type as *const u32 as *const std::ffi::c_void,
-        std::mem::size_of::<u32>() as u32,
-    )
-    .is_ok()
+        DwmSetWindowAttribute(
+            hwnd,
+            windows::Win32::Graphics::Dwm::DWMWINDOWATTRIBUTE(38),
+            std::ptr::from_ref(&backdrop_type).cast::<std::ffi::c_void>(),
+            size_of::<u32>() as u32,
+        )
+        .is_ok()
+    }
 }
 
 #[cfg(not(target_os = "windows"))]

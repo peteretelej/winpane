@@ -146,7 +146,7 @@ fn main() -> Result<(), winpane::Error> {
 
         // Update status periodically
         tick += 1;
-        if tick % 60 == 0 {
+        if tick.is_multiple_of(60) {
             let secs = tick / 60;
             popup.set_text(
                 "status",

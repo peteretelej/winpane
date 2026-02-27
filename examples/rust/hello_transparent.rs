@@ -9,6 +9,8 @@
 //!
 //! Run on Windows: cargo run -p winpane-core --example hello_transparent
 
+use std::mem::size_of;
+
 use windows::{
     core::*, Win32::Foundation::*, Win32::Graphics::Direct2D::Common::*,
     Win32::Graphics::Direct2D::*, Win32::Graphics::Direct3D::*, Win32::Graphics::Direct3D11::*,
@@ -23,6 +25,8 @@ const CIRCLE_RADIUS: f32 = 150.0;
 
 #[allow(clippy::print_stdout)]
 fn main() -> Result<()> {
+    // SAFETY: All Win32 COM, D3D11, DXGI, Direct2D, and DirectComposition calls use
+    // valid objects initialized earlier in the sequence. The message loop runs until WM_QUIT.
     unsafe {
         // COM initialization (required for DirectComposition and Direct2D)
         CoInitializeEx(None, COINIT_MULTITHREADED).ok()?;
@@ -128,70 +132,79 @@ fn main() -> Result<()> {
 /// - `WS_EX_NOACTIVATE`: Never receives keyboard focus.
 /// - `WS_POPUP`: No window chrome (caption, border, etc).
 unsafe fn create_window() -> Result<HWND> {
-    let instance = GetModuleHandleW(None)?;
-    let class_name = w!("winpane_hello");
+    // SAFETY: Win32 window creation APIs require unsafe. All arguments are valid:
+    // GetModuleHandleW(None) returns the current executable's handle,
+    // RegisterClassExW/CreateWindowExW use valid class name and window styles.
+    unsafe {
+        let instance = GetModuleHandleW(None)?;
+        let class_name = w!("winpane_hello");
 
-    let wc = WNDCLASSEXW {
-        cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
-        lpfnWndProc: Some(wndproc),
-        hInstance: instance.into(),
-        lpszClassName: class_name,
-        ..Default::default()
-    };
-    RegisterClassExW(&wc);
+        let wc = WNDCLASSEXW {
+            cbSize: size_of::<WNDCLASSEXW>() as u32,
+            lpfnWndProc: Some(wndproc),
+            hInstance: instance.into(),
+            lpszClassName: class_name,
+            ..Default::default()
+        };
+        RegisterClassExW(&wc);
 
-    CreateWindowExW(
-        WS_EX_NOREDIRECTIONBITMAP | WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
-        class_name,
-        w!("winpane hello"),
-        WS_POPUP,
-        100,
-        100,
-        WINDOW_SIZE,
-        WINDOW_SIZE,
-        None,
-        None,
-        Some(instance.into()),
-        None,
-    )
+        CreateWindowExW(
+            WS_EX_NOREDIRECTIONBITMAP | WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
+            class_name,
+            w!("winpane hello"),
+            WS_POPUP,
+            100,
+            100,
+            WINDOW_SIZE,
+            WINDOW_SIZE,
+            None,
+            None,
+            Some(instance.into()),
+            None,
+        )
+    }
 }
 
 /// Creates a D3D11 device with BGRA support (required for Direct2D interop).
 /// Tries hardware acceleration first, falls back to the WARP software rasterizer.
 unsafe fn create_d3d11_device() -> Result<ID3D11Device> {
-    let flags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
-    let mut device = None;
+    // SAFETY: D3D11CreateDevice is called with valid flags and output pointers.
+    // We try hardware first, then fall back to WARP for headless/CI environments.
+    unsafe {
+        let flags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
+        let mut device = None;
 
-    let result = D3D11CreateDevice(
-        None,
-        D3D_DRIVER_TYPE_HARDWARE,
-        HMODULE::default(),
-        flags,
-        None,
-        D3D11_SDK_VERSION,
-        Some(&mut device),
-        None,
-        None,
-    );
+        let result = D3D11CreateDevice(
+            None,
+            D3D_DRIVER_TYPE_HARDWARE,
+            HMODULE::default(),
+            flags,
+            None,
+            D3D11_SDK_VERSION,
+            Some(&mut device),
+            None,
+            None,
+        );
 
-    if result.is_ok() {
-        return Ok(device.unwrap());
+        if result.is_ok() {
+            return Ok(device.unwrap());
+        }
+
+        // CI runners and VMs may lack a GPU - fall back to WARP
+        D3D11CreateDevice(
+            None,
+            D3D_DRIVER_TYPE_WARP,
+            HMODULE::default(),
+            flags,
+            None,
+            D3D11_SDK_VERSION,
+            Some(&mut device),
+            None,
+            None,
+        )?;
+
+        Ok(device.unwrap())
     }
-
-    // CI runners and VMs may lack a GPU - fall back to WARP
-    D3D11CreateDevice(
-        None,
-        D3D_DRIVER_TYPE_WARP,
-        HMODULE::default(),
-        flags,
-        None,
-        D3D11_SDK_VERSION,
-        Some(&mut device),
-        None,
-        None,
-    )?;
-
-    Ok(device.unwrap())
 }
 
 /// Creates a DXGI swap chain for DirectComposition (not for HWND).
@@ -200,30 +213,35 @@ unsafe fn create_d3d11_device() -> Result<ID3D11Device> {
 /// DirectComposition visual instead of directly to a window. This enables
 /// `DXGI_ALPHA_MODE_PREMULTIPLIED` for per-pixel transparency.
 unsafe fn create_composition_swapchain(device: &ID3D11Device) -> Result<IDXGISwapChain1> {
-    let dxgi_device: IDXGIDevice = device.cast()?;
-    let adapter = dxgi_device.GetAdapter()?;
-    let factory: IDXGIFactory2 = adapter.GetParent()?;
+    // SAFETY: DXGI factory and swap chain creation with valid device and descriptor.
+    // The swap chain uses PREMULTIPLIED alpha for DirectComposition transparency.
+    unsafe {
+        let dxgi_device: IDXGIDevice = device.cast()?;
+        let adapter = dxgi_device.GetAdapter()?;
+        let factory: IDXGIFactory2 = adapter.GetParent()?;
 
-    let desc = DXGI_SWAP_CHAIN_DESC1 {
-        Width: WINDOW_SIZE as u32,
-        Height: WINDOW_SIZE as u32,
-        Format: DXGI_FORMAT_B8G8R8A8_UNORM,
-        SampleDesc: DXGI_SAMPLE_DESC {
-            Count: 1,
-            Quality: 0,
-        },
-        BufferUsage: DXGI_USAGE_RENDER_TARGET_OUTPUT,
-        BufferCount: 2,
-        SwapEffect: DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL,
-        AlphaMode: DXGI_ALPHA_MODE_PREMULTIPLIED,
-        ..Default::default()
-    };
+        let desc = DXGI_SWAP_CHAIN_DESC1 {
+            Width: WINDOW_SIZE as u32,
+            Height: WINDOW_SIZE as u32,
+            Format: DXGI_FORMAT_B8G8R8A8_UNORM,
+            SampleDesc: DXGI_SAMPLE_DESC {
+                Count: 1,
+                Quality: 0,
+            },
+            BufferUsage: DXGI_USAGE_RENDER_TARGET_OUTPUT,
+            BufferCount: 2,
+            SwapEffect: DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL,
+            AlphaMode: DXGI_ALPHA_MODE_PREMULTIPLIED,
+            ..Default::default()
+        };
 
-    factory.CreateSwapChainForComposition(device, &desc, None)
+        factory.CreateSwapChainForComposition(device, &desc, None)
+    }
 }
 
 /// Window procedure: click-through and close handling.
 extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    // SAFETY: Win32 window procedure callbacks. All calls forward valid HWND/message params.
     unsafe {
         match msg {
             // HTTRANSPARENT (-1): all mouse input passes through to the window below
