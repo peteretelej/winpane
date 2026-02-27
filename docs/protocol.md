@@ -366,6 +366,85 @@ Removes anchoring from a surface.
 {"jsonrpc":"2.0","method":"unanchor","params":{"surface_id":"s1"},"id":5}
 ```
 
+### Backdrop
+
+#### `set_backdrop`
+
+Sets a DWM backdrop effect on a surface. Requires Windows 11 22H2 or later. Silent no-op on older versions.
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `surface_id` | string | yes | Target surface |
+| `backdrop` | string | yes | Backdrop type: `"none"`, `"mica"`, `"acrylic"` |
+
+**Request:**
+```json
+{"jsonrpc":"2.0","method":"set_backdrop","params":{"surface_id":"s1","backdrop":"mica"},"id":10}
+```
+
+**Response:**
+```json
+{"jsonrpc":"2.0","result":{},"id":10}
+```
+
+#### `backdrop_supported`
+
+Returns whether the current system supports DWM backdrop effects (Windows 11 22H2+).
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| (none) | | | |
+
+**Request:**
+```json
+{"jsonrpc":"2.0","method":"backdrop_supported","params":{},"id":10}
+```
+
+**Response:**
+```json
+{"jsonrpc":"2.0","result":{"supported":true},"id":10}
+```
+
+### Animations
+
+#### `fade_in`
+
+Shows the surface and animates its opacity from 0 to 1 over the given duration using DirectComposition.
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `surface_id` | string | yes | Target surface |
+| `duration_ms` | unsigned integer | yes | Animation duration in milliseconds |
+
+**Request:**
+```json
+{"jsonrpc":"2.0","method":"fade_in","params":{"surface_id":"s1","duration_ms":300},"id":11}
+```
+
+**Response:**
+```json
+{"jsonrpc":"2.0","result":{},"id":11}
+```
+
+#### `fade_out`
+
+Animates the surface opacity from 1 to 0 over the given duration, then hides the surface.
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `surface_id` | string | yes | Target surface |
+| `duration_ms` | unsigned integer | yes | Animation duration in milliseconds |
+
+**Request:**
+```json
+{"jsonrpc":"2.0","method":"fade_out","params":{"surface_id":"s1","duration_ms":500},"id":12}
+```
+
+**Response:**
+```json
+{"jsonrpc":"2.0","result":{},"id":12}
+```
+
 ### Capture Exclusion
 
 #### `set_capture_excluded`
@@ -574,6 +653,14 @@ The target window of an anchored surface was closed.
 
 ```json
 {"jsonrpc":"2.0","method":"event","params":{"type":"anchor_target_closed","surface_id":"s1"}}
+```
+
+### `device_recovered`
+
+The GPU device was lost and all surfaces have been automatically recovered from the scene graph. No action is required from the client, but this event can be used for logging or to refresh custom draw content.
+
+```json
+{"jsonrpc":"2.0","method":"event","params":{"type":"device_recovered"}}
 ```
 
 ## Color Format
