@@ -2,8 +2,8 @@ use std::sync::mpsc;
 
 use crate::scene::Element;
 use crate::types::{
-    Anchor, DrawOp, Error, HudConfig, MenuItem, PanelConfig, PipConfig, SourceRect, SurfaceId,
-    TrayConfig, TrayId,
+    Anchor, Backdrop, DrawOp, Error, HudConfig, MenuItem, PanelConfig, PipConfig, SourceRect,
+    SurfaceId, TrayConfig, TrayId,
 };
 
 pub enum Command {
@@ -99,6 +99,12 @@ pub enum Command {
     SetCaptureExcluded {
         surface: SurfaceId,
         excluded: bool,
+    },
+
+    // --- P6 commands ---
+    SetBackdrop {
+        surface: SurfaceId,
+        backdrop: Backdrop,
     },
 }
 

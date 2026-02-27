@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use winpane::{
-    Anchor, Color, HudConfig, ImageElement, MenuItem, MouseButton, PanelConfig, PipConfig,
+    Anchor, Backdrop, Color, HudConfig, ImageElement, MenuItem, MouseButton, PanelConfig, PipConfig,
     RectElement, SourceRect, SurfaceId, TextElement, TrayConfig,
 };
 
@@ -241,6 +241,14 @@ impl SurfaceHandle {
             SurfaceHandle::Hud(h) => h.set_capture_excluded(excluded),
             SurfaceHandle::Panel(p) => p.set_capture_excluded(excluded),
             SurfaceHandle::Pip(p) => p.set_capture_excluded(excluded),
+        }
+    }
+
+    fn set_backdrop(&self, backdrop: Backdrop) {
+        match self {
+            SurfaceHandle::Hud(h) => h.set_backdrop(backdrop),
+            SurfaceHandle::Panel(p) => p.set_backdrop(backdrop),
+            SurfaceHandle::Pip(p) => p.set_backdrop(backdrop),
         }
     }
 
@@ -604,6 +612,33 @@ impl WinPane {
         let surface = self.get_surface(surface_id)?;
         surface.set_capture_excluded(excluded);
         Ok(())
+    }
+
+    // -- Backdrop -----------------------------------------------------------
+
+    #[napi]
+    pub fn set_backdrop(&self, surface_id: u32, backdrop: String) -> Result<()> {
+        let surface = self.get_surface(surface_id)?;
+        let backdrop = match backdrop.as_str() {
+            "none" => Backdrop::None,
+            "mica" => Backdrop::Mica,
+            "acrylic" => Backdrop::Acrylic,
+            _ => {
+                return Err(Error::new(
+                    Status::InvalidArg,
+                    format!(
+                        "invalid backdrop: {backdrop} (expected none, mica, acrylic)"
+                    ),
+                ))
+            }
+        };
+        surface.set_backdrop(backdrop);
+        Ok(())
+    }
+
+    #[napi]
+    pub fn backdrop_supported(&self) -> bool {
+        winpane::backdrop_supported()
     }
 
     // -- Anchoring ----------------------------------------------------------

@@ -469,3 +469,58 @@ pub(crate) unsafe fn set_capture_excluded(hwnd: HWND, excluded: bool) {
 
 #[cfg(not(target_os = "windows"))]
 pub(crate) unsafe fn set_capture_excluded(_hwnd: HWND, _excluded: bool) {}
+
+// --- Backdrop (DWM system backdrop) utilities ---
+
+/// Returns true if the current Windows build supports DWMWA_SYSTEMBACKDROP_TYPE.
+/// Win11 22H2 = build 22621.
+#[cfg(target_os = "windows")]
+pub(crate) fn supports_backdrop() -> bool {
+    get_windows_build_number() >= 22621
+}
+
+#[cfg(not(target_os = "windows"))]
+pub(crate) fn supports_backdrop() -> bool {
+    false
+}
+
+/// Sets the DWM system backdrop type on a window. Returns false on unsupported Windows.
+/// Requires extending the DWM frame into the client area first.
+#[cfg(target_os = "windows")]
+pub(crate) unsafe fn set_window_backdrop(hwnd: HWND, backdrop: crate::types::Backdrop) -> bool {
+    use windows::Win32::Graphics::Dwm::{DwmExtendFrameIntoClientArea, DwmSetWindowAttribute};
+    use windows::Win32::UI::Controls::MARGINS;
+
+    if !supports_backdrop() {
+        return false;
+    }
+
+    // Extend DWM frame over entire client area (required for backdrop to show)
+    let margins = MARGINS {
+        cxLeftWidth: -1,
+        cxRightWidth: -1,
+        cyTopHeight: -1,
+        cyBottomHeight: -1,
+    };
+    let _ = DwmExtendFrameIntoClientArea(hwnd, &margins);
+
+    // DWMWA_SYSTEMBACKDROP_TYPE = 38
+    let backdrop_type: u32 = match backdrop {
+        crate::types::Backdrop::None => 1,    // DWMSBT_NONE
+        crate::types::Backdrop::Mica => 2,    // DWMSBT_MAINWINDOW
+        crate::types::Backdrop::Acrylic => 3, // DWMSBT_TRANSIENTWINDOW
+    };
+
+    DwmSetWindowAttribute(
+        hwnd,
+        windows::Win32::Graphics::Dwm::DWMWINDOWATTRIBUTE(38),
+        &backdrop_type as *const u32 as *const std::ffi::c_void,
+        std::mem::size_of::<u32>() as u32,
+    )
+    .is_ok()
+}
+
+#[cfg(not(target_os = "windows"))]
+pub(crate) unsafe fn set_window_backdrop(_hwnd: HWND, _backdrop: crate::types::Backdrop) -> bool {
+    false
+}

@@ -303,6 +303,26 @@ impl WinpaneSourceRect {
     }
 }
 
+// --- Backdrop ---
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WinpaneBackdrop {
+    None = 0,
+    Mica = 1,
+    Acrylic = 2,
+}
+
+impl WinpaneBackdrop {
+    fn to_rust(&self) -> winpane::Backdrop {
+        match self {
+            WinpaneBackdrop::None => winpane::Backdrop::None,
+            WinpaneBackdrop::Mica => winpane::Backdrop::Mica,
+            WinpaneBackdrop::Acrylic => winpane::Backdrop::Acrylic,
+        }
+    }
+}
+
 // --- Anchor ---
 
 #[repr(C)]
@@ -676,6 +696,14 @@ impl FfiSurface {
             FfiSurface::Hud(h) => h.set_capture_excluded(excluded),
             FfiSurface::Panel(p) => p.set_capture_excluded(excluded),
             FfiSurface::Pip(p) => p.set_capture_excluded(excluded),
+        }
+    }
+
+    fn set_backdrop(&self, backdrop: winpane::Backdrop) {
+        match self {
+            FfiSurface::Hud(h) => h.set_backdrop(backdrop),
+            FfiSurface::Panel(p) => p.set_backdrop(backdrop),
+            FfiSurface::Pip(p) => p.set_backdrop(backdrop),
         }
     }
 }
@@ -1465,4 +1493,30 @@ pub unsafe extern "C" fn winpane_surface_set_capture_excluded(
         surface.inner.set_capture_excluded(excluded != 0);
         Ok(())
     })
+}
+
+// ============================================================
+// Backdrop
+// ============================================================
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_surface_set_backdrop(
+    surface: *mut WinpaneSurface,
+    backdrop: WinpaneBackdrop,
+) -> i32 {
+    ffi_try!({
+        require_non_null(surface, "surface")?;
+        let surface = unsafe { &*surface };
+        surface.inner.set_backdrop(backdrop.to_rust());
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn winpane_backdrop_supported() -> i32 {
+    if winpane::backdrop_supported() {
+        1
+    } else {
+        0
+    }
 }

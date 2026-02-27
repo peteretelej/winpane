@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde_json::Value;
 use winpane::{
-    Anchor, Context, Event, Hud, HudConfig, ImageElement, MenuItem, MouseButton, Panel,
+    Anchor, Backdrop, Context, Event, Hud, HudConfig, ImageElement, MenuItem, MouseButton, Panel,
     PanelConfig, Pip, PipConfig, RectElement, SourceRect, SurfaceId, TextElement, Tray, TrayConfig,
 };
 
@@ -157,6 +157,14 @@ impl SurfaceHandle {
             SurfaceHandle::Hud(h) => h.set_capture_excluded(excluded),
             SurfaceHandle::Panel(p) => p.set_capture_excluded(excluded),
             SurfaceHandle::Pip(p) => p.set_capture_excluded(excluded),
+        }
+    }
+
+    fn set_backdrop(&self, backdrop: Backdrop) {
+        match self {
+            SurfaceHandle::Hud(h) => h.set_backdrop(backdrop),
+            SurfaceHandle::Panel(p) => p.set_backdrop(backdrop),
+            SurfaceHandle::Pip(p) => p.set_backdrop(backdrop),
         }
     }
 
@@ -360,6 +368,12 @@ impl Dispatcher {
             "set_tray_icon" => self.set_tray_icon(params),
             "set_popup" => self.set_popup(params),
             "set_menu" => self.set_menu(params),
+
+            // Backdrop
+            "set_backdrop" => self.set_backdrop(params),
+            "backdrop_supported" => {
+                Ok(serde_json::json!({ "supported": winpane::backdrop_supported() }))
+            }
 
             // Lifecycle
             "destroy" => self.destroy(params),
@@ -618,6 +632,30 @@ impl Dispatcher {
             .get(surface_id)
             .ok_or_else(|| (INVALID_PARAMS, format!("unknown surface_id: {surface_id}")))?;
         surface.set_capture_excluded(get_bool(params, "excluded")?);
+        Ok(serde_json::json!({}))
+    }
+
+    // -- Backdrop -----------------------------------------------------------
+
+    fn set_backdrop(&self, params: &Value) -> Result<Value, (i32, String)> {
+        let surface_id = get_str(params, "surface_id")?;
+        let surface = self
+            .surfaces
+            .get(surface_id)
+            .ok_or_else(|| (INVALID_PARAMS, format!("unknown surface_id: {surface_id}")))?;
+        let backdrop_str = get_str(params, "backdrop")?;
+        let backdrop = match backdrop_str {
+            "none" => Backdrop::None,
+            "mica" => Backdrop::Mica,
+            "acrylic" => Backdrop::Acrylic,
+            _ => {
+                return Err((
+                    INVALID_PARAMS,
+                    format!("invalid backdrop: {backdrop_str} (expected none, mica, acrylic)"),
+                ))
+            }
+        };
+        surface.set_backdrop(backdrop);
         Ok(serde_json::json!({}))
     }
 

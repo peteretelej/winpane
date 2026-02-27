@@ -271,6 +271,17 @@ pub enum Anchor {
     BottomRight,
 }
 
+// --- Backdrop ---
+
+/// DWM backdrop material for a surface window.
+/// Requires Windows 11 22H2+ (build 22621). Silent no-op on older versions.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Backdrop {
+    None,
+    Mica,
+    Acrylic,
+}
+
 // --- Event ---
 
 #[derive(Debug, Clone)]

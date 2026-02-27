@@ -3,9 +3,14 @@
 // All Win32 calls stay in winpane-core. This crate is pure Rust wrapping EngineHandle.
 
 pub use winpane_core::{
-    Anchor, Color, DrawOp, Error, Event, HudConfig, ImageElement, MenuItem, MouseButton,
+    Anchor, Backdrop, Color, DrawOp, Error, Event, HudConfig, ImageElement, MenuItem, MouseButton,
     PanelConfig, PipConfig, RectElement, SourceRect, SurfaceId, TextElement, TrayConfig, TrayId,
 };
+
+/// Returns true if the current Windows build supports DWM backdrop effects (Win11 22H2+).
+pub fn backdrop_supported() -> bool {
+    winpane_core::backdrop_supported()
+}
 
 use std::sync::mpsc;
 use winpane_core::{Command, CommandSender, Element, EngineHandle, SendHwnd};
@@ -213,6 +218,13 @@ impl Hud {
         });
     }
 
+    pub fn set_backdrop(&self, backdrop: Backdrop) {
+        self.send(Command::SetBackdrop {
+            surface: self.id,
+            backdrop,
+        });
+    }
+
     fn send(&self, cmd: Command) {
         let _ = self.sender.send(cmd);
         wake_engine(self.control_hwnd);
@@ -332,6 +344,13 @@ impl Panel {
         });
     }
 
+    pub fn set_backdrop(&self, backdrop: Backdrop) {
+        self.send(Command::SetBackdrop {
+            surface: self.id,
+            backdrop,
+        });
+    }
+
     fn send(&self, cmd: Command) {
         let _ = self.sender.send(cmd);
         wake_engine(self.control_hwnd);
@@ -418,6 +437,13 @@ impl Pip {
         self.send(Command::SetCaptureExcluded {
             surface: self.id,
             excluded,
+        });
+    }
+
+    pub fn set_backdrop(&self, backdrop: Backdrop) {
+        self.send(Command::SetBackdrop {
+            surface: self.id,
+            backdrop,
         });
     }
 

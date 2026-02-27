@@ -14,6 +14,17 @@ pub(crate) mod window;
 // Re-export public types for end users (via winpane crate)
 pub use types::*;
 
+/// Returns true if the current Windows build supports DWM backdrop effects (Win11 22H2+).
+#[cfg(target_os = "windows")]
+pub fn backdrop_supported() -> bool {
+    window::supports_backdrop()
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn backdrop_supported() -> bool {
+    false
+}
+
 // Bridge types for the winpane crate (not exposed to end users)
 pub use command::{Command, CommandSender};
 pub use engine::{wake_engine, EngineHandle};

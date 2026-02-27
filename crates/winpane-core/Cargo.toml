@@ -35,6 +35,7 @@ features = [
     "Win32_Graphics_Dwm",
     "Win32_UI_Accessibility",
     "Win32_System_SystemInformation",
+    "Win32_UI_Controls",
 ]
 
 [[example]]

@@ -458,6 +458,11 @@ unsafe fn engine_thread_main(
                         crate::window::set_capture_excluded(s.renderer.hwnd, excluded);
                     }
                 }
+                Command::SetBackdrop { surface, backdrop } => {
+                    if let Some(s) = surfaces.get(&surface) {
+                        crate::window::set_window_backdrop(s.renderer.hwnd, backdrop);
+                    }
+                }
             }
         }
 
