@@ -24,7 +24,7 @@ Shared state file for sequential phase execution. **Every phase must read this f
 | P3 | `p3-ffi` | **Complete** | C ABI + cbindgen + custom draw escape hatch |
 | P4 | `p4-advanced-surfaces` | **Complete** | PiP thumbnail, anchored companion, capture exclusion |
 | P5 | `p5-host` | **Complete** | CLI/stdio host + npm package via napi-rs |
-| P6 | `p6-polish` | Not started | Backdrop effects, device loss recovery, DPI hardening, docs |
+| P6 | `p6-polish` | **Complete** | Backdrop effects, device loss recovery, DPI hardening, fade animations, docs, examples |
 
 ## Pre-push Checks (All Phases)
 
@@ -126,6 +126,23 @@ git diff --cached --name-only
 - The canvas handle is invalid after end_draw.
 - DrawOp is fire-and-forget (scene graph changes overwrite custom draw content).
 - Config struct versioning is forward-compatible but element structs are frozen.
+
+### P6: Polish & Hardening (Complete)
+
+**What was built:**
+- DWM backdrop effects (Mica, Acrylic) with Windows version detection, across all API layers (Rust, FFI, JSON-RPC, Node.js)
+- GPU device loss detection with automatic recovery from scene graph
+- DPI hardening: verified WM_DPICHANGED handling, fixed anchor offset scaling for multi-monitor setups
+- DirectComposition fade-in/fade-out opacity animations with timer-based completion
+- Comprehensive documentation: architecture guide, cookbook, signing guide, limitations, protocol spec update, README rewrite
+- New examples for backdrop effects and fade animations (Rust + Node.js)
+- `Default` impl for `PanelConfig` and `RectElement` types
+
+**Key files added/modified:**
+- `examples/rust/backdrop_demo.rs` - side-by-side Mica/Acrylic panels
+- `examples/rust/fade_demo.rs` - fade-in/out animation demo
+- `examples/node/backdrop_demo.js` - backdrop switching from Node.js
+- `crates/winpane-core/src/types.rs` - Default derives for PanelConfig, RectElement
 
 ## Key Technical Decisions
 

@@ -101,6 +101,22 @@ pub struct RectElement {
     pub interactive: bool,
 }
 
+impl Default for RectElement {
+    fn default() -> Self {
+        RectElement {
+            x: 0.0,
+            y: 0.0,
+            width: 0.0,
+            height: 0.0,
+            fill: Color::TRANSPARENT,
+            corner_radius: 0.0,
+            border_color: None,
+            border_width: 0.0,
+            interactive: false,
+        }
+    }
+}
+
 // --- ImageElement ---
 
 #[derive(Debug, Clone)]
@@ -209,7 +225,7 @@ pub struct HudConfig {
 
 // --- PanelConfig ---
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct PanelConfig {
     pub x: i32,
     pub y: i32,

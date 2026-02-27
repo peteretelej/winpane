@@ -22,6 +22,7 @@ typedef enum WINPANE_winpane_event_type_t {
     WINPANE_WINPANE_EVENT_TYPE_T_TRAY_MENU_ITEM_CLICKED = 5,
     WINPANE_WINPANE_EVENT_TYPE_T_PIP_SOURCE_CLOSED = 6,
     WINPANE_WINPANE_EVENT_TYPE_T_ANCHOR_TARGET_CLOSED = 7,
+    WINPANE_WINPANE_EVENT_TYPE_T_DEVICE_RECOVERED = 8,
 } WINPANE_winpane_event_type_t;
 
 typedef enum WINPANE_winpane_mouse_button_t {
@@ -36,6 +37,12 @@ typedef enum WINPANE_WinpaneAnchor {
     WINPANE_WINPANE_ANCHOR_BOTTOM_LEFT = 2,
     WINPANE_WINPANE_ANCHOR_BOTTOM_RIGHT = 3,
 } WINPANE_WinpaneAnchor;
+
+typedef enum WINPANE_WinpaneBackdrop {
+    WINPANE_WINPANE_BACKDROP_NONE = 0,
+    WINPANE_WINPANE_BACKDROP_MICA = 1,
+    WINPANE_WINPANE_BACKDROP_ACRYLIC = 2,
+} WINPANE_WinpaneBackdrop;
 
 typedef struct WINPANE_WinpaneCanvas WINPANE_WinpaneCanvas;
 
@@ -337,6 +344,15 @@ int32_t winpane_surface_unanchor(struct WINPANE_WinpaneSurface *surface);
 
 int32_t winpane_surface_set_capture_excluded(struct WINPANE_WinpaneSurface *surface,
                                              int32_t excluded);
+
+int32_t winpane_surface_set_backdrop(struct WINPANE_WinpaneSurface *surface,
+                                     enum WINPANE_WinpaneBackdrop backdrop);
+
+int32_t winpane_backdrop_supported(void);
+
+int32_t winpane_surface_fade_in(struct WINPANE_WinpaneSurface *surface, uint32_t duration_ms);
+
+int32_t winpane_surface_fade_out(struct WINPANE_WinpaneSurface *surface, uint32_t duration_ms);
 
 #ifdef __cplusplus
 }  // extern "C"

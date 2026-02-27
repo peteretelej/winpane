@@ -43,3 +43,11 @@ path = "../../examples/rust/anchored_companion.rs"
 [[example]]
 name = "capture_excluded"
 path = "../../examples/rust/capture_excluded.rs"
+
+[[example]]
+name = "backdrop_demo"
+path = "../../examples/rust/backdrop_demo.rs"
+
+[[example]]
+name = "fade_demo"
+path = "../../examples/rust/fade_demo.rs"

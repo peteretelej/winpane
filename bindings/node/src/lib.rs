@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use winpane::{
-    Anchor, Backdrop, Color, HudConfig, ImageElement, MenuItem, MouseButton, PanelConfig, PipConfig,
-    RectElement, SourceRect, SurfaceId, TextElement, TrayConfig,
+    Anchor, Backdrop, Color, HudConfig, ImageElement, MenuItem, MouseButton, PanelConfig,
+    PipConfig, RectElement, SourceRect, SurfaceId, TextElement, TrayConfig,
 };
 
 // ---------------------------------------------------------------------------
@@ -656,9 +656,7 @@ impl WinPane {
             _ => {
                 return Err(Error::new(
                     Status::InvalidArg,
-                    format!(
-                        "invalid backdrop: {backdrop} (expected none, mica, acrylic)"
-                    ),
+                    format!("invalid backdrop: {backdrop} (expected none, mica, acrylic)"),
                 ))
             }
         };
