@@ -33,6 +33,16 @@ thread_local! {
     pub(crate) static PENDING_TRAY_EVENTS: RefCell<Vec<TrayNotification>> = RefCell::new(Vec::new());
 }
 
+// --- Fade completion queue (thread-local, same thread as message loop) ---
+
+pub(crate) struct FadeCompleteEvent {
+    pub hwnd: HWND,
+}
+
+thread_local! {
+    pub(crate) static PENDING_FADE_COMPLETIONS: RefCell<Vec<FadeCompleteEvent>> = RefCell::new(Vec::new());
+}
+
 /// Tray icon callback message. WM_APP (0x8000) is used for command wake;
 /// WM_APP + 1 is used for tray icon notifications.
 pub(crate) const WM_TRAY_CALLBACK: u32 = 0x8001;
@@ -159,6 +169,15 @@ extern "system" fn hud_wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPA
     unsafe {
         match msg {
             WM_NCHITTEST => LRESULT(-1), // HTTRANSPARENT - click through
+
+            WM_TIMER => {
+                let timer_id = wparam.0;
+                let _ = KillTimer(hwnd, timer_id);
+                PENDING_FADE_COMPLETIONS.with(|completions| {
+                    completions.borrow_mut().push(FadeCompleteEvent { hwnd });
+                });
+                LRESULT(0)
+            }
 
             WM_DPICHANGED => {
                 let new_dpi = (wparam.0 & 0xFFFF) as u32;
@@ -320,6 +339,15 @@ extern "system" fn panel_wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: L
                 state.hovered_key = None;
                 state.tracking_mouse = false;
 
+                LRESULT(0)
+            }
+
+            WM_TIMER => {
+                let timer_id = wparam.0;
+                let _ = KillTimer(hwnd, timer_id);
+                PENDING_FADE_COMPLETIONS.with(|completions| {
+                    completions.borrow_mut().push(FadeCompleteEvent { hwnd });
+                });
                 LRESULT(0)
             }
 

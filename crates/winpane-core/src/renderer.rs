@@ -585,6 +585,42 @@ impl SurfaceRenderer {
         Ok(())
     }
 
+    pub(crate) unsafe fn animate_opacity(
+        &self,
+        from: f32,
+        to: f32,
+        duration_ms: u32,
+    ) -> Result<(), Error> {
+        let duration_secs = duration_ms as f64 / 1000.0;
+        let slope = (to - from) as f64 / duration_secs;
+
+        let animation: IDCompositionAnimation = self
+            .dcomp_device
+            .CreateAnimation()
+            .map_err(|e| Error::RenderError(format!("CreateAnimation: {e}")))?;
+        animation
+            .AddCubic(0.0, from as f64, slope, 0.0, 0.0)
+            .map_err(|e| Error::RenderError(format!("AddCubic: {e}")))?;
+        animation
+            .End(duration_secs, to as f64)
+            .map_err(|e| Error::RenderError(format!("End: {e}")))?;
+
+        let effect_group: IDCompositionEffectGroup = self
+            .dcomp_device
+            .CreateEffectGroup()
+            .map_err(|e| Error::RenderError(format!("CreateEffectGroup: {e}")))?;
+        effect_group
+            .SetOpacity(&animation)
+            .map_err(|e| Error::RenderError(format!("SetOpacity: {e}")))?;
+        self.dcomp_visual
+            .SetEffect(&effect_group)
+            .map_err(|e| Error::RenderError(format!("SetEffect: {e}")))?;
+        self.dcomp_device
+            .Commit()
+            .map_err(|e| Error::RenderError(format!("DComposition commit: {e}")))?;
+        Ok(())
+    }
+
     pub unsafe fn set_opacity(&self, opacity: f32) -> Result<(), Error> {
         let effect_group: IDCompositionEffectGroup = self
             .dcomp_device

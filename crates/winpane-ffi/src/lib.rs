@@ -710,6 +710,22 @@ impl FfiSurface {
             FfiSurface::Pip(p) => p.set_backdrop(backdrop),
         }
     }
+
+    fn fade_in(&self, duration_ms: u32) {
+        match self {
+            FfiSurface::Hud(h) => h.fade_in(duration_ms),
+            FfiSurface::Panel(p) => p.fade_in(duration_ms),
+            FfiSurface::Pip(p) => p.fade_in(duration_ms),
+        }
+    }
+
+    fn fade_out(&self, duration_ms: u32) {
+        match self {
+            FfiSurface::Hud(h) => h.fade_out(duration_ms),
+            FfiSurface::Panel(p) => p.fade_out(duration_ms),
+            FfiSurface::Pip(p) => p.fade_out(duration_ms),
+        }
+    }
 }
 
 pub struct WinpaneContext {
@@ -1523,4 +1539,32 @@ pub extern "C" fn winpane_backdrop_supported() -> i32 {
     } else {
         0
     }
+}
+
+// ============================================================
+// Fade animations
+// ============================================================
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_surface_fade_in(
+    surface: *mut WinpaneSurface,
+    duration_ms: u32,
+) -> i32 {
+    ffi_try!({
+        require_non_null(surface, "surface")?;
+        unsafe { &*surface }.inner.fade_in(duration_ms);
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn winpane_surface_fade_out(
+    surface: *mut WinpaneSurface,
+    duration_ms: u32,
+) -> i32 {
+    ffi_try!({
+        require_non_null(surface, "surface")?;
+        unsafe { &*surface }.inner.fade_out(duration_ms);
+        Ok(())
+    })
 }

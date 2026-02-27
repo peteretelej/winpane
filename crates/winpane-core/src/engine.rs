@@ -20,8 +20,8 @@ use crate::types::{
 };
 use crate::window::{
     create_control_window, create_hud_window, create_panel_window, ensure_classes_registered,
-    get_dpi_scale, try_set_dpi_awareness, DpiChangeEvent, SendHwnd, PENDING_DPI_CHANGES,
-    PENDING_TRAY_EVENTS,
+    get_dpi_scale, try_set_dpi_awareness, DpiChangeEvent, FadeCompleteEvent, SendHwnd,
+    PENDING_DPI_CHANGES, PENDING_FADE_COMPLETIONS, PENDING_TRAY_EVENTS,
 };
 
 use windows::Win32::Graphics::Dwm::{
@@ -63,6 +63,8 @@ pub(crate) struct Surface {
     pub scene: SceneGraph,
     pub visible: bool,
     pub kind: SurfaceKind,
+    pub opacity: f32,
+    pub fading_out: bool,
 }
 
 // --- EngineHandle (returned to winpane crate) ---
@@ -197,6 +199,9 @@ unsafe fn engine_thread_main(
         // Process window monitor events (PiP source close, anchor position updates)
         process_monitor_events(&mut surfaces, &mut anchor_states, &mut monitor, &event_tx);
 
+        // Process fade completion events
+        process_fade_completions(&mut surfaces);
+
         // Drain command queue (non-blocking)
         while let Ok(cmd) = cmd_rx.try_recv() {
             match cmd {
@@ -276,6 +281,11 @@ unsafe fn engine_thread_main(
                 }
                 Command::Show(id) => {
                     if let Some(s) = surfaces.get_mut(&id) {
+                        if s.fading_out {
+                            let _ = s.renderer.set_opacity(1.0);
+                            s.opacity = 1.0;
+                            s.fading_out = false;
+                        }
                         let _ = ShowWindow(s.renderer.hwnd, SW_SHOWNOACTIVATE);
                         s.visible = true;
                         s.scene.set_dirty();
@@ -330,6 +340,7 @@ unsafe fn engine_thread_main(
                                 let _ = s.renderer.set_opacity(clamped);
                             }
                         }
+                        s.opacity = clamped;
                     }
                 }
                 Command::DestroySurface(id) => {
@@ -471,6 +482,34 @@ unsafe fn engine_thread_main(
                         crate::window::set_window_backdrop(s.renderer.hwnd, backdrop);
                     }
                 }
+                Command::FadeIn {
+                    surface,
+                    duration_ms,
+                } => {
+                    if let Some(s) = surfaces.get_mut(&surface) {
+                        if !s.visible {
+                            let _ = ShowWindow(s.renderer.hwnd, SW_SHOWNOACTIVATE);
+                            s.visible = true;
+                            s.scene.set_dirty();
+                        }
+                        let _ = s.renderer.animate_opacity(0.0, 1.0, duration_ms);
+                        s.fading_out = false;
+                        s.opacity = 1.0;
+                    }
+                }
+                Command::FadeOut {
+                    surface,
+                    duration_ms,
+                } => {
+                    if let Some(s) = surfaces.get_mut(&surface) {
+                        if s.visible {
+                            let _ = s.renderer.animate_opacity(s.opacity, 0.0, duration_ms);
+                            s.fading_out = true;
+                            let _ =
+                                SetTimer(s.renderer.hwnd, surface.0 as usize, duration_ms, None);
+                        }
+                    }
+                }
             }
         }
 
@@ -562,6 +601,23 @@ fn process_dpi_changes(gpu: &GpuResources, surfaces: &mut HashMap<SurfaceId, Sur
                         state.hit_test_map.rebuild(&surface.scene, new_scale);
                     }
 
+                    break;
+                }
+            }
+        }
+    });
+}
+
+// --- Fade completion processing ---
+
+unsafe fn process_fade_completions(surfaces: &mut HashMap<SurfaceId, Surface>) {
+    PENDING_FADE_COMPLETIONS.with(|completions| {
+        for event in completions.borrow_mut().drain(..) {
+            for surface in surfaces.values_mut() {
+                if surface.renderer.hwnd == event.hwnd {
+                    surface.visible = false;
+                    surface.opacity = 0.0;
+                    let _ = ShowWindow(surface.renderer.hwnd, SW_HIDE);
                     break;
                 }
             }
@@ -912,6 +968,8 @@ unsafe fn create_hud_surface(
             scene: SceneGraph::new(),
             visible: false,
             kind: SurfaceKind::Hud,
+            opacity: 1.0,
+            fading_out: false,
         },
     );
 
@@ -975,6 +1033,8 @@ unsafe fn create_panel_surface(
             scene: SceneGraph::new(),
             visible: false,
             kind: SurfaceKind::Panel(panel_state),
+            opacity: 1.0,
+            fading_out: false,
         },
     );
 
@@ -1066,6 +1126,8 @@ unsafe fn create_pip_surface(
             scene: SceneGraph::new(),
             visible: false,
             kind: SurfaceKind::Pip(pip_state),
+            opacity: 1.0,
+            fading_out: false,
         },
     );
 

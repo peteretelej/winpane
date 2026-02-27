@@ -252,6 +252,22 @@ impl SurfaceHandle {
         }
     }
 
+    fn fade_in(&self, duration_ms: u32) {
+        match self {
+            SurfaceHandle::Hud(h) => h.fade_in(duration_ms),
+            SurfaceHandle::Panel(p) => p.fade_in(duration_ms),
+            SurfaceHandle::Pip(p) => p.fade_in(duration_ms),
+        }
+    }
+
+    fn fade_out(&self, duration_ms: u32) {
+        match self {
+            SurfaceHandle::Hud(h) => h.fade_out(duration_ms),
+            SurfaceHandle::Panel(p) => p.fade_out(duration_ms),
+            SurfaceHandle::Pip(p) => p.fade_out(duration_ms),
+        }
+    }
+
     fn set_source_region(&self, rect: SourceRect) -> Result<()> {
         match self {
             SurfaceHandle::Pip(p) => {
@@ -604,6 +620,20 @@ impl WinPane {
     pub fn set_opacity(&self, surface_id: u32, opacity: f64) -> Result<()> {
         let surface = self.get_surface(surface_id)?;
         surface.set_opacity(opacity as f32);
+        Ok(())
+    }
+
+    #[napi]
+    pub fn fade_in(&self, surface_id: u32, duration_ms: u32) -> Result<()> {
+        let surface = self.get_surface(surface_id)?;
+        surface.fade_in(duration_ms);
+        Ok(())
+    }
+
+    #[napi]
+    pub fn fade_out(&self, surface_id: u32, duration_ms: u32) -> Result<()> {
+        let surface = self.get_surface(surface_id)?;
+        surface.fade_out(duration_ms);
         Ok(())
     }
 

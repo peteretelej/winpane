@@ -168,6 +168,22 @@ impl SurfaceHandle {
         }
     }
 
+    fn fade_in(&self, duration_ms: u32) {
+        match self {
+            SurfaceHandle::Hud(h) => h.fade_in(duration_ms),
+            SurfaceHandle::Panel(p) => p.fade_in(duration_ms),
+            SurfaceHandle::Pip(p) => p.fade_in(duration_ms),
+        }
+    }
+
+    fn fade_out(&self, duration_ms: u32) {
+        match self {
+            SurfaceHandle::Hud(h) => h.fade_out(duration_ms),
+            SurfaceHandle::Panel(p) => p.fade_out(duration_ms),
+            SurfaceHandle::Pip(p) => p.fade_out(duration_ms),
+        }
+    }
+
     fn set_source_region(&self, rect: SourceRect) -> Result<(), (i32, String)> {
         match self {
             SurfaceHandle::Pip(p) => {
@@ -368,6 +384,10 @@ impl Dispatcher {
             "set_tray_icon" => self.set_tray_icon(params),
             "set_popup" => self.set_popup(params),
             "set_menu" => self.set_menu(params),
+
+            // Fade animations
+            "fade_in" => self.fade_in(params),
+            "fade_out" => self.fade_out(params),
 
             // Backdrop
             "set_backdrop" => self.set_backdrop(params),
@@ -632,6 +652,30 @@ impl Dispatcher {
             .get(surface_id)
             .ok_or_else(|| (INVALID_PARAMS, format!("unknown surface_id: {surface_id}")))?;
         surface.set_capture_excluded(get_bool(params, "excluded")?);
+        Ok(serde_json::json!({}))
+    }
+
+    // -- Fade animations ----------------------------------------------------
+
+    fn fade_in(&self, params: &Value) -> Result<Value, (i32, String)> {
+        let surface_id = get_str(params, "surface_id")?;
+        let surface = self
+            .surfaces
+            .get(surface_id)
+            .ok_or_else(|| (INVALID_PARAMS, format!("unknown surface_id: {surface_id}")))?;
+        let duration_ms = get_u32(params, "duration_ms")?;
+        surface.fade_in(duration_ms);
+        Ok(serde_json::json!({}))
+    }
+
+    fn fade_out(&self, params: &Value) -> Result<Value, (i32, String)> {
+        let surface_id = get_str(params, "surface_id")?;
+        let surface = self
+            .surfaces
+            .get(surface_id)
+            .ok_or_else(|| (INVALID_PARAMS, format!("unknown surface_id: {surface_id}")))?;
+        let duration_ms = get_u32(params, "duration_ms")?;
+        surface.fade_out(duration_ms);
         Ok(serde_json::json!({}))
     }
 

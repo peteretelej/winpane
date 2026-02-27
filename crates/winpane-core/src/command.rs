@@ -106,6 +106,14 @@ pub enum Command {
         surface: SurfaceId,
         backdrop: Backdrop,
     },
+    FadeIn {
+        surface: SurfaceId,
+        duration_ms: u32,
+    },
+    FadeOut {
+        surface: SurfaceId,
+        duration_ms: u32,
+    },
 }
 
 pub type CommandSender = mpsc::Sender<Command>;

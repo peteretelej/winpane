@@ -225,6 +225,20 @@ impl Hud {
         });
     }
 
+    pub fn fade_in(&self, duration_ms: u32) {
+        self.send(Command::FadeIn {
+            surface: self.id,
+            duration_ms,
+        });
+    }
+
+    pub fn fade_out(&self, duration_ms: u32) {
+        self.send(Command::FadeOut {
+            surface: self.id,
+            duration_ms,
+        });
+    }
+
     fn send(&self, cmd: Command) {
         let _ = self.sender.send(cmd);
         wake_engine(self.control_hwnd);
@@ -351,6 +365,20 @@ impl Panel {
         });
     }
 
+    pub fn fade_in(&self, duration_ms: u32) {
+        self.send(Command::FadeIn {
+            surface: self.id,
+            duration_ms,
+        });
+    }
+
+    pub fn fade_out(&self, duration_ms: u32) {
+        self.send(Command::FadeOut {
+            surface: self.id,
+            duration_ms,
+        });
+    }
+
     fn send(&self, cmd: Command) {
         let _ = self.sender.send(cmd);
         wake_engine(self.control_hwnd);
@@ -444,6 +472,20 @@ impl Pip {
         self.send(Command::SetBackdrop {
             surface: self.id,
             backdrop,
+        });
+    }
+
+    pub fn fade_in(&self, duration_ms: u32) {
+        self.send(Command::FadeIn {
+            surface: self.id,
+            duration_ms,
+        });
+    }
+
+    pub fn fade_out(&self, duration_ms: u32) {
+        self.send(Command::FadeOut {
+            surface: self.id,
+            duration_ms,
         });
     }
 
