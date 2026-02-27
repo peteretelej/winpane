@@ -107,7 +107,7 @@ function layoutTicker(wp: InstanceType<typeof WinPane>, hud: number, quotes: Sto
     x += 45;
 
     wp.setText(hud, `price_${i}`, {
-      text: `$${q.price.toFixed(2)}`,
+      text: q.price.toFixed(2),
       x, y: 6,
       fontSize: 14,
       fontFamily: "Consolas",
@@ -120,6 +120,7 @@ function layoutTicker(wp: InstanceType<typeof WinPane>, hud: number, quotes: Sto
       text: directionArrow(q.changePct),
       x, y: 6,
       fontSize: 14,
+      fontFamily: "Consolas",
       color,
     });
     x += 18;
