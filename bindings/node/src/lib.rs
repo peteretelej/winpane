@@ -845,6 +845,13 @@ impl WinPane {
                 button: None,
                 item_id: None,
             },
+            winpane::Event::DeviceRecovered => WinPaneEvent {
+                event_type: "device_recovered".to_string(),
+                surface_id: None,
+                key: None,
+                button: None,
+                item_id: None,
+            },
         }
     }
 }

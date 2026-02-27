@@ -898,6 +898,9 @@ pub fn event_to_json(event: &Event, id_map: &HashMap<u64, String>) -> Value {
                 "surface_id": sid,
             })
         }
+        Event::DeviceRecovered => {
+            serde_json::json!({"type": "device_recovered"})
+        }
     }
 }
 

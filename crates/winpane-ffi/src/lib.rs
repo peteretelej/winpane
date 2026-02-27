@@ -469,6 +469,7 @@ pub enum WinpaneEventType {
     TrayMenuItemClicked = 5,
     PipSourceClosed = 6,
     AnchorTargetClosed = 7,
+    DeviceRecovered = 8,
 }
 
 #[repr(C)]
@@ -532,6 +533,9 @@ impl WinpaneEvent {
             winpane::Event::AnchorTargetClosed { surface_id } => {
                 e.event_type = WinpaneEventType::AnchorTargetClosed;
                 e.surface_id = surface_id.0;
+            }
+            winpane::Event::DeviceRecovered => {
+                e.event_type = WinpaneEventType::DeviceRecovered;
             }
         }
         e

@@ -293,6 +293,7 @@ pub enum Event {
     TrayMenuItemClicked { id: u32 },
     PipSourceClosed { surface_id: SurfaceId },
     AnchorTargetClosed { surface_id: SurfaceId },
+    DeviceRecovered,
 }
 
 // --- MouseButton ---

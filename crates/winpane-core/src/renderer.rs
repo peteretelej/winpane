@@ -11,6 +11,19 @@ use crate::scene::{Element, SceneGraph};
 use crate::types::{DrawOp, Error, ImageElement, RectElement, TextElement};
 use crate::window::get_dpi_scale;
 
+// --- Render error (internal) ---
+
+#[derive(Debug)]
+pub(crate) enum RenderError {
+    DeviceLost,
+    Other(String),
+}
+
+/// Check an HRESULT for device loss codes.
+fn is_device_lost(e: &windows::core::Error) -> bool {
+    e.code() == DXGI_ERROR_DEVICE_REMOVED || e.code() == DXGI_ERROR_DEVICE_RESET
+}
+
 // --- Shared GPU resources ---
 
 /// Shared GPU resources used across all surfaces.
@@ -198,7 +211,94 @@ impl SurfaceRenderer {
         })
     }
 
-    pub unsafe fn render(&self, scene: &SceneGraph, gpu: &GpuResources) -> Result<(), Error> {
+    /// Recreate all device-dependent resources after GPU device loss.
+    /// Replaces COM objects in-place (old pointers are released on overwrite).
+    pub unsafe fn create_device_resources(&mut self, gpu: &GpuResources) -> Result<(), Error> {
+        let phys_w = (self.width as f32 * self.dpi_scale) as u32;
+        let phys_h = (self.height as f32 * self.dpi_scale) as u32;
+
+        // New swap chain
+        let adapter = gpu
+            .dxgi_device
+            .GetAdapter()
+            .map_err(|e| Error::SwapChainCreation(format!("GetAdapter: {e}")))?;
+        let factory: IDXGIFactory2 = adapter
+            .GetParent()
+            .map_err(|e| Error::SwapChainCreation(format!("GetParent: {e}")))?;
+
+        let desc = DXGI_SWAP_CHAIN_DESC1 {
+            Width: phys_w,
+            Height: phys_h,
+            Format: DXGI_FORMAT_B8G8R8A8_UNORM,
+            SampleDesc: DXGI_SAMPLE_DESC {
+                Count: 1,
+                Quality: 0,
+            },
+            BufferUsage: DXGI_USAGE_RENDER_TARGET_OUTPUT,
+            BufferCount: 2,
+            SwapEffect: DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL,
+            AlphaMode: DXGI_ALPHA_MODE_PREMULTIPLIED,
+            ..Default::default()
+        };
+
+        self.swapchain = factory
+            .CreateSwapChainForComposition(&gpu.d3d_device, &desc, None)
+            .map_err(|e| Error::SwapChainCreation(format!("CreateSwapChainForComposition: {e}")))?;
+
+        // New DirectComposition chain
+        self.dcomp_device = DCompositionCreateDevice(&gpu.dxgi_device)
+            .map_err(|e| Error::DeviceCreation(format!("DComposition device: {e}")))?;
+        self.dcomp_target = self
+            .dcomp_device
+            .CreateTargetForHwnd(self.hwnd, true)
+            .map_err(|e| Error::DeviceCreation(format!("DComposition target: {e}")))?;
+        self.dcomp_visual = self
+            .dcomp_device
+            .CreateVisual()
+            .map_err(|e| Error::DeviceCreation(format!("DComposition visual: {e}")))?;
+        self.dcomp_visual
+            .SetContent(&self.swapchain)
+            .map_err(|e| Error::DeviceCreation(format!("SetContent: {e}")))?;
+        self.dcomp_target
+            .SetRoot(&self.dcomp_visual)
+            .map_err(|e| Error::DeviceCreation(format!("SetRoot: {e}")))?;
+
+        // New D2D device context + bitmap target
+        self.dc = gpu
+            .d2d_device
+            .CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_NONE)
+            .map_err(|e| Error::DeviceCreation(format!("D2D device context: {e}")))?;
+
+        let surface: IDXGISurface = self
+            .swapchain
+            .GetBuffer(0)
+            .map_err(|e| Error::SwapChainCreation(format!("GetBuffer: {e}")))?;
+
+        let bitmap_props = D2D1_BITMAP_PROPERTIES1 {
+            pixelFormat: D2D1_PIXEL_FORMAT {
+                format: DXGI_FORMAT_B8G8R8A8_UNORM,
+                alphaMode: D2D1_ALPHA_MODE_PREMULTIPLIED,
+            },
+            dpiX: 96.0 * self.dpi_scale,
+            dpiY: 96.0 * self.dpi_scale,
+            bitmapOptions: D2D1_BITMAP_OPTIONS_TARGET | D2D1_BITMAP_OPTIONS_CANNOT_DRAW,
+            ..Default::default()
+        };
+
+        let bitmap = self
+            .dc
+            .CreateBitmapFromDxgiSurface(&surface, Some(&bitmap_props))
+            .map_err(|e| Error::SwapChainCreation(format!("CreateBitmapFromDxgiSurface: {e}")))?;
+        self.dc.SetTarget(&bitmap);
+
+        self.dcomp_device
+            .Commit()
+            .map_err(|e| Error::DeviceCreation(format!("DComposition commit: {e}")))?;
+
+        Ok(())
+    }
+
+    pub unsafe fn render(&self, scene: &SceneGraph, gpu: &GpuResources) -> Result<(), RenderError> {
         let scale = self.dpi_scale;
         let phys_w = self.width as f32 * scale;
         let phys_h = self.height as f32 * scale;
@@ -210,7 +310,7 @@ impl SurfaceRenderer {
         let surface: IDXGISurface = self
             .swapchain
             .GetBuffer(0)
-            .map_err(|e| Error::RenderError(format!("GetBuffer: {e}")))?;
+            .map_err(|e| RenderError::Other(format!("GetBuffer: {e}")))?;
 
         let bitmap_props = D2D1_BITMAP_PROPERTIES1 {
             pixelFormat: D2D1_PIXEL_FORMAT {
@@ -226,7 +326,7 @@ impl SurfaceRenderer {
         let bitmap = self
             .dc
             .CreateBitmapFromDxgiSurface(&surface, Some(&bitmap_props))
-            .map_err(|e| Error::RenderError(format!("CreateBitmapFromDxgiSurface: {e}")))?;
+            .map_err(|e| RenderError::Other(format!("CreateBitmapFromDxgiSurface: {e}")))?;
         self.dc.SetTarget(&bitmap);
 
         // Draw
@@ -240,24 +340,37 @@ impl SurfaceRenderer {
 
         for (_key, element) in scene.iter() {
             match element {
-                Element::Rect(elem) => self.render_rect(elem, scale)?,
-                Element::Text(elem) => self.render_text(elem, gpu, scale, phys_w, phys_h)?,
-                Element::Image(elem) => self.render_image(elem, scale)?,
+                Element::Rect(elem) => self
+                    .render_rect(elem, scale)
+                    .map_err(|e| RenderError::Other(e.to_string()))?,
+                Element::Text(elem) => self
+                    .render_text(elem, gpu, scale, phys_w, phys_h)
+                    .map_err(|e| RenderError::Other(e.to_string()))?,
+                Element::Image(elem) => self
+                    .render_image(elem, scale)
+                    .map_err(|e| RenderError::Other(e.to_string()))?,
             }
         }
 
-        self.dc
-            .EndDraw(None, None)
-            .map_err(|e| Error::RenderError(format!("EndDraw: {e}")))?;
+        let end_result = self.dc.EndDraw(None, None);
+        if let Err(ref e) = end_result {
+            if is_device_lost(e) {
+                return Err(RenderError::DeviceLost);
+            }
+        }
+        end_result.map_err(|e| RenderError::Other(format!("EndDraw: {e}")))?;
 
-        self.swapchain
-            .Present(1, DXGI_PRESENT(0))
-            .ok()
-            .map_err(|e| Error::RenderError(format!("Present: {e}")))?;
+        let present_result = self.swapchain.Present(1, DXGI_PRESENT(0)).ok();
+        if let Err(ref e) = present_result {
+            if is_device_lost(e) {
+                return Err(RenderError::DeviceLost);
+            }
+        }
+        present_result.map_err(|e| RenderError::Other(format!("Present: {e}")))?;
 
         self.dcomp_device
             .Commit()
-            .map_err(|e| Error::RenderError(format!("DComposition commit: {e}")))?;
+            .map_err(|e| RenderError::Other(format!("DComposition commit: {e}")))?;
 
         Ok(())
     }
@@ -497,7 +610,7 @@ impl SurfaceRenderer {
         scene: &SceneGraph,
         gpu: &GpuResources,
         ops: &[DrawOp],
-    ) -> Result<(), Error> {
+    ) -> Result<(), RenderError> {
         let scale = self.dpi_scale;
         let phys_w = self.width as f32 * scale;
         let phys_h = self.height as f32 * scale;
@@ -509,7 +622,7 @@ impl SurfaceRenderer {
         let surface: IDXGISurface = self
             .swapchain
             .GetBuffer(0)
-            .map_err(|e| Error::RenderError(format!("GetBuffer: {e}")))?;
+            .map_err(|e| RenderError::Other(format!("GetBuffer: {e}")))?;
 
         let bitmap_props = D2D1_BITMAP_PROPERTIES1 {
             pixelFormat: D2D1_PIXEL_FORMAT {
@@ -525,7 +638,7 @@ impl SurfaceRenderer {
         let bitmap = self
             .dc
             .CreateBitmapFromDxgiSurface(&surface, Some(&bitmap_props))
-            .map_err(|e| Error::RenderError(format!("CreateBitmapFromDxgiSurface: {e}")))?;
+            .map_err(|e| RenderError::Other(format!("CreateBitmapFromDxgiSurface: {e}")))?;
         self.dc.SetTarget(&bitmap);
 
         // Begin drawing
@@ -540,29 +653,43 @@ impl SurfaceRenderer {
         // Render retained-mode scene graph first (base layer)
         for (_key, element) in scene.iter() {
             match element {
-                Element::Rect(elem) => self.render_rect(elem, scale)?,
-                Element::Text(elem) => self.render_text(elem, gpu, scale, phys_w, phys_h)?,
-                Element::Image(elem) => self.render_image(elem, scale)?,
+                Element::Rect(elem) => self
+                    .render_rect(elem, scale)
+                    .map_err(|e| RenderError::Other(e.to_string()))?,
+                Element::Text(elem) => self
+                    .render_text(elem, gpu, scale, phys_w, phys_h)
+                    .map_err(|e| RenderError::Other(e.to_string()))?,
+                Element::Image(elem) => self
+                    .render_image(elem, scale)
+                    .map_err(|e| RenderError::Other(e.to_string()))?,
             }
         }
 
         // Execute custom draw ops on top
         for op in ops {
-            self.execute_single_draw_op(op, gpu, scale, phys_w, phys_h)?;
+            self.execute_single_draw_op(op, gpu, scale, phys_w, phys_h)
+                .map_err(|e| RenderError::Other(e.to_string()))?;
         }
 
-        self.dc
-            .EndDraw(None, None)
-            .map_err(|e| Error::RenderError(format!("EndDraw: {e}")))?;
+        let end_result = self.dc.EndDraw(None, None);
+        if let Err(ref e) = end_result {
+            if is_device_lost(e) {
+                return Err(RenderError::DeviceLost);
+            }
+        }
+        end_result.map_err(|e| RenderError::Other(format!("EndDraw: {e}")))?;
 
-        self.swapchain
-            .Present(1, DXGI_PRESENT(0))
-            .ok()
-            .map_err(|e| Error::RenderError(format!("Present: {e}")))?;
+        let present_result = self.swapchain.Present(1, DXGI_PRESENT(0)).ok();
+        if let Err(ref e) = present_result {
+            if is_device_lost(e) {
+                return Err(RenderError::DeviceLost);
+            }
+        }
+        present_result.map_err(|e| RenderError::Other(format!("Present: {e}")))?;
 
         self.dcomp_device
             .Commit()
-            .map_err(|e| Error::RenderError(format!("DComposition commit: {e}")))?;
+            .map_err(|e| RenderError::Other(format!("DComposition commit: {e}")))?;
 
         Ok(())
     }

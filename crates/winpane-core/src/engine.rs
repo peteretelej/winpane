@@ -8,7 +8,7 @@ use windows::Win32::UI::WindowsAndMessaging::*;
 use crate::command::{Command, CommandReceiver, CommandSender};
 use crate::input::{HitTestMap, PanelState};
 use crate::monitor::{MonitorEvent, Watch, WatchReason, WindowMonitor, PENDING_MONITOR_EVENTS};
-use crate::renderer::{GpuResources, SurfaceRenderer};
+use crate::renderer::{GpuResources, RenderError, SurfaceRenderer};
 use crate::scene::SceneGraph;
 use crate::tray::{
     create_hicon_from_rgba, create_tray_icon, destroy_tray_icon, show_tray_context_menu,
@@ -145,7 +145,7 @@ unsafe fn engine_thread_main(
     ensure_classes_registered();
 
     // 4. GPU resources
-    let gpu = match GpuResources::new() {
+    let mut gpu = match GpuResources::new() {
         Ok(gpu) => gpu,
         Err(e) => {
             let _ = ready_tx.send(Err(e));
@@ -393,7 +393,15 @@ unsafe fn engine_thread_main(
                         if matches!(s.kind, SurfaceKind::Pip(_)) {
                             continue;
                         }
-                        let _ = s.renderer.execute_draw_ops(&s.scene, &gpu, &ops);
+                        match s.renderer.execute_draw_ops(&s.scene, &gpu, &ops) {
+                            Err(RenderError::DeviceLost) => {
+                                recover_device(&mut gpu, &mut surfaces, &event_tx);
+                            }
+                            Err(RenderError::Other(msg)) => {
+                                eprintln!("[winpane] custom draw error: {msg}");
+                            }
+                            Ok(()) => {}
+                        }
                     }
                 }
 
@@ -467,15 +475,67 @@ unsafe fn engine_thread_main(
         }
 
         // Render dirty visible surfaces
+        let mut device_lost = false;
         for surface in surfaces.values_mut() {
             if surface.visible && surface.scene.take_dirty() {
                 // DWM handles PiP rendering
                 if matches!(surface.kind, SurfaceKind::Pip(_)) {
                     continue;
                 }
-                let _ = surface.renderer.render(&surface.scene, &gpu);
+                match surface.renderer.render(&surface.scene, &gpu) {
+                    Err(RenderError::DeviceLost) => {
+                        device_lost = true;
+                        break;
+                    }
+                    Err(RenderError::Other(msg)) => {
+                        eprintln!("[winpane] render error: {msg}");
+                    }
+                    Ok(()) => {}
+                }
             }
         }
+
+        if device_lost {
+            recover_device(&mut gpu, &mut surfaces, &event_tx);
+        }
+    }
+}
+
+/// Attempt GPU device recovery after device loss.
+/// Recreates GpuResources and all per-surface device-dependent resources,
+/// then sends a DeviceRecovered event.
+unsafe fn recover_device(
+    gpu: &mut GpuResources,
+    surfaces: &mut HashMap<SurfaceId, Surface>,
+    event_tx: &mpsc::Sender<Event>,
+) {
+    // Log the reason for device removal
+    let reason = gpu.d3d_device.GetDeviceRemovedReason();
+    eprintln!("[winpane] device lost, removed reason: {reason:?}");
+
+    // Recreate GPU resources
+    let new_gpu = match GpuResources::new() {
+        Ok(g) => g,
+        Err(e) => {
+            eprintln!("[winpane] device recovery failed: {e}");
+            return;
+        }
+    };
+    *gpu = new_gpu;
+
+    // Recreate per-surface device resources
+    let mut all_ok = true;
+    for surface in surfaces.values_mut() {
+        if let Err(e) = surface.renderer.create_device_resources(gpu) {
+            eprintln!("[winpane] surface recovery failed: {e}");
+            all_ok = false;
+        } else {
+            surface.scene.set_dirty();
+        }
+    }
+
+    if all_ok {
+        let _ = event_tx.send(Event::DeviceRecovered);
     }
 }
 
