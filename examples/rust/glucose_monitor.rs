@@ -1,0 +1,261 @@
+//! Demo: CGM glucose monitor overlay
+//!
+//! Displays a live continuous glucose monitor (CGM) reading as a compact HUD.
+//! Connects to a Nightscout instance when NIGHTSCOUT_URL is set (optionally
+//! with NIGHTSCOUT_TOKEN), otherwise runs in simulated mode with random-walk
+//! glucose values.
+//!
+//! Demonstrates: Hud creation, dynamic background color, text elements,
+//! timed polling, environment-driven configuration, design system tokens.
+//!
+//! Run on Windows: cargo run -p winpane --example glucose_monitor
+//!
+//! Environment variables (optional):
+//!   NIGHTSCOUT_URL   — base URL of your Nightscout site (e.g. https://my.ns.site)
+//!   NIGHTSCOUT_TOKEN — API token for authenticated access
+
+// ── winpane design tokens ──────────────────────────────────────
+// Surface base:   rgb(18, 18, 22)  Glass: a=228  Solid: a=255  Muted: a=242
+// Elevated:       rgb(28, 28, 33)  Interactive:  rgba(38, 38, 44, 255)
+// Border:         rgba(255,255,255, 18)     Hover:       rgba(48, 48, 56, 255)
+// Text primary:   rgba(232, 232, 237, 255)  Secondary:   rgba(148, 148, 160, 255)
+// Accent:         rgba(82, 139, 255, 255)   Accent hover:rgba(110, 160, 255, 255)
+// Success:        rgba(52, 211, 153, 255)   Warning:     rgba(251, 191, 36, 255)
+// Danger:         rgba(239, 68, 68, 255)    Radius: 10/6 px
+// ────────────────────────────────────────────────────────────────
+
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+use std::thread;
+use std::time::{Duration, Instant};
+
+use winpane::{Color, Context, HudConfig, RectElement, TextElement};
+
+/// A single glucose reading with value, trend direction, and fetch timestamp.
+struct GlucoseReading {
+    sgv: u32,
+    direction: String,
+    timestamp: Instant,
+}
+
+/// Returns a background color based on the glucose range.
+///
+/// - 70–180 (normal): green-tinted dark
+/// - 181–250 (high): amber-tinted dark
+/// - <70 or >250 (urgent): red-tinted dark
+fn bg_color_for_sgv(sgv: u32) -> Color {
+    match sgv {
+        70..=180 => Color::rgba(18, 40, 30, 228),
+        181..=250 => Color::rgba(40, 36, 18, 228),
+        _ => Color::rgba(40, 18, 18, 228),
+    }
+}
+
+/// Maps a Nightscout trend direction string to a Unicode arrow.
+fn direction_to_arrow(direction: &str) -> &str {
+    match direction {
+        "DoubleUp" => "⇈",
+        "SingleUp" => "↑",
+        "FortyFiveUp" => "↗",
+        "Flat" => "→",
+        "FortyFiveDown" => "↘",
+        "SingleDown" => "↓",
+        "DoubleDown" => "⇊",
+        _ => "?",
+    }
+}
+
+/// Formats elapsed time since the reading and picks an appropriate text color.
+///
+/// NOTE: staleness is measured from the last *fetch* time, not the CGM sensor
+/// reading timestamp. A production app should use the CGM `dateString` field.
+fn staleness_text(elapsed: Duration) -> (String, Color) {
+    let secs = elapsed.as_secs();
+    let color = if secs > 15 * 60 {
+        // Stale: >15 minutes
+        Color::rgba(239, 68, 68, 255)
+    } else {
+        Color::rgba(148, 148, 160, 204)
+    };
+
+    let text = if secs < 60 {
+        "just now".to_string()
+    } else {
+        format!("{} min ago", secs / 60)
+    };
+
+    (text, color)
+}
+
+/// Fetches the latest glucose entry from a Nightscout server.
+fn fetch_nightscout(url: &str, token: Option<&str>) -> Option<GlucoseReading> {
+    let mut request_url = format!("{url}/api/v1/entries/current.json");
+    if let Some(t) = token {
+        request_url.push_str(&format!("?token={t}"));
+    }
+    let mut response = ureq::get(&request_url).call().ok()?;
+    let body = response.body_mut().read_to_string().ok()?;
+    let entries: serde_json::Value = serde_json::from_str(&body).ok()?;
+    let entry = entries.get(0)?;
+    let sgv = entry.get("sgv")?.as_u64()? as u32;
+    let direction = entry
+        .get("direction")?
+        .as_str()
+        .unwrap_or("NONE")
+        .to_string();
+    Some(GlucoseReading {
+        sgv,
+        direction,
+        timestamp: Instant::now(),
+    })
+}
+
+/// Produces a simulated glucose reading using a deterministic random walk.
+/// Uses `DefaultHasher` seeded with the current time for pseudo-randomness.
+fn simulate_reading(prev_sgv: u32) -> GlucoseReading {
+    let now = Instant::now();
+    let nanos = now.elapsed().as_nanos() ^ (prev_sgv as u128);
+    let mut hasher = DefaultHasher::new();
+    nanos.hash(&mut hasher);
+    let hash = hasher.finish();
+
+    // Random delta in -15..=15
+    let delta = (hash % 31) as i32 - 15;
+    let new_sgv = (prev_sgv as i32 + delta).clamp(40, 350) as u32;
+
+    let direction = match delta {
+        d if d > 10 => "SingleUp",
+        d if d > 5 => "FortyFiveUp",
+        d if d > -5 => "Flat",
+        d if d > -10 => "FortyFiveDown",
+        _ => "SingleDown",
+    }
+    .to_string();
+
+    GlucoseReading {
+        sgv: new_sgv,
+        direction,
+        timestamp: Instant::now(),
+    }
+}
+
+#[allow(clippy::print_stdout)]
+fn main() -> Result<(), winpane::Error> {
+    let ctx = Context::new()?;
+
+    let hud = ctx.create_hud(HudConfig {
+        x: 1760,
+        y: 930,
+        width: 140,
+        height: 65,
+    })?;
+
+    hud.set_capture_excluded(true);
+
+    // Initial glass background
+    hud.set_rect(
+        "bg",
+        RectElement {
+            x: 0.0,
+            y: 0.0,
+            width: 140.0,
+            height: 65.0,
+            fill: bg_color_for_sgv(120),
+            corner_radius: 10.0,
+            border_color: Some(Color::rgba(255, 255, 255, 18)),
+            border_width: 1.0,
+            interactive: false,
+        },
+    );
+
+    hud.show();
+
+    let nightscout_url = std::env::var("NIGHTSCOUT_URL").ok();
+    let nightscout_token = std::env::var("NIGHTSCOUT_TOKEN").ok();
+
+    let poll_interval = if nightscout_url.is_some() {
+        Duration::from_secs(5 * 60) // 5 minutes for live data
+    } else {
+        Duration::from_secs(30) // 30 seconds for simulation
+    };
+
+    if nightscout_url.is_some() {
+        println!("winpane glucose_monitor: polling Nightscout every 5 min.");
+    } else {
+        println!("winpane glucose_monitor: simulated mode (set NIGHTSCOUT_URL for live data).");
+    }
+    println!("Press Ctrl+C to exit.");
+
+    let mut last_poll = Instant::now() - poll_interval; // force immediate first poll
+    let mut current_reading = GlucoseReading {
+        sgv: 120,
+        direction: "Flat".to_string(),
+        timestamp: Instant::now(),
+    };
+
+    loop {
+        // Poll if interval has elapsed
+        if last_poll.elapsed() >= poll_interval {
+            if let Some(ref url) = nightscout_url {
+                if let Some(reading) = fetch_nightscout(url, nightscout_token.as_deref()) {
+                    current_reading = reading;
+                }
+            } else {
+                current_reading = simulate_reading(current_reading.sgv);
+            }
+            last_poll = Instant::now();
+        }
+
+        // Update background color based on glucose range
+        hud.set_rect(
+            "bg",
+            RectElement {
+                x: 0.0,
+                y: 0.0,
+                width: 140.0,
+                height: 65.0,
+                fill: bg_color_for_sgv(current_reading.sgv),
+                corner_radius: 10.0,
+                border_color: Some(Color::rgba(255, 255, 255, 18)),
+                border_width: 1.0,
+                interactive: false,
+            },
+        );
+
+        // Update reading text: "{sgv} {arrow}"
+        let arrow = direction_to_arrow(&current_reading.direction);
+        hud.set_text(
+            "reading",
+            TextElement {
+                text: format!("{} {}", current_reading.sgv, arrow),
+                x: 12.0,
+                y: 6.0,
+                font_size: 30.0,
+                color: Color::rgba(232, 232, 237, 255),
+                // NOTE: bold and font_family are stored in the scene graph
+                // but not honored by the D2D renderer yet. Set for forward
+                // compatibility.
+                bold: true,
+                font_family: Some("Consolas".to_string()),
+                ..Default::default()
+            },
+        );
+
+        // Update staleness text
+        let elapsed = current_reading.timestamp.elapsed();
+        let (stale_text, stale_color) = staleness_text(elapsed);
+        hud.set_text(
+            "staleness",
+            TextElement {
+                text: stale_text,
+                x: 12.0,
+                y: 42.0,
+                font_size: 12.0,
+                color: stale_color,
+                ..Default::default()
+            },
+        );
+
+        thread::sleep(Duration::from_secs(1));
+    }
+}
