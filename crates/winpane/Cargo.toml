@@ -63,3 +63,7 @@ path = "../../examples/rust/clock_overlay.rs"
 [[example]]
 name = "glucose_monitor"
 path = "../../examples/rust/glucose_monitor.rs"
+
+[[example]]
+name = "stock_ticker"
+path = "../../examples/rust/stock_ticker.rs"
