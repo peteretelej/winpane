@@ -845,8 +845,13 @@ unsafe fn apply_anchor_position(
         Anchor::BottomRight => (target_rect.right, target_rect.bottom),
     };
 
-    let x = base_x + state.offset.0;
-    let y = base_y + state.offset.1;
+    // Offset is stored in logical pixels (from the public API); GetWindowRect
+    // returns physical screen coordinates. Scale the offset to physical pixels
+    // using the surface's current DPI scale so anchoring is correct on
+    // non-100% DPI monitors and adapts automatically on DPI changes.
+    let dpi_scale = surface.renderer.dpi_scale;
+    let x = base_x + (state.offset.0 as f32 * dpi_scale) as i32;
+    let y = base_y + (state.offset.1 as f32 * dpi_scale) as i32;
 
     let _ = SetWindowPos(
         surface.renderer.hwnd,
