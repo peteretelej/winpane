@@ -11,6 +11,13 @@
  *
  * Requires: npm install winpane (or link to local build)
  */
+// ── winpane design tokens ──────────────────────────────────────
+// Surface base: #121216  Glass: +e4  Solid: +ff  Muted: +f2
+// Elevated:     #1c1c21  Interactive: #26262cff  Hover: #303038ff
+// Border:       #ffffff12  Text:      #e8e8edff   Muted: #9494a0ff
+// Accent:       #528bffff  Success:   #34d399ff   Warning: #fbbf24ff
+// Danger:       #ef4444ff  Radius: 10/6 px
+// ────────────────────────────────────────────────────────────────
 const { WinPane } = require('winpane');
 
 const wp = new WinPane();
@@ -19,7 +26,7 @@ const panel = wp.createPanel({ width: 400, height: 300, x: 200, y: 200 });
 wp.setBackdrop(panel, 'mica');
 wp.setText(panel, 'title', {
   text: 'Mica Backdrop from Node.js',
-  x: 20, y: 20, fontSize: 20, color: '#ffffff',
+  x: 20, y: 20, fontSize: 16, color: '#e8e8ed',
 });
 wp.show(panel);
 
@@ -29,7 +36,7 @@ setTimeout(() => {
   wp.setBackdrop(panel, 'acrylic');
   wp.setText(panel, 'title', {
     text: 'Switched to Acrylic',
-    x: 20, y: 20, fontSize: 20, color: '#ffffff',
+    x: 20, y: 20, fontSize: 16, color: '#e8e8ed',
   });
   console.log('Switched to Acrylic. Fading out in 3 seconds...');
 }, 3000);

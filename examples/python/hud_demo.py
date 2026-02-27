@@ -11,6 +11,13 @@ Note: This simple send/receive pattern works because HUDs are click-through
 presence of `id` (response) vs `method` (notification) to handle event
 interleaving.
 """
+# ── winpane design tokens ──────────────────────────────────────
+# Surface base: #121216  Glass: +e4  Solid: +ff  Muted: +f2
+# Elevated:     #1c1c21  Interactive: #26262cff  Hover: #303038ff
+# Border:       #ffffff12  Text:      #e8e8edff   Muted: #9494a0ff
+# Accent:       #528bffff  Success:   #34d399ff   Warning: #fbbf24ff
+# Danger:       #ef4444ff  Radius: 10/6 px
+# ────────────────────────────────────────────────────────────────
 import subprocess
 import json
 import time
@@ -56,8 +63,10 @@ def main():
             "surface_id": surface_id,
             "key": "bg",
             "x": 0, "y": 0, "width": 400, "height": 200,
-            "fill": "#1a1a2eee",
-            "corner_radius": 8,
+            "fill": "#121216e4",
+            "corner_radius": 10,
+            "border_color": "#ffffff12",
+            "border_width": 1,
         })
 
         # Add text
@@ -66,8 +75,8 @@ def main():
             "key": "title",
             "text": "Hello from Python!",
             "x": 20, "y": 20,
-            "font_size": 24,
-            "color": "#ffffff",
+            "font_size": 16,
+            "color": "#e8e8ed",
         })
 
         send("set_text", {
@@ -75,8 +84,8 @@ def main():
             "key": "subtitle",
             "text": "winpane JSON-RPC host demo",
             "x": 20, "y": 60,
-            "font_size": 14,
-            "color": "#888888",
+            "font_size": 13,
+            "color": "#9494a0",
         })
 
         # Show it
@@ -89,8 +98,8 @@ def main():
                 "key": "counter",
                 "text": f"Elapsed: {i * 0.1:.1f}s",
                 "x": 20, "y": 100,
-                "font_size": 16,
-                "color": "#00ff88",
+                "font_size": 14,
+                "color": "#34d399",
             })
             time.sleep(0.1)
 
