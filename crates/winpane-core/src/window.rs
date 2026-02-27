@@ -2,14 +2,14 @@ use std::cell::RefCell;
 use std::mem::size_of;
 
 use windows::{
-    core::*,
     Win32::Foundation::*,
     Win32::Graphics::Gdi::ScreenToClient,
     Win32::System::LibraryLoader::*,
     Win32::UI::Controls::WM_MOUSELEAVE,
     Win32::UI::HiDpi::*,
-    Win32::UI::Input::KeyboardAndMouse::{TrackMouseEvent, TME_LEAVE, TRACKMOUSEEVENT},
+    Win32::UI::Input::KeyboardAndMouse::{TME_LEAVE, TRACKMOUSEEVENT, TrackMouseEvent},
     Win32::UI::WindowsAndMessaging::*,
+    core::*,
 };
 
 use crate::input::PanelState;
@@ -431,11 +431,7 @@ pub(crate) unsafe fn get_dpi_scale(hwnd: HWND) -> f32 {
     // SAFETY: GetDpiForWindow with valid HWND from caller.
     unsafe {
         let dpi = GetDpiForWindow(hwnd);
-        if dpi == 0 {
-            1.0
-        } else {
-            dpi as f32 / 96.0
-        }
+        if dpi == 0 { 1.0 } else { dpi as f32 / 96.0 }
     }
 }
 

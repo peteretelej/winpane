@@ -25,7 +25,7 @@ fn set_last_error(msg: impl fmt::Display) {
 
 /// Returns the last error message, or NULL if no error.
 /// The returned pointer is valid until the next winpane call on the same thread.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn winpane_last_error() -> *const c_char {
     LAST_ERROR.with(|cell| {
         cell.borrow()
@@ -741,7 +741,7 @@ pub struct WinpaneCanvas {
 // Context lifecycle
 // ============================================================
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_create(out: *mut *mut WinpaneContext) -> i32 {
     ffi_try!({
         require_non_null_mut(out, "out")?;
@@ -753,7 +753,7 @@ pub unsafe extern "C" fn winpane_create(out: *mut *mut WinpaneContext) -> i32 {
     })
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_destroy(ctx: *mut WinpaneContext) {
     if !ctx.is_null() {
         // SAFETY: ctx was created by winpane_create via Box::into_raw
@@ -767,7 +767,7 @@ pub unsafe extern "C" fn winpane_destroy(ctx: *mut WinpaneContext) {
 
 /// Polls for the next event. Returns 0 if an event was available
 /// (event struct filled), 1 if no event pending, -1/-2 on error/panic.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_poll_event(
     ctx: *mut WinpaneContext,
     event: *mut WinpaneEvent,
@@ -807,7 +807,7 @@ pub unsafe extern "C" fn winpane_poll_event(
 // Surface creation
 // ============================================================
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_hud_create(
     ctx: *mut WinpaneContext,
     config: *const WinpaneHudConfig,
@@ -832,7 +832,7 @@ pub unsafe extern "C" fn winpane_hud_create(
     })
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_panel_create(
     ctx: *mut WinpaneContext,
     config: *const WinpanePanelConfig,
@@ -861,7 +861,7 @@ pub unsafe extern "C" fn winpane_panel_create(
 // Surface operations (unified for Hud and Panel)
 // ============================================================
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_surface_destroy(surface: *mut WinpaneSurface) {
     if !surface.is_null() {
         // SAFETY: surface was created by winpane_*_create via Box::into_raw
@@ -869,7 +869,7 @@ pub unsafe extern "C" fn winpane_surface_destroy(surface: *mut WinpaneSurface) {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_surface_id(surface: *const WinpaneSurface) -> u64 {
     if surface.is_null() {
         return 0;
@@ -878,7 +878,7 @@ pub unsafe extern "C" fn winpane_surface_id(surface: *const WinpaneSurface) -> u
     unsafe { &*surface }.inner.id().0
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_surface_set_text(
     surface: *mut WinpaneSurface,
     key: *const c_char,
@@ -899,7 +899,7 @@ pub unsafe extern "C" fn winpane_surface_set_text(
     })
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_surface_set_rect(
     surface: *mut WinpaneSurface,
     key: *const c_char,
@@ -920,7 +920,7 @@ pub unsafe extern "C" fn winpane_surface_set_rect(
     })
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_surface_set_image(
     surface: *mut WinpaneSurface,
     key: *const c_char,
@@ -941,7 +941,7 @@ pub unsafe extern "C" fn winpane_surface_set_image(
     })
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_surface_remove(
     surface: *mut WinpaneSurface,
     key: *const c_char,
@@ -958,7 +958,7 @@ pub unsafe extern "C" fn winpane_surface_remove(
     })
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_surface_show(surface: *mut WinpaneSurface) -> i32 {
     ffi_try!({
         require_non_null(surface, "surface")?;
@@ -968,7 +968,7 @@ pub unsafe extern "C" fn winpane_surface_show(surface: *mut WinpaneSurface) -> i
     })
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_surface_hide(surface: *mut WinpaneSurface) -> i32 {
     ffi_try!({
         require_non_null(surface, "surface")?;
@@ -978,7 +978,7 @@ pub unsafe extern "C" fn winpane_surface_hide(surface: *mut WinpaneSurface) -> i
     })
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_surface_set_position(
     surface: *mut WinpaneSurface,
     x: i32,
@@ -992,7 +992,7 @@ pub unsafe extern "C" fn winpane_surface_set_position(
     })
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_surface_set_size(
     surface: *mut WinpaneSurface,
     width: u32,
@@ -1006,7 +1006,7 @@ pub unsafe extern "C" fn winpane_surface_set_size(
     })
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_surface_set_opacity(
     surface: *mut WinpaneSurface,
     opacity: f32,
@@ -1023,7 +1023,7 @@ pub unsafe extern "C" fn winpane_surface_set_opacity(
 // Tray
 // ============================================================
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_tray_create(
     ctx: *mut WinpaneContext,
     config: *const WinpaneTrayConfig,
@@ -1045,7 +1045,7 @@ pub unsafe extern "C" fn winpane_tray_create(
     })
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_tray_destroy(tray: *mut WinpaneTray) {
     if !tray.is_null() {
         // SAFETY: tray was created by winpane_tray_create via Box::into_raw
@@ -1053,7 +1053,7 @@ pub unsafe extern "C" fn winpane_tray_destroy(tray: *mut WinpaneTray) {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_tray_set_tooltip(
     tray: *mut WinpaneTray,
     tooltip: *const c_char,
@@ -1070,7 +1070,7 @@ pub unsafe extern "C" fn winpane_tray_set_tooltip(
     })
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_tray_set_icon(
     tray: *mut WinpaneTray,
     rgba: *const u8,
@@ -1090,7 +1090,7 @@ pub unsafe extern "C" fn winpane_tray_set_icon(
     })
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_tray_set_popup(
     tray: *mut WinpaneTray,
     panel: *const WinpaneSurface,
@@ -1112,7 +1112,7 @@ pub unsafe extern "C" fn winpane_tray_set_popup(
     })
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_tray_set_menu(
     tray: *mut WinpaneTray,
     items: *const WinpaneMenuItem,
@@ -1149,7 +1149,7 @@ pub unsafe extern "C" fn winpane_tray_set_menu(
 
 /// Begins a custom draw session on the surface. Returns a canvas handle
 /// through `out`. Only one canvas can be active per surface at a time.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_surface_begin_draw(
     surface: *mut WinpaneSurface,
     out: *mut *mut WinpaneCanvas,
@@ -1174,7 +1174,7 @@ pub unsafe extern "C" fn winpane_surface_begin_draw(
 
 /// Ends the custom draw session, flushing all accumulated draw ops to the surface.
 /// The canvas handle is invalid after this call - do not use it.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_surface_end_draw(surface: *mut WinpaneSurface) -> i32 {
     ffi_try!({
         require_non_null(surface, "surface")?;
@@ -1192,7 +1192,7 @@ pub unsafe extern "C" fn winpane_surface_end_draw(surface: *mut WinpaneSurface) 
 // --- Canvas drawing functions ---
 // Each pushes a DrawOp to the accumulator.
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_canvas_clear(
     canvas: *mut WinpaneCanvas,
     color: WinpaneColor,
@@ -1206,7 +1206,7 @@ pub unsafe extern "C" fn winpane_canvas_clear(
     })
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_canvas_fill_rect(
     canvas: *mut WinpaneCanvas,
     x: f32,
@@ -1230,7 +1230,7 @@ pub unsafe extern "C" fn winpane_canvas_fill_rect(
     })
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_canvas_stroke_rect(
     canvas: *mut WinpaneCanvas,
     x: f32,
@@ -1256,7 +1256,7 @@ pub unsafe extern "C" fn winpane_canvas_stroke_rect(
     })
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_canvas_draw_text(
     canvas: *mut WinpaneCanvas,
     x: f32,
@@ -1282,7 +1282,7 @@ pub unsafe extern "C" fn winpane_canvas_draw_text(
     })
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_canvas_draw_line(
     canvas: *mut WinpaneCanvas,
     x1: f32,
@@ -1308,7 +1308,7 @@ pub unsafe extern "C" fn winpane_canvas_draw_line(
     })
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_canvas_fill_ellipse(
     canvas: *mut WinpaneCanvas,
     cx: f32,
@@ -1332,7 +1332,7 @@ pub unsafe extern "C" fn winpane_canvas_fill_ellipse(
     })
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_canvas_stroke_ellipse(
     canvas: *mut WinpaneCanvas,
     cx: f32,
@@ -1358,7 +1358,7 @@ pub unsafe extern "C" fn winpane_canvas_stroke_ellipse(
     })
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_canvas_draw_image(
     canvas: *mut WinpaneCanvas,
     x: f32,
@@ -1390,7 +1390,7 @@ pub unsafe extern "C" fn winpane_canvas_draw_image(
     })
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_canvas_fill_rounded_rect(
     canvas: *mut WinpaneCanvas,
     x: f32,
@@ -1416,7 +1416,7 @@ pub unsafe extern "C" fn winpane_canvas_fill_rounded_rect(
     })
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_canvas_stroke_rounded_rect(
     canvas: *mut WinpaneCanvas,
     x: f32,
@@ -1448,7 +1448,7 @@ pub unsafe extern "C" fn winpane_canvas_stroke_rounded_rect(
 // PiP creation
 // ============================================================
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_pip_create(
     ctx: *mut WinpaneContext,
     config: *const WinpanePipConfig,
@@ -1477,7 +1477,7 @@ pub unsafe extern "C" fn winpane_pip_create(
 // PiP source region
 // ============================================================
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_surface_set_source_region(
     surface: *mut WinpaneSurface,
     rect: *const WinpaneSourceRect,
@@ -1499,7 +1499,7 @@ pub unsafe extern "C" fn winpane_surface_set_source_region(
     })
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_surface_clear_source_region(surface: *mut WinpaneSurface) -> i32 {
     ffi_try!({
         require_non_null(surface, "surface")?;
@@ -1519,7 +1519,7 @@ pub unsafe extern "C" fn winpane_surface_clear_source_region(surface: *mut Winpa
 // Anchoring
 // ============================================================
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_surface_anchor_to(
     surface: *mut WinpaneSurface,
     target_hwnd: isize,
@@ -1538,7 +1538,7 @@ pub unsafe extern "C" fn winpane_surface_anchor_to(
     })
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_surface_unanchor(surface: *mut WinpaneSurface) -> i32 {
     ffi_try!({
         require_non_null(surface, "surface")?;
@@ -1553,7 +1553,7 @@ pub unsafe extern "C" fn winpane_surface_unanchor(surface: *mut WinpaneSurface) 
 // Capture exclusion
 // ============================================================
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_surface_set_capture_excluded(
     surface: *mut WinpaneSurface,
     excluded: i32,
@@ -1571,7 +1571,7 @@ pub unsafe extern "C" fn winpane_surface_set_capture_excluded(
 // Backdrop
 // ============================================================
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_surface_set_backdrop(
     surface: *mut WinpaneSurface,
     backdrop: WinpaneBackdrop,
@@ -1585,20 +1585,16 @@ pub unsafe extern "C" fn winpane_surface_set_backdrop(
     })
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn winpane_backdrop_supported() -> i32 {
-    if winpane::backdrop_supported() {
-        1
-    } else {
-        0
-    }
+    if winpane::backdrop_supported() { 1 } else { 0 }
 }
 
 // ============================================================
 // Fade animations
 // ============================================================
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_surface_fade_in(
     surface: *mut WinpaneSurface,
     duration_ms: u32,
@@ -1611,7 +1607,7 @@ pub unsafe extern "C" fn winpane_surface_fade_in(
     })
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winpane_surface_fade_out(
     surface: *mut WinpaneSurface,
     duration_ms: u32,

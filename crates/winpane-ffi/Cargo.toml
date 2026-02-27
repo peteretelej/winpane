@@ -17,4 +17,4 @@ crate-type = ["cdylib", "staticlib"]
 winpane = { version = "0.0.1", path = "../winpane" }
 
 [build-dependencies]
-cbindgen = "0.29"
+cbindgen = { workspace = true }

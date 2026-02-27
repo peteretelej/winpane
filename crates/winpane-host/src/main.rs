@@ -3,12 +3,12 @@ mod protocol;
 mod util;
 
 use std::io::{self, BufRead, BufWriter, Write};
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::{Arc, Mutex, mpsc};
 use std::thread;
 use std::time::Duration;
 
-use dispatch::{event_to_json, Dispatcher};
-use protocol::{parse_request, serialize_line, ErrorResponse, Notification, Response};
+use dispatch::{Dispatcher, event_to_json};
+use protocol::{ErrorResponse, Notification, Response, parse_request, serialize_line};
 
 fn write_line(stdout: &Arc<Mutex<BufWriter<io::Stdout>>>, line: &str) {
     let mut out = stdout.lock().expect("stdout mutex poisoned");

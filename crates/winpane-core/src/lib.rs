@@ -27,7 +27,7 @@ pub fn backdrop_supported() -> bool {
 
 // Bridge types for the winpane crate (not exposed to end users)
 pub use command::{Command, CommandSender};
-pub use engine::{wake_engine, EngineHandle};
+pub use engine::{EngineHandle, wake_engine};
 pub use scene::Element;
 pub use types::SurfaceId;
 pub use window::SendHwnd;

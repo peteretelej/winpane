@@ -696,7 +696,7 @@ impl Dispatcher {
                 return Err((
                     INVALID_PARAMS,
                     format!("invalid backdrop: {backdrop_str} (expected none, mica, acrylic)"),
-                ))
+                ));
             }
         };
         surface.set_backdrop(backdrop);
@@ -804,7 +804,7 @@ impl Dispatcher {
                 return Err((
                     INVALID_PARAMS,
                     format!("unknown surface_id: {panel_surface_id}"),
-                ))
+                ));
             }
         };
 

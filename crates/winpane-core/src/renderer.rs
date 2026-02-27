@@ -1,10 +1,11 @@
 use std::ffi::c_void;
 
 use windows::{
-    core::*, Win32::Foundation::*, Win32::Graphics::Direct2D::Common::*,
-    Win32::Graphics::Direct2D::*, Win32::Graphics::Direct3D::*, Win32::Graphics::Direct3D11::*,
+    Win32::Foundation::*, Win32::Graphics::Direct2D::Common::*, Win32::Graphics::Direct2D::*,
+    Win32::Graphics::Direct3D::*, Win32::Graphics::Direct3D11::*,
     Win32::Graphics::DirectComposition::*, Win32::Graphics::DirectWrite::*,
     Win32::Graphics::Dxgi::Common::*, Win32::Graphics::Dxgi::*, Win32::UI::WindowsAndMessaging::*,
+    core::*,
 };
 
 use crate::scene::{Element, SceneGraph};
@@ -384,18 +385,18 @@ impl SurfaceRenderer {
             }
 
             let end_result = self.dc.EndDraw(None, None);
-            if let Err(ref e) = end_result {
-                if is_device_lost(e) {
-                    return Err(RenderError::DeviceLost);
-                }
+            if let Err(ref e) = end_result
+                && is_device_lost(e)
+            {
+                return Err(RenderError::DeviceLost);
             }
             end_result.map_err(|e| RenderError::Other(format!("EndDraw: {e}")))?;
 
             let present_result = self.swapchain.Present(1, DXGI_PRESENT(0)).ok();
-            if let Err(ref e) = present_result {
-                if is_device_lost(e) {
-                    return Err(RenderError::DeviceLost);
-                }
+            if let Err(ref e) = present_result
+                && is_device_lost(e)
+            {
+                return Err(RenderError::DeviceLost);
             }
             present_result.map_err(|e| RenderError::Other(format!("Present: {e}")))?;
 
@@ -772,18 +773,18 @@ impl SurfaceRenderer {
             }
 
             let end_result = self.dc.EndDraw(None, None);
-            if let Err(ref e) = end_result {
-                if is_device_lost(e) {
-                    return Err(RenderError::DeviceLost);
-                }
+            if let Err(ref e) = end_result
+                && is_device_lost(e)
+            {
+                return Err(RenderError::DeviceLost);
             }
             end_result.map_err(|e| RenderError::Other(format!("EndDraw: {e}")))?;
 
             let present_result = self.swapchain.Present(1, DXGI_PRESENT(0)).ok();
-            if let Err(ref e) = present_result {
-                if is_device_lost(e) {
-                    return Err(RenderError::DeviceLost);
-                }
+            if let Err(ref e) = present_result
+                && is_device_lost(e)
+            {
+                return Err(RenderError::DeviceLost);
             }
             present_result.map_err(|e| RenderError::Other(format!("Present: {e}")))?;
 

@@ -9,8 +9,8 @@ use winpane::{Context, Event, PipConfig};
 
 #[cfg(target_os = "windows")]
 fn find_window_by_title(title: &str) -> Option<isize> {
-    use windows::core::HSTRING;
     use windows::Win32::UI::WindowsAndMessaging::FindWindowW;
+    use windows::core::HSTRING;
     let title = HSTRING::from(title);
     // SAFETY: FindWindowW is safe to call with a valid HSTRING; returns an error on failure.
     let hwnd = unsafe { FindWindowW(None, &title) }.ok()?;

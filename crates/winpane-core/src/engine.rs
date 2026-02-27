@@ -8,27 +8,26 @@ use windows::Win32::UI::WindowsAndMessaging::*;
 
 use crate::command::{Command, CommandReceiver, CommandSender};
 use crate::input::{HitTestMap, PanelState};
-use crate::monitor::{MonitorEvent, Watch, WatchReason, WindowMonitor, PENDING_MONITOR_EVENTS};
+use crate::monitor::{MonitorEvent, PENDING_MONITOR_EVENTS, Watch, WatchReason, WindowMonitor};
 use crate::renderer::{GpuResources, RenderError, SurfaceRenderer};
 use crate::scene::SceneGraph;
 use crate::tray::{
-    create_hicon_from_rgba, create_tray_icon, destroy_tray_icon, show_tray_context_menu,
-    update_tray_icon, update_tray_tooltip, TrayState,
+    TrayState, create_hicon_from_rgba, create_tray_icon, destroy_tray_icon, show_tray_context_menu,
+    update_tray_icon, update_tray_tooltip,
 };
 use crate::types::{
     Anchor, Error, Event, HudConfig, MouseButton, PanelConfig, PipConfig, SourceRect, SurfaceId,
     TrayConfig, TrayId,
 };
 use crate::window::{
+    PENDING_DPI_CHANGES, PENDING_FADE_COMPLETIONS, PENDING_TRAY_EVENTS, SendHwnd,
     create_control_window, create_hud_window, create_panel_window, ensure_classes_registered,
-    get_dpi_scale, try_set_dpi_awareness, SendHwnd, PENDING_DPI_CHANGES, PENDING_FADE_COMPLETIONS,
-    PENDING_TRAY_EVENTS,
+    get_dpi_scale, try_set_dpi_awareness,
 };
 
 use windows::Win32::Graphics::Dwm::{
-    DwmRegisterThumbnail, DwmUnregisterThumbnail, DwmUpdateThumbnailProperties,
     DWM_THUMBNAIL_PROPERTIES, DWM_TNP_OPACITY, DWM_TNP_RECTDESTINATION, DWM_TNP_RECTSOURCE,
-    DWM_TNP_VISIBLE,
+    DWM_TNP_VISIBLE, DwmRegisterThumbnail, DwmUnregisterThumbnail, DwmUpdateThumbnailProperties,
 };
 
 // --- SurfaceKind ---
@@ -309,7 +308,7 @@ unsafe fn engine_thread_main(
                             }
                             s.scene.set(key, element);
                             // Rebuild hit-test map for panels
-                            if let SurfaceKind::Panel(ref mut state) = s.kind {
+                            if let SurfaceKind::Panel(state) = &mut s.kind {
                                 state.hit_test_map.rebuild(&s.scene, s.renderer.dpi_scale);
                             }
                         }
@@ -322,7 +321,7 @@ unsafe fn engine_thread_main(
                             }
                             s.scene.remove(&key);
                             // Rebuild hit-test map for panels
-                            if let SurfaceKind::Panel(ref mut state) = s.kind {
+                            if let SurfaceKind::Panel(state) = &mut s.kind {
                                 state.hit_test_map.rebuild(&s.scene, s.renderer.dpi_scale);
                             }
                         }
@@ -386,7 +385,7 @@ unsafe fn engine_thread_main(
                         if let Some(s) = surfaces.get_mut(&surface) {
                             let clamped = opacity.clamp(0.0, 1.0);
                             match &mut s.kind {
-                                SurfaceKind::Pip(ref mut pip) => {
+                                SurfaceKind::Pip(pip) => {
                                     pip.opacity = clamped;
                                     update_pip_thumbnail_properties(
                                         s.renderer.hwnd,
@@ -430,22 +429,22 @@ unsafe fn engine_thread_main(
                         surface,
                         duration_ms,
                     } => {
-                        if let Some(s) = surfaces.get_mut(&surface) {
-                            if s.visible {
-                                let _ = s.renderer.animate_opacity(
-                                    &gpu.dcomp_device,
-                                    s.opacity,
-                                    0.0,
-                                    duration_ms,
-                                );
-                                s.fading_out = true;
-                                let _ = SetTimer(
-                                    Some(s.renderer.hwnd),
-                                    surface.0 as usize,
-                                    duration_ms,
-                                    None,
-                                );
-                            }
+                        if let Some(s) = surfaces.get_mut(&surface)
+                            && s.visible
+                        {
+                            let _ = s.renderer.animate_opacity(
+                                &gpu.dcomp_device,
+                                s.opacity,
+                                0.0,
+                                duration_ms,
+                            );
+                            s.fading_out = true;
+                            let _ = SetTimer(
+                                Some(s.renderer.hwnd),
+                                surface.0 as usize,
+                                duration_ms,
+                                None,
+                            );
                         }
                     }
 
@@ -466,13 +465,13 @@ unsafe fn engine_thread_main(
                         width,
                         height,
                     } => {
-                        if let Some(state) = trays.get_mut(&tray) {
-                            if let Ok(new_icon) = create_hicon_from_rgba(&rgba, width, height) {
-                                let old_icon = state.hicon;
-                                state.hicon = new_icon;
-                                let _ = update_tray_icon(state.hwnd, state.icon_id, new_icon);
-                                let _ = DestroyIcon(old_icon);
-                            }
+                        if let Some(state) = trays.get_mut(&tray)
+                            && let Ok(new_icon) = create_hicon_from_rgba(&rgba, width, height)
+                        {
+                            let old_icon = state.hicon;
+                            state.hicon = new_icon;
+                            let _ = update_tray_icon(state.hwnd, state.icon_id, new_icon);
+                            let _ = DestroyIcon(old_icon);
                         }
                     }
                     Command::SetTrayPopup { tray, surface } => {
@@ -513,19 +512,19 @@ unsafe fn engine_thread_main(
 
                     // --- Window tracking ---
                     Command::SetSourceRegion { surface, rect } => {
-                        if let Some(s) = surfaces.get_mut(&surface) {
-                            if let SurfaceKind::Pip(ref mut pip) = s.kind {
-                                pip.source_region = Some(rect);
-                                update_pip_thumbnail_properties(s.renderer.hwnd, pip, &s.renderer);
-                            }
+                        if let Some(s) = surfaces.get_mut(&surface)
+                            && let SurfaceKind::Pip(pip) = &mut s.kind
+                        {
+                            pip.source_region = Some(rect);
+                            update_pip_thumbnail_properties(s.renderer.hwnd, pip, &s.renderer);
                         }
                     }
                     Command::ClearSourceRegion { surface } => {
-                        if let Some(s) = surfaces.get_mut(&surface) {
-                            if let SurfaceKind::Pip(ref mut pip) = s.kind {
-                                pip.source_region = None;
-                                update_pip_thumbnail_properties(s.renderer.hwnd, pip, &s.renderer);
-                            }
+                        if let Some(s) = surfaces.get_mut(&surface)
+                            && let SurfaceKind::Pip(pip) = &mut s.kind
+                        {
+                            pip.source_region = None;
+                            update_pip_thumbnail_properties(s.renderer.hwnd, pip, &s.renderer);
                         }
                     }
                     Command::AnchorTo {
@@ -670,7 +669,7 @@ fn process_dpi_changes(gpu: &GpuResources, surfaces: &mut HashMap<SurfaceId, Sur
                     surface.scene.set_dirty();
 
                     // Update panel state for new DPI
-                    if let SurfaceKind::Panel(ref mut state) = surface.kind {
+                    if let SurfaceKind::Panel(state) = &mut surface.kind {
                         state.hit_test_map.rebuild(&surface.scene, new_scale);
                     }
 
@@ -728,32 +727,32 @@ unsafe fn process_tray_events(
                 match notification.event {
                     // Left-click: toggle popup + send event
                     WM_LBUTTONUP => {
-                        if let Some(surface_id) = tray_state.popup_surface {
-                            if let Some(surface) = surfaces.get_mut(&surface_id) {
-                                if tray_state.popup_visible {
-                                    let _ = ShowWindow(surface.renderer.hwnd, SW_HIDE);
-                                    surface.visible = false;
-                                    tray_state.popup_visible = false;
-                                } else {
-                                    // Position near cursor
-                                    let mut cursor = POINT::default();
-                                    let _ = GetCursorPos(&mut cursor);
-                                    let scale = surface.renderer.dpi_scale;
-                                    let phys_h = (surface.renderer.height as f32 * scale) as i32;
-                                    let _ = SetWindowPos(
-                                        surface.renderer.hwnd,
-                                        None,
-                                        cursor.x,
-                                        cursor.y - phys_h,
-                                        0,
-                                        0,
-                                        SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
-                                    );
-                                    let _ = ShowWindow(surface.renderer.hwnd, SW_SHOWNOACTIVATE);
-                                    surface.visible = true;
-                                    surface.scene.set_dirty();
-                                    tray_state.popup_visible = true;
-                                }
+                        if let Some(surface_id) = tray_state.popup_surface
+                            && let Some(surface) = surfaces.get_mut(&surface_id)
+                        {
+                            if tray_state.popup_visible {
+                                let _ = ShowWindow(surface.renderer.hwnd, SW_HIDE);
+                                surface.visible = false;
+                                tray_state.popup_visible = false;
+                            } else {
+                                // Position near cursor
+                                let mut cursor = POINT::default();
+                                let _ = GetCursorPos(&mut cursor);
+                                let scale = surface.renderer.dpi_scale;
+                                let phys_h = (surface.renderer.height as f32 * scale) as i32;
+                                let _ = SetWindowPos(
+                                    surface.renderer.hwnd,
+                                    None,
+                                    cursor.x,
+                                    cursor.y - phys_h,
+                                    0,
+                                    0,
+                                    SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
+                                );
+                                let _ = ShowWindow(surface.renderer.hwnd, SW_SHOWNOACTIVATE);
+                                surface.visible = true;
+                                surface.scene.set_dirty();
+                                tray_state.popup_visible = true;
                             }
                         }
                         let _ = event_tx.send(Event::TrayClicked {
@@ -845,13 +844,13 @@ unsafe fn process_monitor_events(
 
                     // Hide all anchored surfaces targeting this HWND
                     for (sid, state) in anchor_states.iter_mut() {
-                        if state.target_hwnd == hwnd {
-                            if let Some(surface) = surfaces.get_mut(sid) {
-                                state.was_visible_before_minimize = surface.visible;
-                                if surface.visible {
-                                    let _ = ShowWindow(surface.renderer.hwnd, SW_HIDE);
-                                    surface.visible = false;
-                                }
+                        if state.target_hwnd == hwnd
+                            && let Some(surface) = surfaces.get_mut(sid)
+                        {
+                            state.was_visible_before_minimize = surface.visible;
+                            if surface.visible {
+                                let _ = ShowWindow(surface.renderer.hwnd, SW_HIDE);
+                                surface.visible = false;
                             }
                         }
                     }

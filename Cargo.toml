@@ -1,5 +1,5 @@
 [workspace]
-resolver = "2"
+resolver = "3"
 members = [
     "crates/winpane-core",
     "crates/winpane",
@@ -9,16 +9,24 @@ members = [
 exclude = ["bindings/node"]
 
 [workspace.package]
-edition = "2021"
+edition = "2024"
+rust-version = "1.85"
 license = "MIT"
 repository = "https://github.com/peteretelej/winpane"
 
 [workspace.dependencies]
-windows = "0.62"
+windows = "0.62.2"
+windows-numerics = "0.3"
 indexmap = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "bmp"] }
+cbindgen = "0.29"
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "warn"
+# Still useful in edition 2024 for: elided_lifetimes_in_paths,
+# unused_extern_crates, explicit_outlives_requirements
 rust_2018_idioms = { level = "warn", priority = -1 }
 unused_qualifications = "warn"
 

@@ -2,6 +2,42 @@
 
 Windows SDK for creating companion UI surfaces - floating overlays, interactive panels, picture-in-picture thumbnails, and system tray icons.
 
+## Demos
+
+```sh
+# stats overlay
+cargo run -p winpane --example hud_demo
+
+# clickable buttons + drag
+cargo run -p winpane --example interactive_panel
+
+# system tray with popup
+cargo run -p winpane --example tray_ticker
+
+# Mica / Acrylic
+cargo run -p winpane --example backdrop_demo
+
+# fade animations
+cargo run -p winpane --example fade_demo
+
+# hidden from screenshots
+cargo run -p winpane --example capture_excluded
+
+# procedural drawing
+cargo run -p winpane --example custom_draw
+
+# live window thumbnail
+cargo run -p winpane --example pip_viewer
+
+# follows another window
+cargo run -p winpane --example anchored_companion
+
+# raw DirectComposition
+cargo run -p winpane-core --example hello_transparent
+```
+
+`pip_viewer` and `anchored_companion` look for an open Notepad or Calculator window to attach to.
+
 If you are building a dev tool, AI assistant, status bar, clipboard manager, or any application that needs to draw persistent UI on top of other windows, winpane handles the hard parts: transparent window creation, GPU-accelerated rendering, DPI awareness, input routing, and capture exclusion. You add elements to a scene graph; winpane composites them via DirectComposition without process injection or legacy GDI paths.
 
 ## Install
@@ -24,8 +60,8 @@ cargo add winpane
 
 ## Quick start
 
-```js
-const { WinPane } = require("winpane");
+```typescript
+import { WinPane } from "winpane";
 
 const wp = new WinPane();
 const hud = wp.createHud({ width: 300, height: 100, x: 100, y: 100 });

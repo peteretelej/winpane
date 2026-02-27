@@ -4,7 +4,7 @@
 #[cfg(target_os = "windows")]
 use windows::Win32::{
     Foundation::HWND,
-    UI::Accessibility::{SetWinEventHook, UnhookWinEvent, HWINEVENTHOOK},
+    UI::Accessibility::{HWINEVENTHOOK, SetWinEventHook, UnhookWinEvent},
     UI::WindowsAndMessaging::{
         EVENT_OBJECT_LOCATIONCHANGE, EVENT_SYSTEM_MINIMIZEEND, EVENT_SYSTEM_MINIMIZESTART,
         WINEVENT_OUTOFCONTEXT,

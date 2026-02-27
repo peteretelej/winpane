@@ -2,8 +2,8 @@ use std::ffi::c_void;
 use std::mem::size_of;
 
 use windows::{
-    core::*, Win32::Foundation::*, Win32::Graphics::Gdi::*, Win32::UI::Shell::*,
-    Win32::UI::WindowsAndMessaging::*,
+    Win32::Foundation::*, Win32::Graphics::Gdi::*, Win32::UI::Shell::*,
+    Win32::UI::WindowsAndMessaging::*, core::*,
 };
 
 use crate::types::{Error, MenuItem, SurfaceId};
