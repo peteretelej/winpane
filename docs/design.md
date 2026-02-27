@@ -61,6 +61,7 @@ See [rendering.md](design/rendering.md) for the full pipeline.
 - [Surface types](design/surfaces.md) - Lifecycle, configuration, common operations
 - [Input and hit testing](design/input.md) - Click-through, interactive elements, drag, hover
 - [FFI design](design/ffi.md) - C ABI conventions, error handling, type mapping
+- [Visual style](design/style.md) - Color palette, typography, spacing, component patterns
 
 ## Platform requirements
 

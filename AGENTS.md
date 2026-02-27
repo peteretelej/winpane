@@ -14,6 +14,7 @@ Windows overlay SDK. Out-of-process DirectComposition surfaces (HUD, Panel, PiP,
 | `docs/design/surfaces.md` | Surface types, lifecycle, config |
 | `docs/design/input.md` | Hit testing, interactive elements, drag |
 | `docs/design/ffi.md` | C ABI conventions, error handling, type mapping |
+| `docs/design/style.md` | Color palette, typography, spacing, component patterns |
 | `docs/guides/rust.md` | Rust SDK walkthrough |
 | `docs/guides/nodejs.md` | Node.js SDK walkthrough |
 | `docs/guides/typescript.md` | TypeScript/JavaScript walkthrough |
