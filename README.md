@@ -109,6 +109,14 @@ These compose together. A tray icon can toggle a panel popup. A panel can anchor
 - Windows 11 22H2+ for backdrop effects (Mica, Acrylic)
 - Windows 10 2004+ for capture exclusion
 
+## Why I built this
+
+I was diagnosed with Type 1 diabetes (t1.5) in last year (2025). Most CGM apps and tools are geolocked and unavailable in Kenya, so I built [mysukari.com](https://mysukari.com) — a diabetes platform that lets anyone connect their CGM via Nightscout and get reporting, charts, and analysis dashboards without maintaining their own infrastructure.
+
+I wanted a small overlay on my Windows desktop that shows my current glucose reading and trend arrow, updates every few minutes, and stays out of screen shares. I couldn't find a nice light-weight library that I could easily call from almost any language, so I built winpane to solve this problem for myself and others. Hope it's as useful to you as it has been so far to me!
+
+I had no prior experience with DirectComposition, Direct2D, or low-level Win32 GPU rendering. Claude Opus 4.6 was instrumental in building and expanding the capabilities of what winpane is.
+
 ## License
 
 MIT

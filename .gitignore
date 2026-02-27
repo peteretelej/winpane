@@ -24,3 +24,5 @@ crates/winpane-ffi/include/winpane.h
 # Node
 node_modules/
 bindings/node/dist/
+
+_docs/
