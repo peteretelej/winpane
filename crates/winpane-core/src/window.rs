@@ -253,13 +253,6 @@ extern "system" fn panel_wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: L
                 LRESULT(-1) // HTTRANSPARENT
             }
 
-            WM_MOUSEACTIVATE => {
-                // Prevent the panel from stealing focus when clicked,
-                // and eat the mouse message so it doesn't propagate.
-                // MA_NOACTIVATEANDEAT = 4
-                LRESULT(4)
-            }
-
             WM_LBUTTONUP => {
                 if state_ptr == 0 {
                     return DefWindowProcW(hwnd, msg, wparam, lparam);
@@ -282,7 +275,7 @@ extern "system" fn panel_wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: L
                 if state_ptr == 0 {
                     return DefWindowProcW(hwnd, msg, wparam, lparam);
                 }
-                let state = &mut *(state_ptr as *mut PanelState);
+                let state = &*(state_ptr as *const PanelState);
 
                 let cx = (lparam.0 & 0xFFFF) as i16 as f32;
                 let cy = ((lparam.0 >> 16) & 0xFFFF) as i16 as f32;
@@ -290,9 +283,10 @@ extern "system" fn panel_wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: L
                 let new_key = state.hit_test_map.hit_test(cx, cy).map(|s| s.to_string());
 
                 // Detect hover changes
-                if new_key != state.hovered_key {
+                let current_key = state.hovered_key.borrow().clone();
+                if new_key != current_key {
                     // Leave old element
-                    if let Some(ref old_key) = state.hovered_key {
+                    if let Some(ref old_key) = current_key {
                         let _ = state.event_sender.send(Event::ElementLeft {
                             surface_id: state.surface_id,
                             key: old_key.clone(),
@@ -305,11 +299,11 @@ extern "system" fn panel_wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: L
                             key: key.clone(),
                         });
                     }
-                    state.hovered_key = new_key;
+                    *state.hovered_key.borrow_mut() = new_key;
                 }
 
                 // Ensure we get WM_MOUSELEAVE when cursor exits the window
-                if !state.tracking_mouse {
+                if !state.tracking_mouse.get() {
                     let mut tme = TRACKMOUSEEVENT {
                         cbSize: std::mem::size_of::<TRACKMOUSEEVENT>() as u32,
                         dwFlags: TME_LEAVE,
@@ -317,7 +311,7 @@ extern "system" fn panel_wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: L
                         dwHoverTime: 0,
                     };
                     let _ = TrackMouseEvent(&mut tme);
-                    state.tracking_mouse = true;
+                    state.tracking_mouse.set(true);
                 }
 
                 LRESULT(0)
@@ -327,17 +321,17 @@ extern "system" fn panel_wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: L
                 if state_ptr == 0 {
                     return DefWindowProcW(hwnd, msg, wparam, lparam);
                 }
-                let state = &mut *(state_ptr as *mut PanelState);
+                let state = &*(state_ptr as *const PanelState);
 
                 // Cursor left the window entirely
-                if let Some(ref key) = state.hovered_key {
+                if let Some(key) = state.hovered_key.borrow().as_ref() {
                     let _ = state.event_sender.send(Event::ElementLeft {
                         surface_id: state.surface_id,
                         key: key.clone(),
                     });
                 }
-                state.hovered_key = None;
-                state.tracking_mouse = false;
+                *state.hovered_key.borrow_mut() = None;
+                state.tracking_mouse.set(false);
 
                 LRESULT(0)
             }

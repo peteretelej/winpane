@@ -7,11 +7,23 @@ use crate::types::{
 };
 
 pub enum Command {
-    // --- Existing P1 commands ---
+    // --- Surface lifecycle ---
     CreateHud {
         config: HudConfig,
         reply: mpsc::Sender<Result<SurfaceId, Error>>,
     },
+    CreatePanel {
+        config: PanelConfig,
+        reply: mpsc::Sender<Result<SurfaceId, Error>>,
+    },
+    CreatePip {
+        config: PipConfig,
+        reply: mpsc::Sender<Result<SurfaceId, Error>>,
+    },
+    DestroySurface(SurfaceId),
+    Shutdown,
+
+    // --- Scene graph ---
     SetElement {
         surface: SurfaceId,
         key: String,
@@ -21,6 +33,8 @@ pub enum Command {
         surface: SurfaceId,
         key: String,
     },
+
+    // --- Surface properties ---
     Show(SurfaceId),
     Hide(SurfaceId),
     SetPosition {
@@ -37,14 +51,20 @@ pub enum Command {
         surface: SurfaceId,
         opacity: f32,
     },
-    DestroySurface(SurfaceId),
-    Shutdown,
-
-    // --- New P2 commands ---
-    CreatePanel {
-        config: PanelConfig,
-        reply: mpsc::Sender<Result<SurfaceId, Error>>,
+    SetBackdrop {
+        surface: SurfaceId,
+        backdrop: Backdrop,
     },
+    FadeIn {
+        surface: SurfaceId,
+        duration_ms: u32,
+    },
+    FadeOut {
+        surface: SurfaceId,
+        duration_ms: u32,
+    },
+
+    // --- Tray ---
     CreateTray {
         config: TrayConfig,
         reply: mpsc::Sender<Result<TrayId, Error>>,
@@ -69,17 +89,13 @@ pub enum Command {
     },
     DestroyTray(TrayId),
 
-    // --- P3 commands ---
+    // --- Custom draw ---
     CustomDraw {
         surface: SurfaceId,
         ops: Vec<DrawOp>,
     },
 
-    // --- P4 commands ---
-    CreatePip {
-        config: PipConfig,
-        reply: mpsc::Sender<Result<SurfaceId, Error>>,
-    },
+    // --- Window tracking ---
     SetSourceRegion {
         surface: SurfaceId,
         rect: SourceRect,
@@ -99,20 +115,6 @@ pub enum Command {
     SetCaptureExcluded {
         surface: SurfaceId,
         excluded: bool,
-    },
-
-    // --- P6 commands ---
-    SetBackdrop {
-        surface: SurfaceId,
-        backdrop: Backdrop,
-    },
-    FadeIn {
-        surface: SurfaceId,
-        duration_ms: u32,
-    },
-    FadeOut {
-        surface: SurfaceId,
-        duration_ms: u32,
     },
 }
 

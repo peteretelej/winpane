@@ -1,3 +1,4 @@
+use std::cell::{Cell, RefCell};
 use std::sync::mpsc;
 
 use crate::scene::{Element, SceneGraph};
@@ -109,12 +110,12 @@ pub(crate) struct PanelState {
     pub hit_test_map: HitTestMap,
     pub event_sender: mpsc::Sender<Event>,
     pub surface_id: SurfaceId,
-    pub hovered_key: Option<String>,
+    pub hovered_key: RefCell<Option<String>>,
     pub draggable: bool,
     /// Physical pixels from top of panel for drag handle.
     pub drag_height: f32,
     /// Whether TrackMouseEvent(TME_LEAVE) is active.
-    pub tracking_mouse: bool,
+    pub tracking_mouse: Cell<bool>,
 }
 
 #[cfg(test)]

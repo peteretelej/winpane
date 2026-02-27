@@ -1,3 +1,4 @@
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::sync::mpsc;
 
@@ -127,6 +128,20 @@ pub fn wake_engine(control_hwnd: SendHwnd) {
     }
 }
 
+// --- COM initialization guard ---
+
+/// RAII guard that calls `CoUninitialize` on drop, ensuring COM is properly
+/// cleaned up on all engine thread exit paths (normal shutdown, early return).
+struct CoInitGuard;
+
+impl Drop for CoInitGuard {
+    fn drop(&mut self) {
+        unsafe {
+            CoUninitialize();
+        }
+    }
+}
+
 // --- Engine thread main ---
 
 unsafe fn engine_thread_main(
@@ -139,6 +154,7 @@ unsafe fn engine_thread_main(
         let _ = ready_tx.send(Err(Error::DeviceCreation(format!("CoInitializeEx: {e}"))));
         return;
     }
+    let _co_guard = CoInitGuard;
 
     // 2. DPI awareness
     try_set_dpi_awareness();
@@ -205,6 +221,45 @@ unsafe fn engine_thread_main(
         // Drain command queue (non-blocking)
         while let Ok(cmd) = cmd_rx.try_recv() {
             match cmd {
+                // --- Surface lifecycle ---
+                Command::CreateHud { config, reply } => {
+                    let result = create_hud_surface(&gpu, &mut surfaces, &mut next_id, config);
+                    let _ = reply.send(result);
+                }
+                Command::CreatePanel { config, reply } => {
+                    let result =
+                        create_panel_surface(&gpu, &mut surfaces, &mut next_id, config, &event_tx);
+                    let _ = reply.send(result);
+                }
+                Command::CreatePip { config, reply } => {
+                    let result = create_pip_surface(
+                        &config,
+                        &gpu,
+                        &mut surfaces,
+                        &mut next_id,
+                        &mut monitor,
+                    );
+                    let _ = reply.send(result);
+                }
+                Command::DestroySurface(id) => {
+                    if let Some(surface) = surfaces.remove(&id) {
+                        match &surface.kind {
+                            SurfaceKind::Panel(_) => {
+                                let _ = SetWindowLongPtrW(surface.renderer.hwnd, GWLP_USERDATA, 0);
+                            }
+                            SurfaceKind::Pip(pip) => {
+                                let _ = DwmUnregisterThumbnail(pip.thumbnail);
+                                monitor.unwatch_surface(id);
+                            }
+                            SurfaceKind::Hud => {}
+                        }
+                        // Also remove anchor state if this surface was anchored
+                        if anchor_states.remove(&id).is_some() {
+                            monitor.unwatch_surface(id);
+                        }
+                        let _ = DestroyWindow(surface.renderer.hwnd);
+                    }
+                }
                 Command::Shutdown => {
                     // Destroy all trays
                     for (_, state) in trays.drain() {
@@ -226,29 +281,8 @@ unsafe fn engine_thread_main(
                     let _ = DestroyWindow(control_hwnd);
                     return;
                 }
-                Command::CreateHud { config, reply } => {
-                    let result = create_hud_surface(&gpu, &mut surfaces, &mut next_id, config);
-                    let _ = reply.send(result);
-                }
-                Command::CreatePanel { config, reply } => {
-                    let result =
-                        create_panel_surface(&gpu, &mut surfaces, &mut next_id, config, &event_tx);
-                    let _ = reply.send(result);
-                }
-                Command::CreatePip { config, reply } => {
-                    let result = create_pip_surface(
-                        &config,
-                        &gpu,
-                        &mut surfaces,
-                        &mut next_id,
-                        &mut monitor,
-                    );
-                    let _ = reply.send(result);
-                }
-                Command::CreateTray { config, reply } => {
-                    let result = create_tray(&mut trays, &mut next_tray_id, control_hwnd, config);
-                    let _ = reply.send(result);
-                }
+
+                // --- Scene graph ---
                 Command::SetElement {
                     surface,
                     key,
@@ -279,10 +313,12 @@ unsafe fn engine_thread_main(
                         }
                     }
                 }
+
+                // --- Surface properties ---
                 Command::Show(id) => {
                     if let Some(s) = surfaces.get_mut(&id) {
                         if s.fading_out {
-                            let _ = s.renderer.set_opacity(1.0);
+                            let _ = s.renderer.set_opacity(&gpu.dcomp_device, 1.0);
                             s.opacity = 1.0;
                             s.fading_out = false;
                         }
@@ -337,30 +373,57 @@ unsafe fn engine_thread_main(
                                 update_pip_thumbnail_properties(s.renderer.hwnd, pip, &s.renderer);
                             }
                             _ => {
-                                let _ = s.renderer.set_opacity(clamped);
+                                let _ = s.renderer.set_opacity(&gpu.dcomp_device, clamped);
                             }
                         }
                         s.opacity = clamped;
                     }
                 }
-                Command::DestroySurface(id) => {
-                    if let Some(surface) = surfaces.remove(&id) {
-                        match &surface.kind {
-                            SurfaceKind::Panel(_) => {
-                                let _ = SetWindowLongPtrW(surface.renderer.hwnd, GWLP_USERDATA, 0);
-                            }
-                            SurfaceKind::Pip(pip) => {
-                                let _ = DwmUnregisterThumbnail(pip.thumbnail);
-                                monitor.unwatch_surface(id);
-                            }
-                            SurfaceKind::Hud => {}
-                        }
-                        // Also remove anchor state if this surface was anchored
-                        if anchor_states.remove(&id).is_some() {
-                            monitor.unwatch_surface(id);
-                        }
-                        let _ = DestroyWindow(surface.renderer.hwnd);
+                Command::SetBackdrop { surface, backdrop } => {
+                    if let Some(s) = surfaces.get(&surface) {
+                        crate::window::set_window_backdrop(s.renderer.hwnd, backdrop);
                     }
+                }
+                Command::FadeIn {
+                    surface,
+                    duration_ms,
+                } => {
+                    if let Some(s) = surfaces.get_mut(&surface) {
+                        if !s.visible {
+                            let _ = ShowWindow(s.renderer.hwnd, SW_SHOWNOACTIVATE);
+                            s.visible = true;
+                            s.scene.set_dirty();
+                        }
+                        let _ =
+                            s.renderer
+                                .animate_opacity(&gpu.dcomp_device, 0.0, 1.0, duration_ms);
+                        s.fading_out = false;
+                        s.opacity = 1.0;
+                    }
+                }
+                Command::FadeOut {
+                    surface,
+                    duration_ms,
+                } => {
+                    if let Some(s) = surfaces.get_mut(&surface) {
+                        if s.visible {
+                            let _ = s.renderer.animate_opacity(
+                                &gpu.dcomp_device,
+                                s.opacity,
+                                0.0,
+                                duration_ms,
+                            );
+                            s.fading_out = true;
+                            let _ =
+                                SetTimer(s.renderer.hwnd, surface.0 as usize, duration_ms, None);
+                        }
+                    }
+                }
+
+                // --- Tray ---
+                Command::CreateTray { config, reply } => {
+                    let result = create_tray(&mut trays, &mut next_tray_id, control_hwnd, config);
+                    let _ = reply.send(result);
                 }
                 Command::SetTrayTooltip { tray, tooltip } => {
                     if let Some(state) = trays.get(&tray) {
@@ -398,6 +461,8 @@ unsafe fn engine_thread_main(
                         destroy_tray_icon(state.hwnd, state.icon_id, state.hicon);
                     }
                 }
+
+                // --- Custom draw ---
                 Command::CustomDraw { surface, ops } => {
                     if let Some(s) = surfaces.get(&surface) {
                         // PiP has no D2D rendering
@@ -416,7 +481,7 @@ unsafe fn engine_thread_main(
                     }
                 }
 
-                // --- P4 commands ---
+                // --- Window tracking ---
                 Command::SetSourceRegion { surface, rect } => {
                     if let Some(s) = surfaces.get_mut(&surface) {
                         if let SurfaceKind::Pip(ref mut pip) = s.kind {
@@ -477,39 +542,6 @@ unsafe fn engine_thread_main(
                         crate::window::set_capture_excluded(s.renderer.hwnd, excluded);
                     }
                 }
-                Command::SetBackdrop { surface, backdrop } => {
-                    if let Some(s) = surfaces.get(&surface) {
-                        crate::window::set_window_backdrop(s.renderer.hwnd, backdrop);
-                    }
-                }
-                Command::FadeIn {
-                    surface,
-                    duration_ms,
-                } => {
-                    if let Some(s) = surfaces.get_mut(&surface) {
-                        if !s.visible {
-                            let _ = ShowWindow(s.renderer.hwnd, SW_SHOWNOACTIVATE);
-                            s.visible = true;
-                            s.scene.set_dirty();
-                        }
-                        let _ = s.renderer.animate_opacity(0.0, 1.0, duration_ms);
-                        s.fading_out = false;
-                        s.opacity = 1.0;
-                    }
-                }
-                Command::FadeOut {
-                    surface,
-                    duration_ms,
-                } => {
-                    if let Some(s) = surfaces.get_mut(&surface) {
-                        if s.visible {
-                            let _ = s.renderer.animate_opacity(s.opacity, 0.0, duration_ms);
-                            s.fading_out = true;
-                            let _ =
-                                SetTimer(s.renderer.hwnd, surface.0 as usize, duration_ms, None);
-                        }
-                    }
-                }
             }
         }
 
@@ -532,6 +564,11 @@ unsafe fn engine_thread_main(
                     Ok(()) => {}
                 }
             }
+        }
+
+        // Commit all DComp changes from this render pass atomically
+        if !device_lost {
+            let _ = gpu.dcomp_device.Commit();
         }
 
         if device_lost {
@@ -627,11 +664,19 @@ unsafe fn process_fade_completions(surfaces: &mut HashMap<SurfaceId, Surface>) {
 
 // --- Tray event processing ---
 
+/// Process tray icon notifications from the control window.
+///
+/// V1 limitation: only a single tray icon is supported. All notifications
+/// are routed to the first (and only) tray in the map. The `TrayId` in
+/// notifications is ignored; callers that create multiple trays will see
+/// all events attributed to whichever tray happens to be first in iteration
+/// order. This will be addressed when multi-tray support is added.
 unsafe fn process_tray_events(
     event_tx: &mpsc::Sender<Event>,
     trays: &mut HashMap<TrayId, TrayState>,
     surfaces: &mut HashMap<SurfaceId, Surface>,
 ) {
+    debug_assert!(trays.len() <= 1, "winpane V1 supports at most one tray");
     PENDING_TRAY_EVENTS.with(|events| {
         for notification in events.borrow_mut().drain(..) {
             // Find the tray (for single-tray V1, there's at most one)
@@ -1013,10 +1058,10 @@ unsafe fn create_panel_surface(
         hit_test_map: HitTestMap::new(),
         event_sender: event_tx.clone(),
         surface_id: id,
-        hovered_key: None,
+        hovered_key: RefCell::new(None),
         draggable: config.draggable,
         drag_height: config.drag_height as f32 * scale,
-        tracking_mouse: false,
+        tracking_mouse: Cell::new(false),
     });
 
     // Safety: Box provides stable heap address. Pointer remains valid as long

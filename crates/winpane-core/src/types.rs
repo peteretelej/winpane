@@ -41,16 +41,16 @@ impl Color {
         Color { r, g, b, a: 255 }
     }
 
-    /// Converts to premultiplied alpha floats for Direct2D.
-    /// Formula: component_f32 = (component / 255.0) * (a / 255.0), alpha = a / 255.0
+    /// Converts to straight-alpha floats for Direct2D.
+    /// The swap chain uses `DXGI_ALPHA_MODE_PREMULTIPLIED`, so Direct2D
+    /// handles premultiplication internally when compositing.
     #[cfg(target_os = "windows")]
-    pub(crate) fn to_d2d_premultiplied(&self) -> D2D1_COLOR_F {
-        let a = self.a as f32 / 255.0;
+    pub(crate) fn to_d2d_color(&self) -> D2D1_COLOR_F {
         D2D1_COLOR_F {
-            r: (self.r as f32 / 255.0) * a,
-            g: (self.g as f32 / 255.0) * a,
-            b: (self.b as f32 / 255.0) * a,
-            a,
+            r: self.r as f32 / 255.0,
+            g: self.g as f32 / 255.0,
+            b: self.b as f32 / 255.0,
+            a: self.a as f32 / 255.0,
         }
     }
 }
@@ -414,12 +414,12 @@ mod tests {
 
     #[cfg(target_os = "windows")]
     #[test]
-    fn color_premultiplied_conversion() {
+    fn color_straight_conversion() {
         // 50% transparent red: r=255, a=128
-        // Premultiplied: r = (255/255) * (128/255) = 0.502
+        // Straight alpha: r = 255/255 = 1.0, a = 128/255 = 0.502
         let c = Color::rgba(255, 0, 0, 128);
-        let d2d = c.to_d2d_premultiplied();
-        assert!((d2d.r - 0.502).abs() < 0.01);
+        let d2d = c.to_d2d_color();
+        assert!((d2d.r - 1.0).abs() < 0.01);
         assert!((d2d.g - 0.0).abs() < 0.01);
         assert!((d2d.b - 0.0).abs() < 0.01);
         assert!((d2d.a - 0.502).abs() < 0.01);
@@ -427,10 +427,10 @@ mod tests {
 
     #[cfg(target_os = "windows")]
     #[test]
-    fn color_opaque_premultiplied() {
-        // Fully opaque: premultiplied = straight
+    fn color_opaque_conversion() {
+        // Fully opaque: straight = premultiplied
         let c = Color::rgba(100, 200, 50, 255);
-        let d2d = c.to_d2d_premultiplied();
+        let d2d = c.to_d2d_color();
         assert!((d2d.r - 100.0 / 255.0).abs() < 0.01);
         assert!((d2d.g - 200.0 / 255.0).abs() < 0.01);
         assert!((d2d.b - 50.0 / 255.0).abs() < 0.01);

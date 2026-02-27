@@ -34,6 +34,7 @@ pub(crate) struct GpuResources {
     pub d2d_factory: ID2D1Factory1,
     pub d2d_device: ID2D1Device,
     pub dwrite_factory: IDWriteFactory,
+    pub dcomp_device: IDCompositionDevice,
 }
 
 impl GpuResources {
@@ -89,12 +90,17 @@ impl GpuResources {
         let dwrite_factory: IDWriteFactory = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED)
             .map_err(|e| Error::DeviceCreation(format!("DWrite factory: {e}")))?;
 
+        // 6. DirectComposition device (shared across all surfaces)
+        let dcomp_device: IDCompositionDevice = DCompositionCreateDevice(&dxgi_device)
+            .map_err(|e| Error::DeviceCreation(format!("DComposition device: {e}")))?;
+
         Ok(GpuResources {
             d3d_device,
             dxgi_device,
             d2d_factory,
             d2d_device,
             dwrite_factory,
+            dcomp_device,
         })
     }
 }
@@ -104,7 +110,6 @@ impl GpuResources {
 pub(crate) struct SurfaceRenderer {
     pub hwnd: HWND,
     pub swapchain: IDXGISwapChain1,
-    pub dcomp_device: IDCompositionDevice,
     pub dcomp_target: IDCompositionTarget,
     pub dcomp_visual: IDCompositionVisual,
     pub dc: ID2D1DeviceContext,
@@ -152,13 +157,13 @@ impl SurfaceRenderer {
             .CreateSwapChainForComposition(&gpu.d3d_device, &desc, None)
             .map_err(|e| Error::SwapChainCreation(format!("CreateSwapChainForComposition: {e}")))?;
 
-        // DirectComposition: device -> target -> visual -> swap chain
-        let dcomp_device: IDCompositionDevice = DCompositionCreateDevice(&gpu.dxgi_device)
-            .map_err(|e| Error::DeviceCreation(format!("DComposition device: {e}")))?;
-        let dcomp_target = dcomp_device
+        // DirectComposition: target -> visual -> swap chain (device is shared via GpuResources)
+        let dcomp_target = gpu
+            .dcomp_device
             .CreateTargetForHwnd(hwnd, true)
             .map_err(|e| Error::DeviceCreation(format!("DComposition target: {e}")))?;
-        let dcomp_visual = dcomp_device
+        let dcomp_visual = gpu
+            .dcomp_device
             .CreateVisual()
             .map_err(|e| Error::DeviceCreation(format!("DComposition visual: {e}")))?;
         dcomp_visual
@@ -194,14 +199,13 @@ impl SurfaceRenderer {
             .map_err(|e| Error::SwapChainCreation(format!("CreateBitmapFromDxgiSurface: {e}")))?;
         dc.SetTarget(&bitmap);
 
-        dcomp_device
+        gpu.dcomp_device
             .Commit()
             .map_err(|e| Error::DeviceCreation(format!("DComposition commit: {e}")))?;
 
         Ok(SurfaceRenderer {
             hwnd,
             swapchain,
-            dcomp_device,
             dcomp_target,
             dcomp_visual,
             dc,
@@ -245,14 +249,12 @@ impl SurfaceRenderer {
             .CreateSwapChainForComposition(&gpu.d3d_device, &desc, None)
             .map_err(|e| Error::SwapChainCreation(format!("CreateSwapChainForComposition: {e}")))?;
 
-        // New DirectComposition chain
-        self.dcomp_device = DCompositionCreateDevice(&gpu.dxgi_device)
-            .map_err(|e| Error::DeviceCreation(format!("DComposition device: {e}")))?;
-        self.dcomp_target = self
+        // New DirectComposition chain (device is shared via GpuResources)
+        self.dcomp_target = gpu
             .dcomp_device
             .CreateTargetForHwnd(self.hwnd, true)
             .map_err(|e| Error::DeviceCreation(format!("DComposition target: {e}")))?;
-        self.dcomp_visual = self
+        self.dcomp_visual = gpu
             .dcomp_device
             .CreateVisual()
             .map_err(|e| Error::DeviceCreation(format!("DComposition visual: {e}")))?;
@@ -291,7 +293,7 @@ impl SurfaceRenderer {
             .map_err(|e| Error::SwapChainCreation(format!("CreateBitmapFromDxgiSurface: {e}")))?;
         self.dc.SetTarget(&bitmap);
 
-        self.dcomp_device
+        gpu.dcomp_device
             .Commit()
             .map_err(|e| Error::DeviceCreation(format!("DComposition commit: {e}")))?;
 
@@ -368,10 +370,6 @@ impl SurfaceRenderer {
         }
         present_result.map_err(|e| RenderError::Other(format!("Present: {e}")))?;
 
-        self.dcomp_device
-            .Commit()
-            .map_err(|e| RenderError::Other(format!("DComposition commit: {e}")))?;
-
         Ok(())
     }
 
@@ -389,7 +387,7 @@ impl SurfaceRenderer {
 
         let fill_brush = self
             .dc
-            .CreateSolidColorBrush(&elem.fill.to_d2d_premultiplied(), None)
+            .CreateSolidColorBrush(&elem.fill.to_d2d_color(), None)
             .map_err(|e| Error::RenderError(format!("CreateSolidColorBrush: {e}")))?;
 
         if elem.corner_radius > 0.0 {
@@ -403,7 +401,7 @@ impl SurfaceRenderer {
             if let Some(bc) = &elem.border_color {
                 let border_brush = self
                     .dc
-                    .CreateSolidColorBrush(&bc.to_d2d_premultiplied(), None)
+                    .CreateSolidColorBrush(&bc.to_d2d_color(), None)
                     .map_err(|e| Error::RenderError(format!("border brush: {e}")))?;
                 self.dc
                     .DrawRoundedRectangle(&rr, &border_brush, elem.border_width * scale, None);
@@ -414,7 +412,7 @@ impl SurfaceRenderer {
             if let Some(bc) = &elem.border_color {
                 let border_brush = self
                     .dc
-                    .CreateSolidColorBrush(&bc.to_d2d_premultiplied(), None)
+                    .CreateSolidColorBrush(&bc.to_d2d_color(), None)
                     .map_err(|e| Error::RenderError(format!("border brush: {e}")))?;
                 self.dc
                     .DrawRectangle(&rect, &border_brush, elem.border_width * scale, None);
@@ -461,7 +459,7 @@ impl SurfaceRenderer {
         let text_utf16: Vec<u16> = elem.text.encode_utf16().collect();
         let brush = self
             .dc
-            .CreateSolidColorBrush(&elem.color.to_d2d_premultiplied(), None)
+            .CreateSolidColorBrush(&elem.color.to_d2d_color(), None)
             .map_err(|e| Error::RenderError(format!("text brush: {e}")))?;
 
         let layout_rect = D2D_RECT_F {
@@ -587,6 +585,7 @@ impl SurfaceRenderer {
 
     pub(crate) unsafe fn animate_opacity(
         &self,
+        dcomp_device: &IDCompositionDevice,
         from: f32,
         to: f32,
         duration_ms: u32,
@@ -594,8 +593,7 @@ impl SurfaceRenderer {
         let duration_secs = duration_ms as f64 / 1000.0;
         let slope = (to - from) as f64 / duration_secs;
 
-        let animation: IDCompositionAnimation = self
-            .dcomp_device
+        let animation: IDCompositionAnimation = dcomp_device
             .CreateAnimation()
             .map_err(|e| Error::RenderError(format!("CreateAnimation: {e}")))?;
         animation
@@ -605,8 +603,7 @@ impl SurfaceRenderer {
             .End(duration_secs, to as f64)
             .map_err(|e| Error::RenderError(format!("End: {e}")))?;
 
-        let effect_group: IDCompositionEffectGroup = self
-            .dcomp_device
+        let effect_group: IDCompositionEffectGroup = dcomp_device
             .CreateEffectGroup()
             .map_err(|e| Error::RenderError(format!("CreateEffectGroup: {e}")))?;
         effect_group
@@ -615,15 +612,18 @@ impl SurfaceRenderer {
         self.dcomp_visual
             .SetEffect(&effect_group)
             .map_err(|e| Error::RenderError(format!("SetEffect: {e}")))?;
-        self.dcomp_device
+        dcomp_device
             .Commit()
             .map_err(|e| Error::RenderError(format!("DComposition commit: {e}")))?;
         Ok(())
     }
 
-    pub unsafe fn set_opacity(&self, opacity: f32) -> Result<(), Error> {
-        let effect_group: IDCompositionEffectGroup = self
-            .dcomp_device
+    pub unsafe fn set_opacity(
+        &self,
+        dcomp_device: &IDCompositionDevice,
+        opacity: f32,
+    ) -> Result<(), Error> {
+        let effect_group: IDCompositionEffectGroup = dcomp_device
             .CreateEffectGroup()
             .map_err(|e| Error::RenderError(format!("CreateEffectGroup: {e}")))?;
         effect_group
@@ -632,7 +632,7 @@ impl SurfaceRenderer {
         self.dcomp_visual
             .SetEffect(&effect_group)
             .map_err(|e| Error::RenderError(format!("SetEffect: {e}")))?;
-        self.dcomp_device
+        dcomp_device
             .Commit()
             .map_err(|e| Error::RenderError(format!("DComposition commit: {e}")))?;
         Ok(())
@@ -723,10 +723,6 @@ impl SurfaceRenderer {
         }
         present_result.map_err(|e| RenderError::Other(format!("Present: {e}")))?;
 
-        self.dcomp_device
-            .Commit()
-            .map_err(|e| RenderError::Other(format!("DComposition commit: {e}")))?;
-
         Ok(())
     }
 
@@ -742,7 +738,7 @@ impl SurfaceRenderer {
     ) -> Result<(), Error> {
         match op {
             DrawOp::Clear(color) => {
-                self.dc.Clear(Some(&color.to_d2d_premultiplied()));
+                self.dc.Clear(Some(&color.to_d2d_color()));
             }
             DrawOp::FillRect {
                 x,
@@ -759,7 +755,7 @@ impl SurfaceRenderer {
                 };
                 let brush = self
                     .dc
-                    .CreateSolidColorBrush(&color.to_d2d_premultiplied(), None)
+                    .CreateSolidColorBrush(&color.to_d2d_color(), None)
                     .map_err(|e| Error::RenderError(format!("brush: {e}")))?;
                 self.dc.FillRectangle(&rect, &brush);
             }
@@ -779,7 +775,7 @@ impl SurfaceRenderer {
                 };
                 let brush = self
                     .dc
-                    .CreateSolidColorBrush(&color.to_d2d_premultiplied(), None)
+                    .CreateSolidColorBrush(&color.to_d2d_color(), None)
                     .map_err(|e| Error::RenderError(format!("brush: {e}")))?;
                 self.dc
                     .DrawRectangle(&rect, &brush, stroke_width * scale, None);
@@ -807,7 +803,7 @@ impl SurfaceRenderer {
                 let text_utf16: Vec<u16> = text.encode_utf16().collect();
                 let brush = self
                     .dc
-                    .CreateSolidColorBrush(&color.to_d2d_premultiplied(), None)
+                    .CreateSolidColorBrush(&color.to_d2d_color(), None)
                     .map_err(|e| Error::RenderError(format!("brush: {e}")))?;
 
                 let layout_rect = D2D_RECT_F {
@@ -836,7 +832,7 @@ impl SurfaceRenderer {
             } => {
                 let brush = self
                     .dc
-                    .CreateSolidColorBrush(&color.to_d2d_premultiplied(), None)
+                    .CreateSolidColorBrush(&color.to_d2d_color(), None)
                     .map_err(|e| Error::RenderError(format!("brush: {e}")))?;
                 // windows-rs 0.62: D2D_POINT_2F replaced by windows_numerics::Vector2
                 let p0 = windows_numerics::Vector2 {
@@ -858,7 +854,7 @@ impl SurfaceRenderer {
             } => {
                 let brush = self
                     .dc
-                    .CreateSolidColorBrush(&color.to_d2d_premultiplied(), None)
+                    .CreateSolidColorBrush(&color.to_d2d_color(), None)
                     .map_err(|e| Error::RenderError(format!("brush: {e}")))?;
                 let ellipse = D2D1_ELLIPSE {
                     point: windows_numerics::Vector2 {
@@ -880,7 +876,7 @@ impl SurfaceRenderer {
             } => {
                 let brush = self
                     .dc
-                    .CreateSolidColorBrush(&color.to_d2d_premultiplied(), None)
+                    .CreateSolidColorBrush(&color.to_d2d_color(), None)
                     .map_err(|e| Error::RenderError(format!("brush: {e}")))?;
                 let ellipse = D2D1_ELLIPSE {
                     point: windows_numerics::Vector2 {
@@ -950,7 +946,7 @@ impl SurfaceRenderer {
             } => {
                 let brush = self
                     .dc
-                    .CreateSolidColorBrush(&color.to_d2d_premultiplied(), None)
+                    .CreateSolidColorBrush(&color.to_d2d_color(), None)
                     .map_err(|e| Error::RenderError(format!("brush: {e}")))?;
                 let rr = D2D1_ROUNDED_RECT {
                     rect: D2D_RECT_F {
@@ -975,7 +971,7 @@ impl SurfaceRenderer {
             } => {
                 let brush = self
                     .dc
-                    .CreateSolidColorBrush(&color.to_d2d_premultiplied(), None)
+                    .CreateSolidColorBrush(&color.to_d2d_color(), None)
                     .map_err(|e| Error::RenderError(format!("brush: {e}")))?;
                 let rr = D2D1_ROUNDED_RECT {
                     rect: D2D_RECT_F {

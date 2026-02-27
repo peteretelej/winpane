@@ -11,7 +11,7 @@ use windows::Win32::{
 };
 
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::types::{Anchor, SurfaceId};
 
@@ -27,6 +27,8 @@ pub(crate) enum MonitorEvent {
 thread_local! {
     pub(crate) static PENDING_MONITOR_EVENTS: RefCell<Vec<MonitorEvent>> =
         const { RefCell::new(Vec::new()) };
+    static WATCHED_HWNDS: RefCell<HashSet<isize>> =
+        const { RefCell::new(HashSet::new()) };
 }
 
 // --- Watch tracking ---
@@ -75,6 +77,9 @@ impl WindowMonitor {
             .entry(hwnd)
             .or_default()
             .push(Watch { surface, reason });
+        WATCHED_HWNDS.with(|set| {
+            set.borrow_mut().insert(hwnd);
+        });
         if was_empty {
             self.register_hooks();
         }
@@ -86,6 +91,11 @@ impl WindowMonitor {
         self.watched.retain(|_, watches| {
             watches.retain(|w| w.surface != surface);
             !watches.is_empty()
+        });
+        WATCHED_HWNDS.with(|set| {
+            let mut s = set.borrow_mut();
+            s.clear();
+            s.extend(self.watched.keys());
         });
         if self.watched.is_empty() {
             self.unregister_hooks();
@@ -99,6 +109,11 @@ impl WindowMonitor {
             if watches.is_empty() {
                 self.watched.remove(&hwnd);
             }
+        }
+        if !self.watched.contains_key(&hwnd) {
+            WATCHED_HWNDS.with(|set| {
+                set.borrow_mut().remove(&hwnd);
+            });
         }
         if self.watched.is_empty() {
             self.unregister_hooks();
@@ -188,6 +203,10 @@ unsafe extern "system" fn monitor_event_callback(
     }
 
     let hwnd_val = hwnd.0 as isize;
+    let is_watched = WATCHED_HWNDS.with(|set| set.borrow().contains(&hwnd_val));
+    if !is_watched {
+        return;
+    }
 
     let monitor_event = match event {
         e if e == EVENT_OBJECT_LOCATIONCHANGE => MonitorEvent::LocationChanged { hwnd: hwnd_val },
