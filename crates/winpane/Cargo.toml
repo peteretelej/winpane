@@ -14,7 +14,7 @@ winpane-core = { version = "0.0.1", path = "../winpane-core" }
 
 [dev-dependencies.windows]
 workspace = true
-features = ["Win32_UI_WindowsAndMessaging", "Win32_Foundation"]
+features = ["Win32_UI_WindowsAndMessaging", "Win32_Foundation", "Win32_System_SystemInformation"]
 
 [[example]]
 name = "hud_demo"
@@ -51,3 +51,7 @@ path = "../../examples/rust/backdrop_demo.rs"
 [[example]]
 name = "fade_demo"
 path = "../../examples/rust/fade_demo.rs"
+
+[[example]]
+name = "clock_overlay"
+path = "../../examples/rust/clock_overlay.rs"
