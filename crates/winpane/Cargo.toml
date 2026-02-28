@@ -67,3 +67,7 @@ path = "../../examples/rust/glucose_monitor.rs"
 [[example]]
 name = "stock_ticker"
 path = "../../examples/rust/stock_ticker.rs"
+
+[[example]]
+name = "countdown_timer"
+path = "../../examples/rust/countdown_timer.rs"
