@@ -21,6 +21,8 @@ Thumbs.db
 # Generated
 crates/winpane-ffi/include/winpane.h
 
+nul
+
 # Node
 node_modules/
 bindings/node/dist/

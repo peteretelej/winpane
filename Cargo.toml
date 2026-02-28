@@ -13,6 +13,7 @@ edition = "2024"
 rust-version = "1.85"
 license = "MIT"
 repository = "https://github.com/peteretelej/winpane"
+authors = ["Peter Etelej"]
 
 [workspace.dependencies]
 windows = "0.62.2"

@@ -1,0 +1,154 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build-release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build release binaries
+        run: cargo build --release -p winpane-ffi -p winpane-host
+
+      - name: Rename import library
+        run: copy target\release\winpane.dll.lib target\release\winpane.lib
+        shell: cmd
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-wix
+
+      - name: Build MSI
+        run: cargo wix --package winpane-host --no-build --nocapture
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts
+          path: |
+            target/release/winpane-host.exe
+            target/release/winpane.dll
+            target/release/winpane.lib
+            crates/winpane-ffi/include/winpane.h
+            target/wix/*.msi
+
+  build-node:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: bindings/node
+
+      - name: Install dependencies
+        run: npm install
+        working-directory: bindings/node
+
+      - name: Build native addon
+        run: npm run build
+        working-directory: bindings/node
+
+      - name: Upload node addon
+        uses: actions/upload-artifact@v4
+        with:
+          name: node-addon
+          path: bindings/node/*.node
+
+  create-release:
+    needs: [build-release, build-node]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-artifacts
+          path: artifacts
+
+      - name: Download node addon
+        uses: actions/download-artifact@v4
+        with:
+          name: node-addon
+          path: node-addon
+
+      - name: Extract version
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - name: Package SDK zip
+        run: |
+          VERSION=${{ steps.version.outputs.VERSION }}
+          mkdir -p "winpane-${VERSION}-x86_64-pc-windows-msvc"
+          cp artifacts/target/release/winpane-host.exe "winpane-${VERSION}-x86_64-pc-windows-msvc/"
+          cp artifacts/target/release/winpane.dll "winpane-${VERSION}-x86_64-pc-windows-msvc/"
+          cp artifacts/target/release/winpane.lib "winpane-${VERSION}-x86_64-pc-windows-msvc/"
+          cp artifacts/crates/winpane-ffi/include/winpane.h "winpane-${VERSION}-x86_64-pc-windows-msvc/"
+          cp release-assets/README.md "winpane-${VERSION}-x86_64-pc-windows-msvc/" || echo "No release README"
+          zip -r "winpane-${VERSION}-x86_64-pc-windows-msvc.zip" "winpane-${VERSION}-x86_64-pc-windows-msvc"
+
+      - name: Rename MSI
+        run: |
+          VERSION=${{ steps.version.outputs.VERSION }}
+          MSI_FILE=$(ls artifacts/target/wix/*.msi 2>/dev/null | head -1)
+          if [ -n "$MSI_FILE" ]; then
+            cp "$MSI_FILE" "winpane-host-${VERSION}-x86_64.msi"
+          fi
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=${{ steps.version.outputs.VERSION }}
+          gh release create ${{ github.ref_name }} \
+            --title "${{ github.ref_name }}" \
+            --generate-notes \
+            --prerelease \
+            "winpane-${VERSION}-x86_64-pc-windows-msvc.zip" \
+            winpane-host-*.msi \
+            node-addon/*.node
+
+  publish-npm:
+    needs: [create-release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Download node addon
+        uses: actions/download-artifact@v4
+        with:
+          name: node-addon
+          path: bindings/node
+
+      - name: Publish platform package
+        run: npm publish --provenance --access public
+        working-directory: bindings/node/npm/win32-x64-msvc
+
+      - name: Publish root package
+        run: npm publish --provenance --access public
+        working-directory: bindings/node
