@@ -1,62 +1,131 @@
 # winpane
 
-Windows SDK for creating companion UI surfaces - floating overlays, interactive panels, picture-in-picture thumbnails, and system tray icons.
+Create transparent floating overlays on Windows — stats HUDs, interactive panels, PiP thumbnails, tray icons. Rust core, usable from TypeScript, Python, C, Go, Zig.
 
-## Demos
+<!-- screenshot: Phase 10 will add a hero image or GIF here -->
+
+## Try it
 
 ```sh
-# stats overlay
-cargo run -p winpane --example hud_demo
-
-# clickable buttons + drag
-cargo run -p winpane --example interactive_panel
-
-# system tray with popup
-cargo run -p winpane --example tray_ticker
-
-# Mica / Acrylic
-cargo run -p winpane --example backdrop_demo
-
-# fade animations
-cargo run -p winpane --example fade_demo
-
-# hidden from screenshots
-cargo run -p winpane --example capture_excluded
-
-# procedural drawing
-cargo run -p winpane --example custom_draw
-
-# live window thumbnail
-cargo run -p winpane --example pip_viewer
-
-# follows another window
-cargo run -p winpane --example anchored_companion
-
-# raw DirectComposition
-cargo run -p winpane-core --example hello_transparent
+cargo run -p winpane --example glucose_monitor    # CGM overlay with trend arrows
+cargo run -p winpane --example clock_overlay       # live desktop clock
+cargo run -p winpane --example countdown_timer     # interactive timer with buttons
+cargo run -p winpane --example stock_ticker        # live stock prices
+cargo run -p winpane --example system_monitor      # real CPU/memory usage
 ```
 
-`pip_viewer` and `anchored_companion` look for an open Notepad or Calculator window to attach to.
+`pip_viewer` and `anchored_companion` look for an open Notepad or Calculator window. All examples run without configuration — network-dependent ones fall back to simulated data.
 
-If you are building a dev tool, AI assistant, status bar, clipboard manager, or any application that needs to draw persistent UI on top of other windows, winpane handles the hard parts: transparent window creation, GPU-accelerated rendering, DPI awareness, input routing, and capture exclusion. You add elements to a scene graph; winpane composites them via DirectComposition without process injection or legacy GDI paths.
+<details>
+<summary>All examples</summary>
+
+### Rust
+
+| Example | What it does |
+|---------|-------------|
+| `clock_overlay` | Live desktop clock, updates every second |
+| `glucose_monitor` | CGM overlay — polls Nightscout or uses simulated data |
+| `stock_ticker` | Stock prices with live/simulated data |
+| `countdown_timer` | Interactive timer with Start/Reset buttons |
+| `system_monitor` | Real CPU and memory usage |
+| `color_picker` | Pixel color under cursor, updated live |
+| `sticky_notes` | Floating notes, toggled via tray icon |
+| `interactive_panel` | Clickable buttons, hover effects, drag |
+| `tray_ticker` | System tray icon with popup panel |
+| `pip_viewer` | Live thumbnail of another window |
+| `anchored_companion` | Panel that follows another window |
+| `hud_demo` | Basic stats overlay |
+| `backdrop_demo` | Mica / Acrylic backdrop effects (Win11) |
+| `fade_demo` | Fade-in / fade-out animations |
+| `capture_excluded` | Overlay hidden from screen capture |
+| `custom_draw` | Procedural D2D drawing |
+
+Run any Rust example: `cargo run -p winpane --example <name>`
+
+### TypeScript
+
+`examples/typescript/`: `clock_overlay.ts`, `glucose_monitor.ts`, `pomodoro.ts`, `sticky_notes.ts`, `stock_ticker.ts`
+
+Run: `npx tsx examples/typescript/<name>.ts` (requires addon built; see [TypeScript guide](docs/guides/typescript.md))
+
+### Python (JSON-RPC)
+
+`examples/python/`: `clock_overlay.py`, `glucose_monitor.py`, `hud_demo.py`
+
+Run: `python examples/python/<name>.py` (requires `winpane-host` built; see [Python guide](docs/guides/python.md))
+
+### Node.js
+
+`examples/node/`: `backdrop_demo.js`, `hud_demo.js`, `interactive_panel.js`
+
+Run: `node examples/node/<name>.js` (requires addon built; see [Node.js guide](docs/guides/nodejs.md))
+
+### C
+
+`examples/c/`: `custom_draw.c`, `hello_hud.c`
+
+See `build.bat` or `CMakeLists.txt` for build instructions.
+
+</details>
+
+## What it does
+
+- Transparent always-on-top windows via DirectComposition — no GDI, no process injection
+- GPU-accelerated rendering: D3D11 → DXGI swap chain → D2D device context → DirectComposition visual
+- Retained-mode scene graph — add rects, text, images; winpane handles the draw loop
+- Multi-language: Rust API, Node.js addon (napi-rs), C ABI (cbindgen), JSON-RPC CLI for Python/Go/Zig/anything
+- Built-in DPI awareness, capture exclusion, Mica/Acrylic backdrops, fade animations, system tray, drag, hit testing
+
+## What it does NOT
+
+**Not a UI framework.** No layout engine, no CSS, no widgets. You position elements with x/y coordinates.
+
+**Not cross-platform.** Windows only, by design. Uses DirectComposition, which has no equivalent on other operating systems.
+
+**Not a game render-loop hook.** DirectComposition composites outside the game process, adding 1–3 ms. Fine for MMO dashboards, strategy game tools, or any overlay where a couple of milliseconds don't matter. Competitive twitch shooters that need sub-frame precision typically inject into the render pipeline instead.
+
+## Surface types
+
+| Type | Behavior | Use case |
+|------|----------|----------|
+| **Hud** | Click-through, topmost, no taskbar entry | Stats overlays, notifications, timers |
+| **Panel** | Interactive — hit testing, click/hover events, drag | Tool palettes, floating controls, popups |
+| **Pip** | Live DWM thumbnail of another window | Preview panels, reference windows |
+| **Tray** | System tray icon with popup panel and context menu | Background app controls, status indicators |
+
+These compose together — a tray icon can toggle a panel, a panel can anchor to another window, any surface can fade and exclude itself from screenshots.
 
 ## Install
 
-**Node.js / Bun**
-
-```sh
-npm install winpane
-```
-
-**Rust**
+### Rust
 
 ```sh
 cargo add winpane
 ```
 
-**C / C++** - Link against `winpane_ffi.dll` and include `winpane.h` (generated by cbindgen). Build the DLL from source with `cargo build -p winpane-ffi --release`.
+### Node.js / Bun
 
-**Any language** - Spawn the `winpane-host` CLI binary and talk JSON-RPC 2.0 over stdin/stdout. Build with `cargo build -p winpane-host --release`.
+```sh
+npm install winpane
+```
+
+Or [build from source](docs/guides/nodejs.md).
+
+### C / C++
+
+Link against `winpane_ffi.dll` and include `winpane.h` (generated by cbindgen). Build the DLL:
+
+```sh
+cargo build -p winpane-ffi --release
+```
+
+### Any language
+
+Spawn the `winpane-host` CLI binary, talk JSON-RPC 2.0 over stdin/stdout. Build:
+
+```sh
+cargo build -p winpane-host --release
+```
 
 ## Quick start
 
@@ -79,11 +148,7 @@ wp.show(hud);
 
 This creates a transparent, click-through overlay at (100, 100) with a rounded dark background and white text. The surface stays on top of all windows, invisible to screen capture if you want it to be.
 
-## What you can build
-
-winpane provides four surface types. A **Hud** is a click-through overlay for passive display - system stats, notifications, timers. A **Panel** is an interactive surface with hit testing, click/hover events, and drag handles - tool palettes, quick-action bars, floating controls. A **Pip** shows a live DWM thumbnail of another window - preview panels, reference views. A **Tray** creates a system tray icon with popup panels and context menus - background app controls, status indicators.
-
-These compose together. A tray icon can toggle a panel popup. A panel can anchor to another window's corner and follow it as it moves. Any surface can fade in/out with DirectComposition animations, apply Mica or Acrylic backdrop effects, and exclude itself from screenshots.
+If building from source, see the [TypeScript guide](docs/guides/typescript.md).
 
 ## Guides
 
@@ -94,14 +159,14 @@ These compose together. A tray icon can toggle a panel popup. A panel can anchor
 - [Go](docs/guides/go.md)
 - [Zig](docs/guides/zig.md)
 - [Python / any language](docs/guides/python.md) (JSON-RPC)
-- [Cookbook](docs/cookbook.md) - 10 self-contained recipes
+- [Cookbook](docs/cookbook.md) — 10 self-contained recipes
 
 ## Reference
 
-- [Design overview](docs/design.md) - Architecture, key decisions
-- [JSON-RPC protocol](docs/protocol.md) - Full method reference for `winpane-host`
-- [Limitations](docs/limitations.md) - Known constraints and workarounds
-- [Signing and distribution](docs/signing.md) - Code signing, SmartScreen, MSIX
+- [Design overview](docs/design.md) — architecture, key decisions
+- [JSON-RPC protocol](docs/protocol.md) — full method reference for `winpane-host`
+- [Limitations](docs/limitations.md) — known constraints and workarounds
+- [Signing and distribution](docs/signing.md) — code signing, SmartScreen, MSIX
 
 ## Platform
 
@@ -109,13 +174,15 @@ These compose together. A tray icon can toggle a panel popup. A panel can anchor
 - Windows 11 22H2+ for backdrop effects (Mica, Acrylic)
 - Windows 10 2004+ for capture exclusion
 
+## Status
+
+**Pre-1.0.** The API works and examples run, but expect breaking changes. Bug reports and feedback welcome.
+
 ## Why I built this
 
-I was diagnosed with Type 1 diabetes (t1.5) in last year (2025). Most CGM apps and tools are geolocked and unavailable in Kenya, so I built [mysukari.com](https://mysukari.com) — a diabetes platform that lets anyone connect their CGM via Nightscout and get reporting, charts, and analysis dashboards without maintaining their own infrastructure.
+I was diagnosed with Type 1 diabetes in 2025. Most CGM apps are geolocked and unavailable in Kenya, so I built [mysukari.com](https://mysukari.com) — a free platform that connects any CGM via Nightscout for reporting and analysis. I wanted a small desktop overlay showing my glucose reading and trend arrow, updating every few minutes, hidden from screen shares. Nothing lightweight and multi-language existed, so I built winpane.
 
-I wanted a small overlay on my Windows desktop that shows my current glucose reading and trend arrow, updates every few minutes, and stays out of screen shares. I couldn't find a nice light-weight library that I could easily call from almost any language, so I built winpane to solve this problem for myself and others. Hope it's as useful to you as it has been so far to me!
-
-I had no prior experience with DirectComposition, Direct2D, or low-level Win32 GPU rendering. Claude Opus 4.6 was instrumental in building and expanding the capabilities of what winpane is.
+I had no prior experience with DirectComposition, Direct2D, or Win32 GPU rendering. [Claude Opus 4.6](https://www.anthropic.com/claude) was instrumental in building this.
 
 ## License
 
