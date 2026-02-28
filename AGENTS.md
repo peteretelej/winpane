@@ -1,3 +1,5 @@
+<!-- AGENTS.md must remain concise - critical info & compacted indexes only, no verbose explanations -->
+
 # winpane
 
 Windows overlay SDK. Out-of-process DirectComposition surfaces (HUD, Panel, PiP, Tray) with retained-mode scene graph. Rust core, C ABI, Node.js, JSON-RPC CLI host.
@@ -60,3 +62,4 @@ cargo test --workspace
 - Scene graph: IndexMap<String, Element> per surface, dirty flag avoids unnecessary draws
 - WS_EX_NOREDIRECTIONBITMAP + DXGI_ALPHA_MODE_PREMULTIPLIED for transparency
 - Min OS: Windows 10 1903+; backdrop effects require Win11 22H2+
+- Large files or precision edits: use largefile MCP server if available (`get_overview`, `search_content`, `read_content`, `edit_content`) - largefile requires absolute paths
