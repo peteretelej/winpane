@@ -18,7 +18,7 @@ serde_json = { workspace = true }
 
 [dev-dependencies.windows]
 workspace = true
-features = ["Win32_UI_WindowsAndMessaging", "Win32_Foundation", "Win32_System_SystemInformation"]
+features = ["Win32_UI_WindowsAndMessaging", "Win32_Foundation", "Win32_System_SystemInformation", "Win32_System_Threading"]
 
 [[example]]
 name = "hud_demo"
@@ -71,3 +71,7 @@ path = "../../examples/rust/stock_ticker.rs"
 [[example]]
 name = "countdown_timer"
 path = "../../examples/rust/countdown_timer.rs"
+
+[[example]]
+name = "system_monitor"
+path = "../../examples/rust/system_monitor.rs"
