@@ -40,10 +40,11 @@ fn timer_color(remaining: u32, state: &TimerState, elapsed_ms: u128) -> winpane:
         TimerState::Running if remaining > 30 => Color::rgba(52, 211, 153, 255),
         TimerState::Running if remaining > 10 => Color::rgba(251, 191, 36, 255),
         TimerState::Running => {
-            // Pulsing red: sin wave alpha 128–255
-            let phase = (elapsed_ms as f64 / 500.0) * std::f64::consts::PI;
-            let alpha = 128.0 + 127.0 * phase.sin();
-            Color::rgba(239, 68, 68, alpha as u8)
+            // Pulsing red: sin wave alpha 128–255 at ~1Hz
+            let pulse =
+                ((elapsed_ms % 1000) as f64 / 1000.0 * std::f64::consts::TAU).sin();
+            let alpha = (191.5 + 63.5 * pulse) as u8;
+            Color::rgba(239, 68, 68, alpha)
         }
     }
 }
@@ -80,9 +81,9 @@ fn hover_rect(x: f32, y: f32, width: f32) -> winpane::RectElement {
 
 #[allow(clippy::print_stdout)]
 fn main() -> Result<(), winpane::Error> {
-    use winpane::{Color, Context, Event, PanelConfig, RectElement, TextElement};
     use std::thread;
     use std::time::{Duration, Instant};
+    use winpane::{Color, Context, Event, PanelConfig, RectElement, TextElement};
 
     let ctx = Context::new()?;
 
@@ -310,9 +311,7 @@ fn main() -> Result<(), winpane::Error> {
         // Timer tick
         if state == TimerState::Running && last_tick.elapsed() >= Duration::from_secs(1) {
             last_tick = Instant::now();
-            if remaining_secs > 0 {
-                remaining_secs -= 1;
-            }
+            remaining_secs = remaining_secs.saturating_sub(1);
             if remaining_secs == 0 {
                 state = TimerState::Idle;
             }
