@@ -237,6 +237,9 @@ extern "system" fn panel_wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: L
         let state_ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA);
 
         match msg {
+            // Prevent panel from stealing focus when clicked
+            WM_MOUSEACTIVATE => LRESULT(3), // MA_NOACTIVATE
+
             WM_NCHITTEST => {
                 if state_ptr == 0 {
                     return LRESULT(-1); // HTTRANSPARENT during creation

@@ -306,10 +306,22 @@ unsafe fn engine_thread_main(
                             if matches!(s.kind, SurfaceKind::Pip(_)) {
                                 continue;
                             }
+                            // Only rebuild hit-test map if the element is interactive
+                            // or the previous element at this key was interactive.
+                            // Non-interactive updates (e.g. changing text color every
+                            // frame) skip the rebuild entirely.
+                            let needs_hit_rebuild = element.is_interactive()
+                                || s.scene
+                                    .get(&key)
+                                    .is_some_and(super::scene::Element::is_interactive);
                             s.scene.set(key, element);
-                            // Rebuild hit-test map for panels
-                            if let SurfaceKind::Panel(state) = &mut s.kind {
-                                state.hit_test_map.rebuild(&s.scene, s.renderer.dpi_scale);
+                            if needs_hit_rebuild
+                                && let SurfaceKind::Panel(state) = &mut s.kind
+                            {
+                                state.hit_test_map.rebuild(
+                                    &s.scene,
+                                    s.renderer.dpi_scale,
+                                );
                             }
                         }
                     }
@@ -671,6 +683,7 @@ fn process_dpi_changes(gpu: &GpuResources, surfaces: &mut HashMap<SurfaceId, Sur
                     // Update panel state for new DPI
                     if let SurfaceKind::Panel(state) = &mut surface.kind {
                         state.hit_test_map.rebuild(&surface.scene, new_scale);
+                        state.drag_height = state.logical_drag_height * new_scale;
                     }
 
                     break;
@@ -1126,6 +1139,7 @@ unsafe fn create_panel_surface(
             hovered_key: RefCell::new(None),
             draggable: config.draggable,
             drag_height: config.drag_height as f32 * scale,
+            logical_drag_height: config.drag_height as f32,
             tracking_mouse: Cell::new(false),
         });
 

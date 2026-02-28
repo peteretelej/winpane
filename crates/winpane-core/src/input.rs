@@ -114,6 +114,8 @@ pub(crate) struct PanelState {
     pub draggable: bool,
     /// Physical pixels from top of panel for drag handle.
     pub drag_height: f32,
+    /// Logical pixels from top of panel for drag handle (DPI-independent).
+    pub logical_drag_height: f32,
     /// Whether TrackMouseEvent(TME_LEAVE) is active.
     pub tracking_mouse: Cell<bool>,
 }

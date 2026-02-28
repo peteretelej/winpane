@@ -43,6 +43,11 @@ impl SceneGraph {
         self.elements.iter().map(|(k, v)| (k.as_str(), v))
     }
 
+    /// Get an element by key.
+    pub fn get(&self, key: &str) -> Option<&Element> {
+        self.elements.get(key)
+    }
+
     /// Check and clear the dirty flag. Returns true if the scene was dirty.
     pub fn take_dirty(&mut self) -> bool {
         let was_dirty = self.dirty;

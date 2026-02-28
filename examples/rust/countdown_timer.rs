@@ -19,7 +19,7 @@
 
 const INITIAL_SECS: u32 = 300; // 5 minutes
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone, Copy)]
 enum TimerState {
     Idle,
     Running,
@@ -221,6 +221,9 @@ fn main() -> Result<(), winpane::Error> {
     let mut remaining_secs = INITIAL_SECS;
     let mut last_tick = Instant::now();
     let start_time = Instant::now();
+    let mut prev_displayed_secs = INITIAL_SECS;
+    let mut prev_state = TimerState::Idle;
+    let mut prev_label = "Start";
 
     loop {
         while let Some(event) = ctx.poll_event() {
@@ -317,39 +320,62 @@ fn main() -> Result<(), winpane::Error> {
             }
         }
 
-        // Update timer display every frame
+        // Update timer display only when something changed
         let elapsed_ms = start_time.elapsed().as_millis();
-        panel.set_text(
-            "timer",
-            TextElement {
-                text: format_time(remaining_secs),
-                x: 65.0,
-                y: 38.0,
-                font_size: 36.0,
-                color: timer_color(remaining_secs, &state, elapsed_ms),
-                bold: true,
-                font_family: Some("Consolas".into()),
-                ..Default::default()
-            },
-        );
+        if remaining_secs != prev_displayed_secs || state != prev_state {
+            panel.set_text(
+                "timer",
+                TextElement {
+                    text: format_time(remaining_secs),
+                    x: 65.0,
+                    y: 38.0,
+                    font_size: 36.0,
+                    color: timer_color(remaining_secs, &state, elapsed_ms),
+                    bold: true,
+                    font_family: Some("Consolas".into()),
+                    ..Default::default()
+                },
+            );
+            prev_displayed_secs = remaining_secs;
+        } else if state == TimerState::Running && remaining_secs <= 10 {
+            // Pulsing red animation — update at frame rate only in final 10s
+            panel.set_text(
+                "timer",
+                TextElement {
+                    text: format_time(remaining_secs),
+                    x: 65.0,
+                    y: 38.0,
+                    font_size: 36.0,
+                    color: timer_color(remaining_secs, &state, elapsed_ms),
+                    bold: true,
+                    font_family: Some("Consolas".into()),
+                    ..Default::default()
+                },
+            );
+        }
 
-        // Update start button label
+        // Update start button label only when state changes
         let start_label = if state == TimerState::Running {
             "Pause"
         } else {
             "Start"
         };
-        panel.set_text(
-            "btn_start_text",
-            TextElement {
-                text: start_label.into(),
-                x: 42.0,
-                y: 100.0,
-                font_size: 13.0,
-                color: Color::rgba(232, 232, 237, 255),
-                ..Default::default()
-            },
-        );
+        if start_label != prev_label || state != prev_state {
+            panel.set_text(
+                "btn_start_text",
+                TextElement {
+                    text: start_label.into(),
+                    x: 42.0,
+                    y: 100.0,
+                    font_size: 13.0,
+                    color: Color::rgba(232, 232, 237, 255),
+                    ..Default::default()
+                },
+            );
+            prev_label = start_label;
+        }
+
+        prev_state = state;
 
         thread::sleep(Duration::from_millis(16));
     }
