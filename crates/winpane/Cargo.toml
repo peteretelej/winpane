@@ -18,7 +18,7 @@ serde_json = { workspace = true }
 
 [dev-dependencies.windows]
 workspace = true
-features = ["Win32_UI_WindowsAndMessaging", "Win32_Foundation", "Win32_System_SystemInformation", "Win32_System_Threading"]
+features = ["Win32_UI_WindowsAndMessaging", "Win32_Foundation", "Win32_System_SystemInformation", "Win32_System_Threading", "Win32_Graphics_Gdi"]
 
 [[example]]
 name = "hud_demo"
@@ -75,3 +75,7 @@ path = "../../examples/rust/countdown_timer.rs"
 [[example]]
 name = "system_monitor"
 path = "../../examples/rust/system_monitor.rs"
+
+[[example]]
+name = "color_picker"
+path = "../../examples/rust/color_picker.rs"
