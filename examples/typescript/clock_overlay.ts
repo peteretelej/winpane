@@ -19,8 +19,8 @@ import { WinPane } from "winpane";
 
 const wp = new WinPane();
 
-// Bottom-right on 1080p, 20px inset
-const panel = wp.createPanel({ width: 150, height: 88, x: 1750, y: 972, draggable: true, dragHeight: 28 });
+// Bottom-right corner, 20px inset
+const panel = wp.createPanel({ width: 150, height: 88, monitor: 0, anchor: 'bottom_right', margin: 20, draggable: true, dragHeight: 28, positionKey: 'ts_clock_overlay' });
 
 // Background card (Glass theme)
 wp.setRect(panel, "bg", {

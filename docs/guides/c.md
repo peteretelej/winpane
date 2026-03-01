@@ -34,7 +34,10 @@ int main(void) {
     winpane_hud_config_t cfg = {
         .version = WINPANE_CONFIG_VERSION,
         .size = sizeof(winpane_hud_config_t),
-        .x = 100, .y = 100,
+        .placement_type = 1, /* Monitor */
+        .monitor_index = 0,
+        .monitor_anchor = 0, /* TopLeft */
+        .monitor_margin = 40,
         .width = 300, .height = 100,
     };
     WinpaneSurface *hud;
@@ -148,7 +151,8 @@ String parameters (`text`, `font_family`, `key`) are copied internally. You can 
 winpane_panel_config_t pcfg = {
     .version = WINPANE_CONFIG_VERSION,
     .size = sizeof(winpane_panel_config_t),
-    .x = 200, .y = 200,
+    .placement_type = 0, /* Position */
+    .position_x = 200, .position_y = 200,
     .width = 260, .height = 100,
     .draggable = 1,
     .drag_height = 30,

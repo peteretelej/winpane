@@ -31,10 +31,10 @@ Click-through overlay for passive information display.
 
 ```rust
 HudConfig {
-    x: i32,       // initial X position (logical pixels)
-    y: i32,       // initial Y position
-    width: u32,   // initial width
-    height: u32,  // initial height
+    placement: Placement, // where to place the window
+    width: u32,           // initial width
+    height: u32,          // initial height
+    position_key: Option<String>, // persist position across sessions
 }
 ```
 
@@ -50,12 +50,12 @@ Interactive surface with selective click-through.
 
 ```rust
 PanelConfig {
-    x: i32,
-    y: i32,
+    placement: Placement,
     width: u32,
     height: u32,
     draggable: bool,  // enable drag by title region
     drag_height: u32, // height of drag region from top (logical pixels)
+    position_key: Option<String>, // persist position across sessions
 }
 ```
 
@@ -74,10 +74,10 @@ Picture-in-Picture surface showing a live DWM thumbnail of another window.
 ```rust
 PipConfig {
     source_hwnd: isize, // HWND of the source window
-    x: i32,
-    y: i32,
+    placement: Placement,
     width: u32,
     height: u32,
+    position_key: Option<String>,
 }
 ```
 
@@ -114,3 +114,11 @@ These apply to all surface types (except where noted):
 - **Capture exclusion** - `set_capture_excluded(true)` hides the surface from screenshots and screen sharing via `SetWindowDisplayAffinity`. Requires Windows 10 2004+.
 - **Backdrop** - `set_backdrop(Mica)` or `set_backdrop(Acrylic)` applies a DWM backdrop effect. Requires Windows 11 22H2+. Use semi-transparent background rects to let the effect show through.
 - **Fade animations** - `fade_in(ms)` shows the surface and animates opacity 0 to 1. `fade_out(ms)` animates 1 to 0 and hides. Uses DirectComposition opacity animations.
+- **Position persistence** - Setting `position_key` on a config saves the surface's last position to `%LOCALAPPDATA%/winpane/positions.json`. On next launch with the same key, the surface restores to its saved position.
+- **Position query** - `get_position()` returns the current `(x, y)` screen coordinates of the surface.
+
+## Events
+
+In addition to surface-type-specific events:
+
+- **`SurfaceMoved { surface_id, x, y }`** - Emitted when a surface is moved (e.g., dragged by the user). Includes the new screen coordinates.

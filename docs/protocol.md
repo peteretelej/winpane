@@ -23,7 +23,7 @@ winpane-host < requests.jsonl
 Minimal session (create a HUD, add text, show it, destroy it):
 
 ```json
-{"jsonrpc":"2.0","method":"create_hud","params":{"x":100,"y":100,"width":400,"height":200},"id":1}
+{"jsonrpc":"2.0","method":"create_hud","params":{"placement":{"monitor":{"index":0,"anchor":"top_left","margin":40}},"width":400,"height":200},"id":1}
 ```
 ```json
 {"jsonrpc":"2.0","result":{"surface_id":"s1"},"id":1}
@@ -60,14 +60,20 @@ Creates a click-through HUD overlay. Returns a surface ID.
 
 | Param | Type | Required | Description |
 |-------|------|----------|-------------|
-| `x` | integer | yes | X position in pixels |
-| `y` | integer | yes | Y position in pixels |
+| `placement` | object | no | Placement object (see below) |
+| `x` | integer | no | X position (fallback if no `placement`) |
+| `y` | integer | no | Y position (fallback if no `placement`) |
 | `width` | unsigned integer | yes | Width in pixels |
 | `height` | unsigned integer | yes | Height in pixels |
+| `position_key` | string | no | Key for position persistence |
+
+**Placement object:** Either `{"position": {"x": 100, "y": 100}}` or `{"monitor": {"index": 0, "anchor": "top_left", "margin": 20}}`. If omitted, falls back to top-level `x`/`y` params.
+
+**Anchor values:** `"top_left"`, `"top_right"`, `"bottom_left"`, `"bottom_right"`.
 
 **Request:**
 ```json
-{"jsonrpc":"2.0","method":"create_hud","params":{"x":100,"y":100,"width":400,"height":200},"id":1}
+{"jsonrpc":"2.0","method":"create_hud","params":{"placement":{"monitor":{"index":0,"anchor":"top_left","margin":40}},"width":400,"height":200},"id":1}
 ```
 
 **Response:**
@@ -83,16 +89,18 @@ Creates an interactive panel surface with selective click-through.
 
 | Param | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `x` | integer | yes | | X position |
-| `y` | integer | yes | | Y position |
+| `placement` | object | no | | Placement object (see `create_hud`) |
+| `x` | integer | no | | X position (fallback) |
+| `y` | integer | no | | Y position (fallback) |
 | `width` | unsigned integer | yes | | Width |
 | `height` | unsigned integer | yes | | Height |
 | `draggable` | boolean | no | `false` | Enable title-bar dragging |
 | `drag_height` | unsigned integer | no | `0` | Height of the drag region from the top |
+| `position_key` | string | no | | Key for position persistence |
 
 **Request:**
 ```json
-{"jsonrpc":"2.0","method":"create_panel","params":{"x":200,"y":200,"width":300,"height":250,"draggable":true,"drag_height":40},"id":1}
+{"jsonrpc":"2.0","method":"create_panel","params":{"placement":{"monitor":{"index":0,"anchor":"bottom_right","margin":20}},"width":300,"height":250,"draggable":true,"drag_height":40,"position_key":"my_panel"},"id":1}
 ```
 
 **Response:**
@@ -109,14 +117,16 @@ Creates a Picture-in-Picture surface showing a live DWM thumbnail of another win
 | Param | Type | Required | Description |
 |-------|------|----------|-------------|
 | `source_hwnd` | integer | yes | Window handle (HWND) of the source window |
-| `x` | integer | yes | X position |
-| `y` | integer | yes | Y position |
+| `placement` | object | no | Placement object (see `create_hud`) |
+| `x` | integer | no | X position (fallback) |
+| `y` | integer | no | Y position (fallback) |
 | `width` | unsigned integer | yes | Width |
 | `height` | unsigned integer | yes | Height |
+| `position_key` | string | no | Key for position persistence |
 
 **Request:**
 ```json
-{"jsonrpc":"2.0","method":"create_pip","params":{"source_hwnd":12345,"x":0,"y":0,"width":320,"height":240},"id":1}
+{"jsonrpc":"2.0","method":"create_pip","params":{"source_hwnd":12345,"placement":{"position":{"x":0,"y":0}},"width":320,"height":240},"id":1}
 ```
 
 **Response:**
@@ -569,6 +579,24 @@ Each menu item:
 
 ### Lifecycle
 
+#### `get_position`
+
+Returns the current screen position of a surface.
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `surface_id` | string | yes | Target surface |
+
+**Request:**
+```json
+{"jsonrpc":"2.0","method":"get_position","params":{"surface_id":"s1"},"id":9}
+```
+
+**Response:**
+```json
+{"jsonrpc":"2.0","result":{"x":150,"y":200},"id":9}
+```
+
 #### `destroy`
 
 Destroys a surface or tray by ID.
@@ -653,6 +681,14 @@ The target window of an anchored surface was closed.
 
 ```json
 {"jsonrpc":"2.0","method":"event","params":{"type":"anchor_target_closed","surface_id":"s1"}}
+```
+
+### `surface_moved`
+
+A surface was moved (e.g., dragged by the user).
+
+```json
+{"jsonrpc":"2.0","method":"event","params":{"type":"surface_moved","surface_id":"s1","x":250,"y":300}}
 ```
 
 ### `device_recovered`

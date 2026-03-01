@@ -21,7 +21,7 @@
 const { WinPane } = require('winpane');
 
 const wp = new WinPane();
-const panel = wp.createPanel({ width: 400, height: 300, x: 200, y: 200 });
+const panel = wp.createPanel({ width: 400, height: 300, monitor: 0, anchor: 'top_left', margin: 40 });
 
 wp.setBackdrop(panel, 'mica');
 wp.setText(panel, 'title', {

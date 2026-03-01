@@ -65,8 +65,9 @@ function hoverRect() {
 const wp = new WinPane();
 const panel = wp.createPanel({
   width: 240, height: 140,
-  x: 840, y: 450,
+  monitor: 0, anchor: 'top_left', margin: 40,
   draggable: true, dragHeight: 28,
+  positionKey: 'ts_pomodoro',
 });
 
 // Background

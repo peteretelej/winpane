@@ -100,6 +100,15 @@ export interface WinPaneEvent {
   y?: number;
 }
 
+export interface MonitorInfo {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  dpi: number;
+  isPrimary: boolean;
+}
+
 export class WinPane {
   constructor();
 
@@ -129,8 +138,9 @@ export class WinPane {
   setBackdrop(surfaceId: number, backdrop: string): void;
   backdropSupported(): boolean;
 
-  // Position
+  // Position & monitors
   getPosition(surfaceId: number): number[];
+  monitors(): MonitorInfo[];
 
   // Anchoring
   anchorTo(surfaceId: number, targetHwnd: number, anchor: string, offsetX: number, offsetY: number): void;

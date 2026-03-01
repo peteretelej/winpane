@@ -14,7 +14,7 @@ The package includes prebuilt native binaries for Windows x64. No build tools re
 const { WinPane } = require("winpane");
 
 const wp = new WinPane();
-const hud = wp.createHud({ width: 300, height: 100, x: 100, y: 100 });
+const hud = wp.createHud({ width: 300, height: 100, monitor: 0, anchor: 'top_left', margin: 40 });
 
 wp.setRect(hud, "bg", {
   x: 0, y: 0, width: 300, height: 100,
@@ -96,9 +96,10 @@ Elements are keyed by string. Setting the same key replaces the element. Inserti
 ```js
 const panel = wp.createPanel({
   width: 260, height: 100,
-  x: 200, y: 200,
+  monitor: 0, anchor: 'top_left', margin: 40,
   draggable: true,
   dragHeight: 30,
+  positionKey: 'my_panel',
 });
 
 wp.setRect(panel, "btn", {
@@ -135,7 +136,7 @@ setInterval(() => {
 }, 16);
 ```
 
-Poll events with `wp.pollEvent()`. Returns an object or `null`. Event types: `element_clicked`, `element_hovered`, `element_left`, `tray_clicked`, `tray_menu_item_clicked`, `pip_source_closed`, `anchor_target_closed`, `device_recovered`.
+Poll events with `wp.pollEvent()`. Returns an object or `null`. Event types: `element_clicked`, `element_hovered`, `element_left`, `tray_clicked`, `tray_menu_item_clicked`, `pip_source_closed`, `anchor_target_closed`, `surface_moved`, `device_recovered`.
 
 ## Surface control
 
@@ -151,6 +152,42 @@ wp.fadeIn(id, 300);                    // fade in over 300ms
 wp.fadeOut(id, 500);                   // fade out, then hide
 wp.anchorTo(id, targetHwnd, "top_right", 8, 0);
 wp.unanchor(id);
+wp.getPosition(id);                   // returns [x, y]
+```
+
+## Placement
+
+Surfaces can be placed at explicit coordinates or relative to a monitor corner:
+
+```js
+// Explicit position
+wp.createHud({ width: 300, height: 100, x: 100, y: 100 });
+
+// Relative to monitor edge
+wp.createPanel({ width: 200, height: 100, monitor: 0, anchor: 'bottom_right', margin: 20 });
+```
+
+Anchor values: `'top_left'`, `'top_right'`, `'bottom_left'`, `'bottom_right'`.
+
+Query connected monitors:
+
+```js
+for (const m of wp.monitors()) {
+  console.log(`${m.width}x${m.height} at (${m.x},${m.y}) dpi=${m.dpi} primary=${m.isPrimary}`);
+}
+```
+
+## Position persistence
+
+Set `positionKey` on a panel to save and restore its position across sessions:
+
+```js
+const panel = wp.createPanel({
+  width: 200, height: 100,
+  monitor: 0, anchor: 'bottom_right', margin: 20,
+  draggable: true, dragHeight: 28,
+  positionKey: 'my_widget',
+});
 ```
 
 Check backdrop support at runtime:

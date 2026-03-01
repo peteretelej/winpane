@@ -34,7 +34,7 @@ def rpc(method, params, req_id):
     return json.loads(proc.stdout.readline())
 
 # Create a HUD
-result = rpc("create_hud", {"x": 100, "y": 100, "width": 300, "height": 100}, 1)
+result = rpc("create_hud", {"placement": {"monitor": {"index": 0, "anchor": "top_left", "margin": 40}}, "width": 300, "height": 100}, 1)
 sid = result["result"]["surface_id"]
 
 # Add elements
@@ -67,7 +67,7 @@ Requests must include `"jsonrpc": "2.0"`, a `"method"`, `"params"`, and an `"id"
 
 ```python
 # Request
-{"jsonrpc": "2.0", "method": "create_hud", "params": {"x": 0, "y": 0, "width": 300, "height": 100}, "id": 1}
+{"jsonrpc": "2.0", "method": "create_hud", "params": {"placement": {"monitor": {"index": 0, "anchor": "top_left", "margin": 40}}, "width": 300, "height": 100}, "id": 1}
 
 # Response
 {"jsonrpc": "2.0", "result": {"surface_id": "s1"}, "id": 1}
@@ -130,8 +130,10 @@ rpc("remove_element", {"surface_id": sid, "key": "label"}, 8)
 
 ```python
 result = rpc("create_panel", {
-    "x": 200, "y": 200, "width": 260, "height": 100,
+    "placement": {"position": {"x": 200, "y": 200}},
+    "width": 260, "height": 100,
     "draggable": True, "drag_height": 30,
+    "position_key": "my_panel",
 }, 10)
 panel_id = result["result"]["surface_id"]
 

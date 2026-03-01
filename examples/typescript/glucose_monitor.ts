@@ -95,7 +95,7 @@ function simulateReading(prevSgv: number): GlucoseReading {
 // ── Main ───────────────────────────────────────────────────────
 
 const wp = new WinPane();
-const panel = wp.createPanel({ width: 140, height: 93, x: 1760, y: 902, draggable: true, dragHeight: 28 });
+const panel = wp.createPanel({ width: 140, height: 93, monitor: 0, anchor: 'bottom_right', margin: 20, draggable: true, dragHeight: 28, positionKey: 'ts_glucose_monitor' });
 wp.setCaptureExcluded(panel, true);
 
 // Initial bg

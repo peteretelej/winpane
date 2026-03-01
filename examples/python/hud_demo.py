@@ -54,7 +54,7 @@ def main():
 
     try:
         # Create a HUD
-        resp = send("create_hud", {"width": 400, "height": 200, "x": 100, "y": 100})
+        resp = send("create_hud", {"width": 400, "height": 200, "placement": {"monitor": {"index": 0, "anchor": "top_left", "margin": 40}}})
         surface_id = resp["result"]["surface_id"]
         print(f"Created HUD: {surface_id}")
 

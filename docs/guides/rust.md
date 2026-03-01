@@ -13,12 +13,14 @@ winpane uses `windows-rs` internally and only compiles on Windows. If you develo
 ## Hello world
 
 ```rust
-use winpane::{Color, Context, HudConfig, RectElement, TextElement};
+use winpane::{Color, Context, HudConfig, Placement, RectElement, TextElement};
 
 fn main() -> Result<(), winpane::Error> {
     let ctx = Context::new()?;
     let hud = ctx.create_hud(HudConfig {
-        x: 100, y: 100, width: 300, height: 100,
+        placement: Placement::Monitor { index: 0, anchor: winpane::Anchor::TopLeft, margin: 40 },
+        width: 300, height: 100,
+        ..Default::default()
     })?;
 
     hud.set_rect("bg", RectElement {
@@ -92,12 +94,14 @@ Elements are identified by string keys. Setting an element with an existing key 
 Panels support mouse input on elements with `interactive: true`:
 
 ```rust
-use winpane::{Context, PanelConfig, RectElement, TextElement, Color, Event};
+use winpane::{Context, PanelConfig, Placement, RectElement, TextElement, Color, Event};
 
 let ctx = Context::new()?;
 let panel = ctx.create_panel(PanelConfig {
-    x: 200, y: 200, width: 260, height: 100,
+    placement: Placement::Position { x: 200, y: 200 }, width: 260, height: 100,
     draggable: true, drag_height: 30,
+    position_key: Some("my_panel".into()),
+    ..Default::default()
 })?;
 
 panel.set_rect("btn", RectElement {
@@ -142,6 +146,53 @@ surface.fade_in(300);               // fade in over 300ms
 surface.fade_out(500);              // fade out over 500ms, then hide
 surface.anchor_to(hwnd, Anchor::TopRight, (8, 0)); // track a window
 surface.unanchor();
+```
+
+## Placement
+
+Surfaces can be placed at explicit coordinates or relative to a monitor corner:
+
+```rust
+use winpane::{Anchor, Placement};
+
+// Explicit position
+Placement::Position { x: 100, y: 100 }
+
+// Relative to monitor edge
+Placement::Monitor { index: 0, anchor: Anchor::BottomRight, margin: 20 }
+```
+
+Use `ctx.monitors()` to query available monitors:
+
+```rust
+for m in ctx.monitors() {
+    println!("{}x{} at ({},{}) dpi={} primary={}",
+        m.width, m.height, m.x, m.y, m.dpi, m.is_primary);
+}
+```
+
+## Position persistence
+
+Set `position_key` on a config to save and restore the surface position across sessions:
+
+```rust
+let panel = ctx.create_panel(PanelConfig {
+    placement: Placement::Monitor { index: 0, anchor: Anchor::BottomRight, margin: 20 },
+    width: 200, height: 100,
+    draggable: true, drag_height: 28,
+    position_key: Some("my_widget".into()),
+    ..Default::default()
+})?;
+```
+
+Positions are stored in `%LOCALAPPDATA%/winpane/positions.json`. When a surface with a known key is created, its saved position is restored automatically.
+
+The `SurfaceMoved` event is emitted whenever a surface moves:
+
+```rust
+if let Event::SurfaceMoved { surface_id, x, y } = event {
+    println!("Surface {surface_id:?} moved to ({x}, {y})");
+}
 ```
 
 ## Tray icons

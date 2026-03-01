@@ -146,8 +146,8 @@ const symbols = (process.env.TICKER_SYMBOLS ?? "AAPL,MSFT")
 
 const width = calcWidth(symbols.length);
 const wp = new WinPane();
-// Assumes 1080p — adjust x for other resolutions
-const panel = wp.createPanel({ width, height: 56, x: 1920 - width - 20, y: 20, draggable: true, dragHeight: 24 });
+// Place in top-right corner
+const panel = wp.createPanel({ width, height: 56, monitor: 0, anchor: 'top_right', margin: 20, draggable: true, dragHeight: 24, positionKey: 'ts_stock_ticker' });
 wp.setCaptureExcluded(panel, true);
 
 wp.setRect(panel, "bg", {

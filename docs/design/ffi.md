@@ -36,12 +36,17 @@ Creation functions take a config struct pointer. Each config struct has `version
 
 ```c
 typedef struct {
-    uint32_t version;  // must be WINPANE_CONFIG_VERSION (currently 1)
-    uint32_t size;     // must be sizeof(WinpaneHudConfig)
-    int32_t x;
-    int32_t y;
+    uint32_t version;        // must be WINPANE_CONFIG_VERSION (currently 2)
+    uint32_t size;           // must be sizeof(WinpaneHudConfig)
+    uint32_t placement_type; // 0 = Position, 1 = Monitor
+    int32_t position_x;      // used when placement_type == 0
+    int32_t position_y;
+    uint32_t monitor_index;  // used when placement_type == 1
+    uint32_t monitor_anchor; // 0=TopLeft, 1=TopRight, 2=BottomLeft, 3=BottomRight
+    uint32_t monitor_margin;
     uint32_t width;
     uint32_t height;
+    const char *position_key; // NULL = no persistence
 } WinpaneHudConfig;
 ```
 
@@ -69,6 +74,9 @@ while (winpane_poll_event(ctx, &event) == 0) {
     switch (event.event_type) {
         case WINPANE_EVENT_ELEMENT_CLICKED:
             printf("clicked: surface=%llu key=%s\n", event.surface_id, event.key);
+            break;
+        case WINPANE_EVENT_TYPE_SURFACE_MOVED:
+            printf("moved: surface=%llu x=%d y=%d\n", event.surface_id, event.x, event.y);
             break;
         // ...
     }

@@ -33,8 +33,9 @@ wp.setMenu(tray, [
 
 // ── Panel: 240×160, draggable title bar ────────────────────────
 const panel = wp.createPanel({
-  width: 240, height: 160, x: 200, y: 200,
+  width: 240, height: 160, monitor: 0, anchor: 'top_left', margin: 40,
   draggable: true, dragHeight: 28,
+  positionKey: 'ts_sticky_notes',
 });
 wp.setBackdrop(panel, "mica");
 

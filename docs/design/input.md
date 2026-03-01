@@ -42,6 +42,8 @@ The drag region check happens after the interactive element check. If an interac
 
 **Cursor feedback:** When the cursor hovers over the drag region (`HTCAPTION`), `panel_wndproc` handles `WM_SETCURSOR` to show `IDC_SIZEALL` (the four-arrow move cursor). This is self-gating — if `draggable` is false, `HTCAPTION` is never returned so the cursor change never fires.
 
+**Chromeless mode:** Setting `drag_height` equal to the full surface height makes every pixel draggable. This creates a chromeless overlay with no visible title bar. Interactive elements placed inside the drag region still receive clicks and hover events — the interactive element check happens first. This is useful for small widgets like clocks or status displays where the entire surface should be grabbable.
+
 ## Focus management
 
 winpane never calls `SetForegroundWindow` or `SetFocus`. All windows use `WS_EX_NOACTIVATE`, and the window procedure returns `MA_NOACTIVATE` from `WM_MOUSEACTIVATE`. This means clicking on a Panel's interactive element does not steal focus from the user's current application.

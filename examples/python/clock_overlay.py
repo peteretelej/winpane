@@ -52,8 +52,8 @@ def main():
         return json.loads(resp_line)
 
     try:
-        # Create a panel — bottom-right on 1080p, 20px inset
-        resp = send("create_panel", {"width": 150, "height": 88, "x": 1750, "y": 972, "draggable": True, "drag_height": 28})
+        # Create a panel — bottom-right, 20px inset
+        resp = send("create_panel", {"width": 150, "height": 88, "placement": {"monitor": {"index": 0, "anchor": "bottom_right", "margin": 20}}, "draggable": True, "drag_height": 28, "position_key": "py_clock_overlay"})
         sid = resp["result"]["surface_id"]
         print(f"Created panel: {sid}")
 

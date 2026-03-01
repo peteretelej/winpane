@@ -18,7 +18,7 @@ const { WinPane } = require('winpane');
 const wp = new WinPane();
 
 // Create a HUD overlay
-const hud = wp.createHud({ width: 400, height: 200, x: 100, y: 100 });
+const hud = wp.createHud({ width: 400, height: 200, monitor: 0, anchor: 'top_left', margin: 40 });
 
 // Dark semi-transparent background
 wp.setRect(hud, 'bg', {

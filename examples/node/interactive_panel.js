@@ -21,9 +21,10 @@ const wp = new WinPane();
 // Create an interactive panel
 const panel = wp.createPanel({
   width: 300, height: 250,
-  x: 200, y: 200,
+  monitor: 0, anchor: 'top_left', margin: 40,
   draggable: true,
   dragHeight: 32,
+  positionKey: 'node_interactive_panel',
 });
 
 // Title bar area

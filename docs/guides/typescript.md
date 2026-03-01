@@ -18,7 +18,7 @@ Prebuilt binaries are included for Windows x64 and ARM64. No build tools needed.
 import { WinPane } from "winpane";
 
 const wp = new WinPane();
-const hud = wp.createHud({ width: 300, height: 100, x: 100, y: 100 });
+const hud = wp.createHud({ width: 300, height: 100, monitor: 0, anchor: 'top_left', margin: 40 });
 
 wp.setRect(hud, "bg", {
   x: 0, y: 0, width: 300, height: 100,
@@ -67,6 +67,10 @@ wp.backdropSupported(): boolean
 wp.anchorTo(surfaceId: number, targetHwnd: number, anchor: string, offsetX: number, offsetY: number): void
 wp.unanchor(surfaceId: number): void
 
+// Position & monitors
+wp.getPosition(surfaceId: number): number[]
+wp.monitors(): MonitorInfo[]
+
 // PiP-specific
 wp.setSourceRegion(surfaceId: number, options: SourceRegionOptions): void
 wp.clearSourceRegion(surfaceId: number): void
@@ -93,6 +97,10 @@ interface HudOptions {
   height: number;
   x?: number;  // default: 0
   y?: number;  // default: 0
+  monitor?: number;
+  anchor?: 'top_left' | 'top_right' | 'bottom_left' | 'bottom_right';
+  margin?: number;
+  positionKey?: string;
 }
 
 interface PanelOptions {
@@ -100,8 +108,12 @@ interface PanelOptions {
   height: number;
   x?: number;
   y?: number;
+  monitor?: number;
+  anchor?: 'top_left' | 'top_right' | 'bottom_left' | 'bottom_right';
+  margin?: number;
   draggable?: boolean;  // default: false
   dragHeight?: number;   // default: 0
+  positionKey?: string;
 }
 
 interface PipOptions {
@@ -110,6 +122,10 @@ interface PipOptions {
   height: number;
   x?: number;
   y?: number;
+  monitor?: number;
+  anchor?: 'top_left' | 'top_right' | 'bottom_left' | 'bottom_right';
+  margin?: number;
+  positionKey?: string;
 }
 
 interface TrayOptions {
@@ -169,6 +185,8 @@ interface WinPaneEvent {
   key?: string;
   button?: string;         // "left", "right", "middle"
   itemId?: number;
+  x?: number;              // present in "surface_moved" events
+  y?: number;
 }
 ```
 
@@ -188,9 +206,10 @@ Hex strings with optional `#` prefix:
 ```typescript
 const panel = wp.createPanel({
   width: 260, height: 120,
-  x: 200, y: 200,
+  monitor: 0, anchor: 'top_left', margin: 40,
   draggable: true,
   dragHeight: 30,
+  positionKey: 'my_panel',
 });
 
 wp.setRect(panel, "bg", {
@@ -299,7 +318,7 @@ app.whenReady().then(() => {
   const win = new BrowserWindow({ width: 800, height: 600 });
 
   const wp = new WinPane();
-  const companion = wp.createPanel({ width: 200, height: 80 });
+  const companion = wp.createPanel({ width: 200, height: 80, positionKey: 'electron_companion' });
   wp.setRect(companion, "bg", {
     x: 0, y: 0, width: 200, height: 80,
     fill: "#14141ec8", cornerRadius: 8,

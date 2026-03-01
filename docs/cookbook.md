@@ -7,11 +7,13 @@ Self-contained recipes for common winpane patterns. Each recipe shows Rust code 
 Create a floating stats display with a background rect and text.
 
 ```rust
-use winpane::{Color, Context, HudConfig, RectElement, TextElement};
+use winpane::{Color, Context, HudConfig, Placement, RectElement, TextElement};
 
 let ctx = Context::new()?;
 let hud = ctx.create_hud(HudConfig {
-    x: 100, y: 100, width: 300, height: 120,
+    placement: Placement::Monitor { index: 0, anchor: winpane::Anchor::TopLeft, margin: 40 },
+    width: 300, height: 120,
+    ..Default::default()
 })?;
 
 hud.set_rect("bg", RectElement {
@@ -39,10 +41,10 @@ hud.show();
 ```
 
 ```js
-// Node.js: const wp = new WinPane(); const id = wp.createHud({ width: 300, height: 120, x: 100, y: 100 });
+// Node.js: const wp = new WinPane(); const id = wp.createHud({ width: 300, height: 120, monitor: 0, anchor: 'top_left', margin: 40 });
 ```
 ```json
-// JSON-RPC: {"jsonrpc":"2.0","method":"create_hud","params":{"x":100,"y":100,"width":300,"height":120},"id":1}
+// JSON-RPC: {"jsonrpc":"2.0","method":"create_hud","params":{"placement":{"monitor":{"index":0,"anchor":"top_left","margin":40}},"width":300,"height":120},"id":1}
 ```
 
 ## 2. Interactive panel with buttons
@@ -50,12 +52,13 @@ hud.show();
 Create a panel with clickable elements and event handling.
 
 ```rust
-use winpane::{Color, Context, Event, PanelConfig, RectElement, TextElement};
+use winpane::{Color, Context, Event, PanelConfig, Placement, RectElement, TextElement};
 
 let ctx = Context::new()?;
 let panel = ctx.create_panel(PanelConfig {
-    x: 200, y: 200, width: 260, height: 160,
+    placement: Placement::Position { x: 200, y: 200 }, width: 260, height: 160,
     draggable: true, drag_height: 32,
+    ..Default::default()
 })?;
 
 // Background
@@ -118,10 +121,10 @@ loop {
 ```
 
 ```js
-// Node.js: const id = wp.createPanel({ width: 260, height: 160, x: 200, y: 200, draggable: true, dragHeight: 32 });
+// Node.js: const id = wp.createPanel({ width: 260, height: 160, x: 200, y: 200, draggable: true, dragHeight: 32, positionKey: 'my_panel' });
 ```
 ```json
-// JSON-RPC: {"jsonrpc":"2.0","method":"create_panel","params":{"x":200,"y":200,"width":260,"height":160,"draggable":true,"drag_height":32},"id":1}
+// JSON-RPC: {"jsonrpc":"2.0","method":"create_panel","params":{"placement":{"position":{"x":200,"y":200}},"width":260,"height":160,"draggable":true,"drag_height":32,"position_key":"my_panel"},"id":1}
 ```
 
 ## 3. System tray with popup
@@ -129,7 +132,7 @@ loop {
 Create a tray icon that toggles a popup panel on left-click.
 
 ```rust
-use winpane::{Color, Context, Event, MenuItem, PanelConfig, RectElement, TextElement, TrayConfig};
+use winpane::{Color, Context, Event, MenuItem, PanelConfig, Placement, RectElement, TextElement, TrayConfig};
 
 let ctx = Context::new()?;
 
@@ -146,8 +149,9 @@ let tray = ctx.create_tray(TrayConfig {
 
 // Create a popup panel
 let popup = ctx.create_panel(PanelConfig {
-    x: 0, y: 0, width: 200, height: 100,
+    placement: Placement::Position { x: 0, y: 0 }, width: 200, height: 100,
     draggable: false, drag_height: 0,
+    ..Default::default()
 })?;
 popup.set_rect("bg", RectElement {
     x: 0.0, y: 0.0, width: 200.0, height: 100.0,
@@ -192,14 +196,15 @@ loop {
 Show a live DWM thumbnail of another window.
 
 ```rust
-use winpane::{Context, Event, PipConfig};
+use winpane::{Context, Event, PipConfig, Placement};
 
 let source_hwnd: isize = 0x12345; // Target window handle
 
 let ctx = Context::new()?;
 let pip = ctx.create_pip(PipConfig {
     source_hwnd,
-    x: 50, y: 50, width: 400, height: 300,
+    placement: Placement::Position { x: 50, y: 50 }, width: 400, height: 300,
+    ..Default::default()
 })?;
 
 pip.set_opacity(0.95);
@@ -226,14 +231,15 @@ loop {
 Attach a surface to a corner of another window so it follows movement.
 
 ```rust
-use winpane::{Anchor, Color, Context, Event, PanelConfig, RectElement, TextElement};
+use winpane::{Anchor, Color, Context, Event, PanelConfig, Placement, RectElement, TextElement};
 
 let target_hwnd: isize = 0x12345; // Target window handle
 
 let ctx = Context::new()?;
 let panel = ctx.create_panel(PanelConfig {
-    x: 0, y: 0, width: 180, height: 100,
+    placement: Placement::Position { x: 0, y: 0 }, width: 180, height: 100,
     draggable: false, drag_height: 0,
+    ..Default::default()
 })?;
 
 panel.set_rect("bg", RectElement {
@@ -272,11 +278,12 @@ loop {
 Apply Mica or Acrylic backdrop to a surface (Windows 11 22H2+).
 
 ```rust
-use winpane::{Backdrop, Color, Context, HudConfig, RectElement, TextElement};
+use winpane::{Backdrop, Color, Context, HudConfig, Placement, RectElement, TextElement};
 
 let ctx = Context::new()?;
 let hud = ctx.create_hud(HudConfig {
-    x: 100, y: 100, width: 300, height: 150,
+    placement: Placement::Position { x: 100, y: 100 }, width: 300, height: 150,
+    ..Default::default()
 })?;
 
 // Use a semi-transparent background to let the backdrop show through
@@ -313,11 +320,12 @@ hud.show();
 Fade a surface in on start and out on dismiss.
 
 ```rust
-use winpane::{Color, Context, HudConfig, RectElement, TextElement};
+use winpane::{Color, Context, HudConfig, Placement, RectElement, TextElement};
 
 let ctx = Context::new()?;
 let hud = ctx.create_hud(HudConfig {
-    x: 100, y: 100, width: 300, height: 100,
+    placement: Placement::Position { x: 100, y: 100 }, width: 300, height: 100,
+    ..Default::default()
 })?;
 
 hud.set_rect("bg", RectElement {
@@ -353,11 +361,12 @@ hud.fade_out(500);
 Create a HUD that is invisible in screenshots and screen recordings.
 
 ```rust
-use winpane::{Color, Context, HudConfig, RectElement, TextElement};
+use winpane::{Color, Context, HudConfig, Placement, RectElement, TextElement};
 
 let ctx = Context::new()?;
 let hud = ctx.create_hud(HudConfig {
-    x: 100, y: 100, width: 300, height: 80,
+    placement: Placement::Position { x: 100, y: 100 }, width: 300, height: 80,
+    ..Default::default()
 })?;
 
 hud.set_rect("bg", RectElement {
@@ -390,11 +399,12 @@ hud.show();
 Use `DrawOp` for procedural rendering beyond the retained-mode scene graph.
 
 ```rust
-use winpane::{Color, Context, DrawOp, HudConfig, RectElement};
+use winpane::{Color, Context, DrawOp, HudConfig, Placement, RectElement};
 
 let ctx = Context::new()?;
 let hud = ctx.create_hud(HudConfig {
-    x: 200, y: 200, width: 400, height: 300,
+    placement: Placement::Position { x: 200, y: 200 }, width: 400, height: 300,
+    ..Default::default()
 })?;
 
 // Retained-mode background
@@ -441,7 +451,7 @@ Combine a tray icon, popup panel, and anchored companion into a complete applica
 
 ```rust
 use winpane::{
-    Anchor, Color, Context, Event, MenuItem, PanelConfig, RectElement, TextElement, TrayConfig,
+    Anchor, Color, Context, Event, MenuItem, PanelConfig, Placement, RectElement, TextElement, TrayConfig,
 };
 
 let ctx = Context::new()?;
@@ -456,8 +466,9 @@ let tray = ctx.create_tray(TrayConfig {
 
 // 2. Popup panel (toggled by tray left-click)
 let popup = ctx.create_panel(PanelConfig {
-    x: 0, y: 0, width: 240, height: 140,
+    placement: Placement::Position { x: 0, y: 0 }, width: 240, height: 140,
     draggable: false, drag_height: 0,
+    ..Default::default()
 })?;
 popup.set_rect("bg", RectElement {
     x: 0.0, y: 0.0, width: 240.0, height: 140.0,
@@ -478,8 +489,9 @@ tray.set_menu(vec![
 // 3. Anchored companion to another window
 let target_hwnd: isize = 0x12345;
 let companion = ctx.create_panel(PanelConfig {
-    x: 0, y: 0, width: 160, height: 80,
+    placement: Placement::Position { x: 0, y: 0 }, width: 160, height: 80,
     draggable: false, drag_height: 0,
+    ..Default::default()
 })?;
 companion.set_rect("bg", RectElement {
     x: 0.0, y: 0.0, width: 160.0, height: 80.0,
@@ -520,13 +532,14 @@ loop {
 Panel surfaces support native drag via `draggable: true` + `drag_height`, but the drag region is invisible by default. Draw a title bar so users know where to grab.
 
 ```rust
-use winpane::{Color, Context, PanelConfig, RectElement, TextElement};
+use winpane::{Color, Context, PanelConfig, Placement, RectElement, TextElement};
 
 let ctx = Context::new()?;
 let panel = ctx.create_panel(PanelConfig {
-    x: 100, y: 100, width: 200, height: 128,
+    placement: Placement::Position { x: 100, y: 100 }, width: 200, height: 128,
     draggable: true,
     drag_height: 28,           // top 28px is the drag region
+    ..Default::default()
 })?;
 
 // Background

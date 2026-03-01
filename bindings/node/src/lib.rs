@@ -445,6 +445,16 @@ pub struct WinPaneEvent {
     pub y: Option<i32>,
 }
 
+#[napi(object)]
+pub struct MonitorInfoResult {
+    pub x: i32,
+    pub y: i32,
+    pub width: u32,
+    pub height: u32,
+    pub dpi: u32,
+    pub is_primary: bool,
+}
+
 // ---------------------------------------------------------------------------
 // WinPane class
 // ---------------------------------------------------------------------------
@@ -723,6 +733,23 @@ impl WinPane {
         let surface = self.get_surface(surface_id)?;
         let (x, y) = surface.get_position()?;
         Ok(vec![x, y])
+    }
+
+    #[napi]
+    pub fn monitors(&self) -> Result<Vec<MonitorInfoResult>> {
+        let ctx = self.ctx()?;
+        Ok(ctx
+            .monitors()
+            .into_iter()
+            .map(|m| MonitorInfoResult {
+                x: m.x,
+                y: m.y,
+                width: m.width,
+                height: m.height,
+                dpi: m.dpi,
+                is_primary: m.is_primary,
+            })
+            .collect())
     }
 
     // -- Backdrop -----------------------------------------------------------

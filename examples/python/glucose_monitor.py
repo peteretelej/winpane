@@ -130,7 +130,7 @@ def main():
         return json.loads(resp_line)
 
     try:
-        resp = send("create_panel", {"width": 140, "height": 93, "x": 1760, "y": 902, "draggable": True, "drag_height": 28})
+        resp = send("create_panel", {"width": 140, "height": 93, "placement": {"monitor": {"index": 0, "anchor": "bottom_right", "margin": 20}}, "draggable": True, "drag_height": 28, "position_key": "py_glucose_monitor"})
         sid = resp["result"]["surface_id"]
         print(f"Created panel: {sid}")
 

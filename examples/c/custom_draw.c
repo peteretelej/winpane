@@ -41,9 +41,10 @@ int main(void) {
     winpane_hud_config_t config = {0};
     config.version = WINPANE_CONFIG_VERSION;
     config.size = sizeof(config);
-    config.placement_type = 0; /* Position */
-    config.position_x = 200;
-    config.position_y = 200;
+    config.placement_type = 1; /* Monitor */
+    config.monitor_index = 0;
+    config.monitor_anchor = 0; /* TopLeft */
+    config.monitor_margin = 40;
     config.width = 400;
     config.height = 300;
 
@@ -149,7 +150,7 @@ int main(void) {
     check(winpane_surface_end_draw(hud), "end_draw");
     canvas = NULL;
 
-    printf("winpane custom_draw: bar chart overlay at (200, 200).\n");
+    printf("winpane custom_draw: bar chart overlay on monitor 0.\n");
     printf("Press Ctrl+C to exit.\n");
 
     /* 7. Sleep loop to keep the overlay visible */

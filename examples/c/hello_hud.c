@@ -39,9 +39,10 @@ int main(void) {
     winpane_hud_config_t config = {0};
     config.version = WINPANE_CONFIG_VERSION;
     config.size = sizeof(config);
-    config.placement_type = 0; /* Position */
-    config.position_x = 100;
-    config.position_y = 100;
+    config.placement_type = 1; /* Monitor */
+    config.monitor_index = 0;
+    config.monitor_anchor = 0; /* TopLeft */
+    config.monitor_margin = 40;
     config.width = 320;
     config.height = 200;
 
@@ -93,7 +94,7 @@ int main(void) {
     /* 6. Show the surface */
     check(winpane_surface_show(hud), "surface_show");
 
-    printf("winpane hello_hud: overlay at (100, 100). Press Ctrl+C to exit.\n");
+    printf("winpane hello_hud: overlay on monitor 0. Press Ctrl+C to exit.\n");
 
     /* 7. Event loop */
     for (;;) {
