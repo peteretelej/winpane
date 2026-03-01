@@ -253,6 +253,7 @@ fn main() -> Result<(), winpane::Error> {
             let parts: Vec<&str> = val.split(',').collect();
             Some((parts.first()?.parse().ok()?, parts.get(1)?.parse().ok()?))
         });
+    let explicit_monitor = args.iter().any(|a| a == "--monitor");
     // ───────────────────────────────────────────────────────────────
 
     // Parse TICKER_SYMBOLS env (default: AAPL,MSFT)
@@ -284,7 +285,11 @@ fn main() -> Result<(), winpane::Error> {
         height: 32 + tb_h,
         draggable: true,
         drag_height: if no_titlebar { 32 + tb_h } else { 24 },
-        position_key: Some("stock_ticker".into()),
+        position_key: if explicit_position.is_some() || explicit_monitor {
+            None
+        } else {
+            Some("stock_ticker".into())
+        },
     })?;
 
     if let Some(bd) = backdrop {

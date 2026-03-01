@@ -42,7 +42,7 @@ fn main() -> Result<(), winpane::Error> {
         source_hwnd,
         placement: Placement::Monitor {
             index: 0,
-            anchor: Anchor::TopRight,
+            anchor: Anchor::BottomRight,
             margin: 20,
         },
         width: 400,

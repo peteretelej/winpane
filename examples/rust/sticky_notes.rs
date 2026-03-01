@@ -71,6 +71,7 @@ fn main() -> Result<(), winpane::Error> {
             let parts: Vec<&str> = val.split(',').collect();
             Some((parts.first()?.parse().ok()?, parts.get(1)?.parse().ok()?))
         });
+    let explicit_monitor = args.iter().any(|a| a == "--monitor");
     // ───────────────────────────────────────────────────────────────
 
     let placement = if let Some((x, y)) = explicit_position {
@@ -78,8 +79,8 @@ fn main() -> Result<(), winpane::Error> {
     } else {
         Placement::Monitor {
             index: monitor_index,
-            anchor: Anchor::TopLeft,
-            margin: 40,
+            anchor: Anchor::BottomRight,
+            margin: 20,
         }
     };
 
@@ -130,7 +131,11 @@ fn main() -> Result<(), winpane::Error> {
         height: 132 + tb_h,
         draggable: true,
         drag_height: if no_titlebar { 132 + tb_h } else { 28 },
-        position_key: Some("sticky_notes".into()),
+        position_key: if explicit_position.is_some() || explicit_monitor {
+            None
+        } else {
+            Some("sticky_notes".into())
+        },
     })?;
 
     panel.set_backdrop(backdrop_arg.unwrap_or(Backdrop::Mica));

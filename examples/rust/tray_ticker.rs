@@ -69,6 +69,7 @@ fn main() -> Result<(), winpane::Error> {
             let parts: Vec<&str> = val.split(',').collect();
             Some((parts.first()?.parse().ok()?, parts.get(1)?.parse().ok()?))
         });
+    let explicit_monitor = args.iter().any(|a| a == "--monitor");
     // ───────────────────────────────────────────────────────────────
 
     let _no_titlebar = no_titlebar; // Popup panel has no titlebar to hide
@@ -112,7 +113,11 @@ fn main() -> Result<(), winpane::Error> {
         height: 140,
         draggable: false,
         drag_height: 0,
-        position_key: Some("tray_ticker".into()),
+        position_key: if explicit_position.is_some() || explicit_monitor {
+            None
+        } else {
+            Some("tray_ticker".into())
+        },
     })?;
 
     if let Some(bd) = backdrop {
