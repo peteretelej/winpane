@@ -6,12 +6,37 @@ Create transparent floating overlays on Windows — stats HUDs, interactive pane
 
 ## Try it
 
+Examples are draggable (remember position) and will show up bottom right on monitor 0 by default. Run any Rust example (the flags are implemented on the examples, see [examples](examples/rust/) for guidance on implementing): 
 ```sh
-cargo run -p winpane --example glucose_monitor    # CGM overlay with trend arrows
-cargo run -p winpane --example clock_overlay       # live desktop clock
-cargo run -p winpane --example countdown_timer     # interactive timer with buttons
-cargo run -p winpane --example stock_ticker        # live stock prices
-cargo run -p winpane --example system_monitor      # real CPU/memory usage
+# Simple clock overlay example
+cargo run -p winpane --example clock_overlay
+
+# interactive timer with buttons
+cargo run -p winpane --example countdown_timer
+
+# real CPU/memory usage, hide title bar with --no-titlebar
+cargo run -p winpane --example system_monitor   --no-titlebar    
+
+# live stock prices
+cargo run -p winpane --example stock_ticker
+
+# Glucose monitor demo mode (cycles all visual states ~52s), no titlebar
+cargo run -p winpane --example glucose_monitor -- --demo --no-titlebar 
+
+# Explicit position
+cargo run -p winpane --example clock_overlay -- --position 100,100
+
+# Second monitor
+cargo run -p winpane --example clock_overlay -- --monitor 1
+
+# mmol/L units
+cargo run -p winpane --example glucose_monitor -- --unit mmol
+
+# example hidden from screen capture,shows up top left, try to screenshot 
+cargo run -p winpane --example capture_excluded
+
+# Any example's help
+cargo run -p winpane --example clock_overlay -- --help
 ```
 
 `pip_viewer` and `anchored_companion` look for an open Notepad or Calculator window. All examples run without configuration — network-dependent ones fall back to simulated data.
@@ -40,7 +65,7 @@ cargo run -p winpane --example system_monitor      # real CPU/memory usage
 | `capture_excluded` | Overlay hidden from screen capture |
 | `custom_draw` | Procedural D2D drawing |
 
-Run any Rust example: `cargo run -p winpane --example <name>`
+Run any Rust example: `cargo run -p winpane --example <name>`. Some examples may be buggy, please report issues, contributions welcome!
 
 ### TypeScript
 
