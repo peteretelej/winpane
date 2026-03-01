@@ -240,6 +240,16 @@ extern "system" fn panel_wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: L
             // Prevent panel from stealing focus when clicked
             WM_MOUSEACTIVATE => LRESULT(3), // MA_NOACTIVATE
 
+            WM_SETCURSOR => {
+                // LOWORD(lParam) is the hit-test code from WM_NCHITTEST.
+                // HTCAPTION (2) means the cursor is over the drag region.
+                if (lparam.0 & 0xFFFF) as u16 == 2 {
+                    SetCursor(LoadCursorW(None, IDC_SIZEALL).unwrap());
+                    return LRESULT(1); // TRUE — we handled the cursor
+                }
+                DefWindowProcW(hwnd, msg, wparam, lparam)
+            }
+
             WM_NCHITTEST => {
                 if state_ptr == 0 {
                     return LRESULT(-1); // HTTRANSPARENT during creation
