@@ -19,14 +19,46 @@ use winpane::{Anchor, Color, Context, DrawOp, HudConfig, Placement, RectElement}
 
 #[allow(clippy::print_stdout)]
 fn main() -> Result<(), winpane::Error> {
+    // ── CLI flags ──────────────────────────────────────────────────
+    let args: Vec<String> = std::env::args().collect();
+
+    if args.iter().any(|a| a == "--help" || a == "-h") {
+        println!("Usage: custom_draw [OPTIONS]");
+        println!();
+        println!("Options:");
+        println!("  --position <X,Y>    Explicit position");
+        println!("  --monitor <N>       Monitor index (0=primary)");
+        std::process::exit(0);
+    }
+
+    let monitor_index: usize = args
+        .iter()
+        .position(|a| a == "--monitor")
+        .and_then(|i| args.get(i + 1)?.parse().ok())
+        .unwrap_or(0);
+
+    let explicit_position: Option<(i32, i32)> =
+        args.iter().position(|a| a == "--position").and_then(|i| {
+            let val = args.get(i + 1)?;
+            let parts: Vec<&str> = val.split(',').collect();
+            Some((parts.first()?.parse().ok()?, parts.get(1)?.parse().ok()?))
+        });
+
+    let placement = if let Some((x, y)) = explicit_position {
+        Placement::Position { x, y }
+    } else {
+        Placement::Monitor {
+            index: monitor_index,
+            anchor: Anchor::BottomRight,
+            margin: 20,
+        }
+    };
+    // ───────────────────────────────────────────────────────────────
+
     let ctx = Context::new()?;
 
     let hud = ctx.create_hud(HudConfig {
-        placement: Placement::Monitor {
-            index: 0,
-            anchor: Anchor::BottomRight,
-            margin: 20,
-        },
+        placement,
         width: 400,
         height: 300,
         position_key: None,

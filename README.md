@@ -15,24 +15,18 @@ cargo run -p winpane --example clock_overlay
 cargo run -p winpane --example countdown_timer
 
 # real CPU/memory usage, hide title bar with --no-titlebar
-cargo run -p winpane --example system_monitor   --no-titlebar    
+cargo run -p winpane --example system_monitor -- --no-titlebar    
 
-# live stock prices
-cargo run -p winpane --example stock_ticker
+# live stock prices, show on first monitor
+cargo run -p winpane --example stock_ticker -- --monitor 1
 
-# Glucose monitor demo mode (cycles all visual states ~52s), no titlebar
+# Glucose monitor  (demo mode - cycles all visual states), no titlebar
 cargo run -p winpane --example glucose_monitor -- --demo --no-titlebar 
 
-# Explicit position
-cargo run -p winpane --example clock_overlay -- --position 100,100
+# mmol/L units, explicit position (overrides monitor/anchor), shows up at 100,100
+cargo run -p winpane --example glucose_monitor -- --unit mmol 
 
-# Second monitor
-cargo run -p winpane --example clock_overlay -- --monitor 1
-
-# mmol/L units
-cargo run -p winpane --example glucose_monitor -- --unit mmol
-
-# example hidden from screen capture,shows up top left, try to screenshot 
+# example hidden from screen capture, try to screenshot 
 cargo run -p winpane --example capture_excluded
 
 # Any example's help
