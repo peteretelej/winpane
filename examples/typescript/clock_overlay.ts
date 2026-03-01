@@ -1,5 +1,5 @@
 /**
- * Clock overlay — floating digital clock showing current time.
+ * Clock overlay — floating draggable clock showing current time.
  *
  * Setup:
  *   cd examples/typescript
@@ -20,18 +20,31 @@ import { WinPane } from "winpane";
 const wp = new WinPane();
 
 // Bottom-right on 1080p, 20px inset
-const hud = wp.createHud({ width: 150, height: 60, x: 1750, y: 1000 });
+const panel = wp.createPanel({ width: 150, height: 88, x: 1750, y: 972, draggable: true, dragHeight: 28 });
 
 // Background card (Glass theme)
-wp.setRect(hud, "bg", {
-  x: 0, y: 0, width: 150, height: 60,
+wp.setRect(panel, "bg", {
+  x: 0, y: 0, width: 150, height: 88,
   fill: "#121216e4",
   cornerRadius: 10,
   borderColor: "#ffffff12",
   borderWidth: 1,
 });
 
-wp.show(hud);
+wp.show(panel);
+
+// Title bar in drag region
+wp.setRect(panel, "title_bg", {
+  x: 0, y: 0, width: 150, height: 28,
+  fill: "#1c1c21ff",
+});
+wp.setText(panel, "title", {
+  text: "Clock",
+  x: 8, y: 6,
+  fontSize: 13,
+  bold: true,
+  color: "#9494a0ff",
+});
 
 console.log("winpane clock: ticking clock at bottom-right. Ctrl+C to exit.");
 
@@ -42,9 +55,9 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
 setInterval(() => {
   const now = new Date();
 
-  wp.setText(hud, "time", {
+  wp.setText(panel, "time", {
     text: now.toLocaleTimeString("en-US", { hour12: false }),
-    x: 16, y: 8,
+    x: 16, y: 36,
     fontSize: 28,
     fontFamily: "Consolas",
     bold: true,
@@ -53,9 +66,9 @@ setInterval(() => {
 
   // Manual format to match Rust: "Thu Feb 27" (no comma, no zero-pad)
   const dateStr = `${DAYS[now.getDay()]} ${MONTHS[now.getMonth()]} ${now.getDate()}`;
-  wp.setText(hud, "date", {
+  wp.setText(panel, "date", {
     text: dateStr,
-    x: 16, y: 40,
+    x: 16, y: 68,
     fontSize: 12,
     color: "#9494a0cc",
   });
@@ -63,7 +76,7 @@ setInterval(() => {
 
 // Graceful cleanup on Ctrl+C
 process.on("SIGINT", () => {
-  wp.destroy(hud);
+  wp.destroy(panel);
   wp.close();
   process.exit(0);
 });

@@ -1,5 +1,5 @@
 /**
- * CGM glucose monitor overlay — desktop HUD showing blood glucose from Nightscout.
+ * CGM glucose monitor overlay — draggable desktop panel showing blood glucose from Nightscout.
  *
  * Connects to a Nightscout instance when NIGHTSCOUT_URL is set, otherwise
  * runs in simulated mode with random-walk glucose values.
@@ -95,18 +95,31 @@ function simulateReading(prevSgv: number): GlucoseReading {
 // ── Main ───────────────────────────────────────────────────────
 
 const wp = new WinPane();
-const hud = wp.createHud({ width: 140, height: 65, x: 1760, y: 930 });
-wp.setCaptureExcluded(hud, true);
+const panel = wp.createPanel({ width: 140, height: 93, x: 1760, y: 902, draggable: true, dragHeight: 28 });
+wp.setCaptureExcluded(panel, true);
 
 // Initial bg
-wp.setRect(hud, "bg", {
-  x: 0, y: 0, width: 140, height: 65,
+wp.setRect(panel, "bg", {
+  x: 0, y: 0, width: 140, height: 93,
   fill: bgColorForSgv(120),
   cornerRadius: 10,
   borderColor: "#ffffff12",
   borderWidth: 1,
 });
-wp.show(hud);
+wp.show(panel);
+
+// Title bar in drag region
+wp.setRect(panel, "title_bg", {
+  x: 0, y: 0, width: 140, height: 28,
+  fill: "#1c1c21ff",
+});
+wp.setText(panel, "title", {
+  text: "Glucose",
+  x: 8, y: 6,
+  fontSize: 13,
+  bold: true,
+  color: "#9494a0ff",
+});
 
 const nightscoutUrl = process.env.NIGHTSCOUT_URL;
 const nightscoutToken = process.env.NIGHTSCOUT_TOKEN;
@@ -135,8 +148,8 @@ setInterval(async () => {
   }
 
   // Update bg
-  wp.setRect(hud, "bg", {
-    x: 0, y: 0, width: 140, height: 65,
+  wp.setRect(panel, "bg", {
+    x: 0, y: 0, width: 140, height: 93,
     fill: bgColorForSgv(currentReading.sgv),
     cornerRadius: 10,
     borderColor: "#ffffff12",
@@ -145,9 +158,9 @@ setInterval(async () => {
 
   // Update reading
   const arrow = directionToArrow(currentReading.direction);
-  wp.setText(hud, "reading", {
+  wp.setText(panel, "reading", {
     text: `${currentReading.sgv} ${arrow}`,
-    x: 12, y: 6,
+    x: 12, y: 34,
     fontSize: 30,
     fontFamily: "Consolas",
     bold: true,
@@ -156,9 +169,9 @@ setInterval(async () => {
 
   // Update staleness
   const stale = stalenessText(currentReading.timestamp);
-  wp.setText(hud, "staleness", {
+  wp.setText(panel, "staleness", {
     text: stale.text,
-    x: 12, y: 42,
+    x: 12, y: 70,
     fontSize: 12,
     color: stale.color,
   });
@@ -166,7 +179,7 @@ setInterval(async () => {
 
 // Graceful cleanup
 process.on("SIGINT", () => {
-  wp.destroy(hud);
+  wp.destroy(panel);
   wp.close();
   process.exit(0);
 });

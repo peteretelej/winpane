@@ -1,10 +1,10 @@
 //! Demo: Stock ticker overlay
 //!
-//! Displays a slim horizontal bar with live stock prices and colored up/down
+//! Displays a slim draggable horizontal bar with live stock prices and colored up/down
 //! indicators. Polls Yahoo Finance every 60 seconds, falls back to simulated
 //! random-walk prices when offline.
 //!
-//! Demonstrates: Hud creation, dynamic width, per-element coloring, HTTP
+//! Demonstrates: Panel creation, draggable surface, dynamic width, per-element coloring, HTTP
 //! polling, environment-driven configuration, design system tokens.
 //!
 //! Run on Windows: cargo run -p winpane --example stock_ticker
@@ -27,7 +27,7 @@ use std::hash::{Hash, Hasher};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use winpane::{Color, Context, HudConfig, RectElement, TextElement};
+use winpane::{Color, Context, PanelConfig, RectElement, TextElement};
 
 struct StockQuote {
     symbol: String,
@@ -132,20 +132,20 @@ fn simulate_quotes(symbols: &[String], prev_prices: &[f64]) -> Vec<StockQuote> {
         .collect()
 }
 
-/// Lays out the ticker elements horizontally across the HUD.
-fn layout_ticker(hud: &winpane::Hud, quotes: &[StockQuote]) {
+/// Lays out the ticker elements horizontally across the Panel.
+fn layout_ticker(panel: &winpane::Panel, quotes: &[StockQuote]) {
     let mut x: f32 = 12.0;
     for (i, q) in quotes.iter().enumerate() {
         let color = price_color(q.change_pct);
         let arrow = direction_arrow(q.change_pct);
 
         // Symbol label
-        hud.set_text(
+        panel.set_text(
             &format!("sym_{i}"),
             TextElement {
                 text: q.symbol.clone(),
                 x,
-                y: 8.0,
+                y: 32.0,
                 font_size: 12.0,
                 color: Color::rgba(148, 148, 160, 255),
                 bold: true,
@@ -155,12 +155,12 @@ fn layout_ticker(hud: &winpane::Hud, quotes: &[StockQuote]) {
         x += 45.0;
 
         // Price
-        hud.set_text(
+        panel.set_text(
             &format!("price_{i}"),
             TextElement {
                 text: format!("{:.2}", q.price),
                 x,
-                y: 6.0,
+                y: 30.0,
                 font_size: 14.0,
                 color,
                 bold: true,
@@ -171,12 +171,12 @@ fn layout_ticker(hud: &winpane::Hud, quotes: &[StockQuote]) {
         x += 65.0;
 
         // Direction arrow
-        hud.set_text(
+        panel.set_text(
             &format!("arrow_{i}"),
             TextElement {
                 text: arrow.to_string(),
                 x,
-                y: 6.0,
+                y: 30.0,
                 font_size: 14.0,
                 color,
                 font_family: Some("Consolas".to_string()),
@@ -187,12 +187,12 @@ fn layout_ticker(hud: &winpane::Hud, quotes: &[StockQuote]) {
 
         // Separator dot (omit after last symbol)
         if i + 1 < quotes.len() {
-            hud.set_text(
+            panel.set_text(
                 &format!("sep_{i}"),
                 TextElement {
                     text: "·".to_string(),
                     x,
-                    y: 6.0,
+                    y: 30.0,
                     font_size: 14.0,
                     color: Color::rgba(148, 148, 160, 128),
                     ..Default::default()
@@ -218,23 +218,25 @@ fn main() -> Result<(), winpane::Error> {
     let ctx = Context::new()?;
 
     // Position top-right, 20px inset (assumes 1080p — 1920×1080)
-    let hud = ctx.create_hud(HudConfig {
+    let panel = ctx.create_panel(PanelConfig {
         x: (1920 - width - 20) as i32,
         y: 20,
         width,
-        height: 32,
+        height: 56,
+        draggable: true,
+        drag_height: 24,
     })?;
 
-    hud.set_capture_excluded(true);
+    panel.set_capture_excluded(true);
 
     // Glass background with border
-    hud.set_rect(
+    panel.set_rect(
         "bg",
         RectElement {
             x: 0.0,
             y: 0.0,
             width: width as f32,
-            height: 32.0,
+            height: 56.0,
             fill: Color::rgba(18, 18, 22, 228),
             corner_radius: 6.0,
             border_color: Some(Color::rgba(255, 255, 255, 18)),
@@ -243,7 +245,33 @@ fn main() -> Result<(), winpane::Error> {
         },
     );
 
-    hud.show();
+    panel.show();
+
+    // Compact grip dots in drag region
+    panel.set_rect(
+        "title_bg",
+        RectElement {
+            x: 0.0,
+            y: 0.0,
+            width: width as f32,
+            height: 24.0,
+            fill: Color::rgba(28, 28, 33, 255),
+            corner_radius: 0.0,
+            ..Default::default()
+        },
+    );
+    panel.set_text(
+        "grip",
+        TextElement {
+            x: (width / 2 - 6) as f32,
+            y: 4.0,
+            text: "⋮⋮".into(),
+            font_size: 12.0,
+            color: Color::rgba(148, 148, 160, 128),
+            ..Default::default()
+        },
+    );
+
     println!("winpane stock_ticker: tracking {}", symbols.join(", "));
     println!("Press Ctrl+C to exit.");
 
@@ -289,7 +317,7 @@ fn main() -> Result<(), winpane::Error> {
                 printed_sim_msg = false;
             }
 
-            layout_ticker(&hud, &quotes);
+            layout_ticker(&panel, &quotes);
             last_poll = Instant::now();
         }
 

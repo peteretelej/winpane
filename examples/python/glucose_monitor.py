@@ -1,5 +1,5 @@
 """
-CGM glucose monitor overlay — desktop HUD showing blood glucose from Nightscout.
+CGM glucose monitor overlay — draggable desktop panel showing blood glucose from Nightscout.
 
 Connects to a Nightscout instance when NIGHTSCOUT_URL is set, otherwise
 runs in simulated mode with random-walk glucose values. Stdlib only — no
@@ -14,8 +14,8 @@ Environment variables (optional):
     NIGHTSCOUT_URL   — base URL of your Nightscout site
     NIGHTSCOUT_TOKEN — API token for authenticated access
 
-Note: This simple send/receive pattern works because HUDs are click-through
-(no events).
+Note: This simple send/receive pattern works because the overlay has no
+interactive elements beyond the native drag handle (no event polling needed).
 """
 # ── winpane design tokens ──────────────────────────────────────
 # Surface base: #121216  Glass: +e4  Solid: +ff  Muted: +f2
@@ -130,9 +130,9 @@ def main():
         return json.loads(resp_line)
 
     try:
-        resp = send("create_hud", {"width": 140, "height": 65, "x": 1760, "y": 930})
+        resp = send("create_panel", {"width": 140, "height": 93, "x": 1760, "y": 902, "draggable": True, "drag_height": 28})
         sid = resp["result"]["surface_id"]
-        print(f"Created HUD: {sid}")
+        print(f"Created panel: {sid}")
 
         send("set_capture_excluded", {"surface_id": sid, "excluded": True})
 
@@ -140,7 +140,7 @@ def main():
         send("set_rect", {
             "surface_id": sid,
             "key": "bg",
-            "x": 0, "y": 0, "width": 140, "height": 65,
+            "x": 0, "y": 0, "width": 140, "height": 93,
             "fill": bg_color_for_sgv(120),
             "corner_radius": 10,
             "border_color": "#ffffff12",
@@ -148,6 +148,23 @@ def main():
         })
 
         send("show", {"surface_id": sid})
+
+        # Title bar in drag region
+        send("set_rect", {
+            "surface_id": sid,
+            "key": "title_bg",
+            "x": 0, "y": 0, "width": 140, "height": 28,
+            "fill": "#1c1c21ff",
+        })
+        send("set_text", {
+            "surface_id": sid,
+            "key": "title",
+            "text": "Glucose",
+            "x": 8, "y": 6,
+            "font_size": 13,
+            "bold": True,
+            "color": "#9494a0ff",
+        })
 
         nightscout_url = os.environ.get("NIGHTSCOUT_URL")
         nightscout_token = os.environ.get("NIGHTSCOUT_TOKEN")
@@ -177,7 +194,7 @@ def main():
             send("set_rect", {
                 "surface_id": sid,
                 "key": "bg",
-                "x": 0, "y": 0, "width": 140, "height": 65,
+                "x": 0, "y": 0, "width": 140, "height": 93,
                 "fill": bg_color_for_sgv(current_reading["sgv"]),
                 "corner_radius": 10,
                 "border_color": "#ffffff12",
@@ -190,7 +207,7 @@ def main():
                 "surface_id": sid,
                 "key": "reading",
                 "text": f"{current_reading['sgv']} {arrow}",
-                "x": 12, "y": 6,
+                "x": 12, "y": 34,
                 "font_size": 30,
                 "font_family": "Consolas",
                 "bold": True,
@@ -203,7 +220,7 @@ def main():
                 "surface_id": sid,
                 "key": "staleness",
                 "text": stale_text,
-                "x": 12, "y": 42,
+                "x": 12, "y": 70,
                 "font_size": 12,
                 "color": stale_color,
             })

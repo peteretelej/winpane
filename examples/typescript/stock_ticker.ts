@@ -1,5 +1,5 @@
 /**
- * Stock ticker overlay — slim horizontal bar with live stock prices.
+ * Stock ticker overlay — slim draggable horizontal bar with live stock prices.
  *
  * Polls Yahoo Finance every 60 seconds with colored up/down indicators.
  * Falls back to simulated random-walk prices when offline.
@@ -91,24 +91,24 @@ function simulateQuote(symbol: string, prevPrice: number): StockQuote {
 
 // ── Layout ─────────────────────────────────────────────────────
 
-function layoutTicker(wp: InstanceType<typeof WinPane>, hud: number, quotes: StockQuote[]): void {
+function layoutTicker(wp: InstanceType<typeof WinPane>, panel: number, quotes: StockQuote[]): void {
   let x = 12; // left padding
   for (let i = 0; i < quotes.length; i++) {
     const q = quotes[i];
     const color = priceColor(q.changePct);
 
-    wp.setText(hud, `sym_${i}`, {
+    wp.setText(panel, `sym_${i}`, {
       text: q.symbol,
-      x, y: 8,
+      x, y: 32,
       fontSize: 12,
       bold: true,
       color: "#9494a0ff",
     });
     x += 45;
 
-    wp.setText(hud, `price_${i}`, {
+    wp.setText(panel, `price_${i}`, {
       text: q.price.toFixed(2),
-      x, y: 6,
+      x, y: 30,
       fontSize: 14,
       fontFamily: "Consolas",
       bold: true,
@@ -116,9 +116,9 @@ function layoutTicker(wp: InstanceType<typeof WinPane>, hud: number, quotes: Sto
     });
     x += 65;
 
-    wp.setText(hud, `arrow_${i}`, {
+    wp.setText(panel, `arrow_${i}`, {
       text: directionArrow(q.changePct),
-      x, y: 6,
+      x, y: 30,
       fontSize: 14,
       fontFamily: "Consolas",
       color,
@@ -126,9 +126,9 @@ function layoutTicker(wp: InstanceType<typeof WinPane>, hud: number, quotes: Sto
     x += 18;
 
     if (i < quotes.length - 1) {
-      wp.setText(hud, `sep_${i}`, {
+      wp.setText(panel, `sep_${i}`, {
         text: "·",
-        x, y: 6,
+        x, y: 30,
         fontSize: 14,
         color: "#9494a080",
       });
@@ -147,17 +147,29 @@ const symbols = (process.env.TICKER_SYMBOLS ?? "AAPL,MSFT")
 const width = calcWidth(symbols.length);
 const wp = new WinPane();
 // Assumes 1080p — adjust x for other resolutions
-const hud = wp.createHud({ width, height: 32, x: 1920 - width - 20, y: 20 });
-wp.setCaptureExcluded(hud, true);
+const panel = wp.createPanel({ width, height: 56, x: 1920 - width - 20, y: 20, draggable: true, dragHeight: 24 });
+wp.setCaptureExcluded(panel, true);
 
-wp.setRect(hud, "bg", {
-  x: 0, y: 0, width, height: 32,
+wp.setRect(panel, "bg", {
+  x: 0, y: 0, width, height: 56,
   fill: "#121216e4",
   cornerRadius: 6,
   borderColor: "#ffffff12",
   borderWidth: 1,
 });
-wp.show(hud);
+wp.show(panel);
+
+// Compact grip dots in drag region
+wp.setRect(panel, "title_bg", {
+  x: 0, y: 0, width, height: 24,
+  fill: "#1c1c21ff",
+});
+wp.setText(panel, "grip", {
+  text: "⋮⋮",
+  x: Math.floor(width / 2 - 6), y: 4,
+  fontSize: 12,
+  color: "#9494a080",
+});
 
 let prices = symbols.map(seedPrice);
 let lastPoll = 0;
@@ -188,12 +200,12 @@ setInterval(async () => {
   });
 
   prices = quotes.map((q) => q.price);
-  layoutTicker(wp, hud, quotes);
+  layoutTicker(wp, panel, quotes);
   lastPoll = Date.now();
 }, 1000);
 
 process.on("SIGINT", () => {
-  wp.destroy(hud);
+  wp.destroy(panel);
   wp.close();
   process.exit(0);
 });

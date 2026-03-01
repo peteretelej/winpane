@@ -1,11 +1,11 @@
 //! Demo: CGM glucose monitor overlay
 //!
-//! Displays a live continuous glucose monitor (CGM) reading as a compact HUD.
+//! Displays a live continuous glucose monitor (CGM) reading as a compact draggable panel.
 //! Connects to a Nightscout instance when NIGHTSCOUT_URL is set (optionally
 //! with NIGHTSCOUT_TOKEN), otherwise runs in simulated mode with random-walk
 //! glucose values.
 //!
-//! Demonstrates: Hud creation, dynamic background color, text elements,
+//! Demonstrates: Panel creation, draggable surface, dynamic background color, text elements,
 //! timed polling, environment-driven configuration, design system tokens.
 //!
 //! Run on Windows: cargo run -p winpane --example glucose_monitor
@@ -29,7 +29,7 @@ use std::hash::{Hash, Hasher};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use winpane::{Color, Context, HudConfig, RectElement, TextElement};
+use winpane::{Color, Context, PanelConfig, RectElement, TextElement};
 
 /// A single glucose reading with value, trend direction, and fetch timestamp.
 struct GlucoseReading {
@@ -143,23 +143,25 @@ fn simulate_reading(prev_sgv: u32) -> GlucoseReading {
 fn main() -> Result<(), winpane::Error> {
     let ctx = Context::new()?;
 
-    let hud = ctx.create_hud(HudConfig {
+    let panel = ctx.create_panel(PanelConfig {
         x: 1760,
-        y: 930,
+        y: 902,
         width: 140,
-        height: 65,
+        height: 93,
+        draggable: true,
+        drag_height: 28,
     })?;
 
-    hud.set_capture_excluded(true);
+    panel.set_capture_excluded(true);
 
     // Initial glass background
-    hud.set_rect(
+    panel.set_rect(
         "bg",
         RectElement {
             x: 0.0,
             y: 0.0,
             width: 140.0,
-            height: 65.0,
+            height: 93.0,
             fill: bg_color_for_sgv(120),
             corner_radius: 10.0,
             border_color: Some(Color::rgba(255, 255, 255, 18)),
@@ -168,7 +170,33 @@ fn main() -> Result<(), winpane::Error> {
         },
     );
 
-    hud.show();
+    panel.show();
+
+    // Title bar in drag region
+    panel.set_rect(
+        "title_bg",
+        RectElement {
+            x: 0.0,
+            y: 0.0,
+            width: 140.0,
+            height: 28.0,
+            fill: Color::rgba(28, 28, 33, 255),
+            corner_radius: 0.0,
+            ..Default::default()
+        },
+    );
+    panel.set_text(
+        "title",
+        TextElement {
+            x: 8.0,
+            y: 6.0,
+            text: "Glucose".into(),
+            font_size: 13.0,
+            color: Color::rgba(148, 148, 160, 255),
+            bold: true,
+            ..Default::default()
+        },
+    );
 
     let nightscout_url = std::env::var("NIGHTSCOUT_URL").ok();
     let nightscout_token = std::env::var("NIGHTSCOUT_TOKEN").ok();
@@ -207,13 +235,13 @@ fn main() -> Result<(), winpane::Error> {
         }
 
         // Update background color based on glucose range
-        hud.set_rect(
+        panel.set_rect(
             "bg",
             RectElement {
                 x: 0.0,
                 y: 0.0,
                 width: 140.0,
-                height: 65.0,
+                height: 93.0,
                 fill: bg_color_for_sgv(current_reading.sgv),
                 corner_radius: 10.0,
                 border_color: Some(Color::rgba(255, 255, 255, 18)),
@@ -224,12 +252,12 @@ fn main() -> Result<(), winpane::Error> {
 
         // Update reading text: "{sgv} {arrow}"
         let arrow = direction_to_arrow(&current_reading.direction);
-        hud.set_text(
+        panel.set_text(
             "reading",
             TextElement {
                 text: format!("{} {}", current_reading.sgv, arrow),
                 x: 12.0,
-                y: 6.0,
+                y: 34.0,
                 font_size: 30.0,
                 color: Color::rgba(232, 232, 237, 255),
                 // NOTE: bold and font_family are stored in the scene graph
@@ -244,12 +272,12 @@ fn main() -> Result<(), winpane::Error> {
         // Update staleness text
         let elapsed = current_reading.timestamp.elapsed();
         let (stale_text, stale_color) = staleness_text(elapsed);
-        hud.set_text(
+        panel.set_text(
             "staleness",
             TextElement {
                 text: stale_text,
                 x: 12.0,
-                y: 42.0,
+                y: 70.0,
                 font_size: 12.0,
                 color: stale_color,
                 ..Default::default()

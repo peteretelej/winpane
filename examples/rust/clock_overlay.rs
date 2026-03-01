@@ -1,7 +1,7 @@
 //! Demo: floating clock overlay
 //!
-//! A minimal live-updating clock showing the current time and date.
-//! Demonstrates: Hud creation, text elements, timed update loop,
+//! A minimal live-updating draggable clock showing the current time and date.
+//! Demonstrates: Panel creation, draggable surface, text elements, timed update loop,
 //! bottom-right positioning, design system tokens.
 //!
 //! Run on Windows: cargo run -p winpane --example clock_overlay
@@ -20,7 +20,7 @@ use std::thread;
 use std::time::Duration;
 
 use windows::Win32::System::SystemInformation::GetLocalTime;
-use winpane::{Color, Context, HudConfig, RectElement, TextElement};
+use winpane::{Color, Context, PanelConfig, RectElement, TextElement};
 
 fn get_local_time() -> (String, String) {
     // SAFETY: GetLocalTime is always safe to call; returns local calendar time.
@@ -44,21 +44,23 @@ fn main() -> Result<(), winpane::Error> {
     let ctx = Context::new()?;
 
     // Bottom-right placement assuming 1920×1080 primary monitor
-    let hud = ctx.create_hud(HudConfig {
+    let panel = ctx.create_panel(PanelConfig {
         x: 1750,
-        y: 1000,
+        y: 972,
         width: 150,
-        height: 60,
+        height: 88,
+        draggable: true,
+        drag_height: 28,
     })?;
 
     // Glass background with rounded corners
-    hud.set_rect(
+    panel.set_rect(
         "bg",
         RectElement {
             x: 0.0,
             y: 0.0,
             width: 150.0,
-            height: 60.0,
+            height: 88.0,
             fill: Color::rgba(18, 18, 22, 228),
             corner_radius: 10.0,
             border_color: Some(Color::rgba(255, 255, 255, 18)),
@@ -67,7 +69,33 @@ fn main() -> Result<(), winpane::Error> {
         },
     );
 
-    hud.show();
+    panel.show();
+
+    // Title bar in drag region
+    panel.set_rect(
+        "title_bg",
+        RectElement {
+            x: 0.0,
+            y: 0.0,
+            width: 150.0,
+            height: 28.0,
+            fill: Color::rgba(28, 28, 33, 255),
+            corner_radius: 0.0,
+            ..Default::default()
+        },
+    );
+    panel.set_text(
+        "title",
+        TextElement {
+            x: 8.0,
+            y: 6.0,
+            text: "Clock".into(),
+            font_size: 13.0,
+            color: Color::rgba(148, 148, 160, 255),
+            bold: true,
+            ..Default::default()
+        },
+    );
 
     println!("winpane clock_overlay: floating clock at bottom-right.");
     println!("Updates every second. Press Ctrl+C to exit.");
@@ -75,24 +103,24 @@ fn main() -> Result<(), winpane::Error> {
     loop {
         let (time, date) = get_local_time();
 
-        hud.set_text(
+        panel.set_text(
             "time",
             TextElement {
                 text: time,
                 x: 16.0,
-                y: 8.0,
+                y: 36.0,
                 font_size: 28.0,
                 color: Color::rgba(232, 232, 237, 255),
                 ..Default::default()
             },
         );
 
-        hud.set_text(
+        panel.set_text(
             "date",
             TextElement {
                 text: date,
                 x: 16.0,
-                y: 40.0,
+                y: 68.0,
                 font_size: 12.0,
                 color: Color::rgba(148, 148, 160, 204),
                 ..Default::default()

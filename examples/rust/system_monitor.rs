@@ -1,7 +1,7 @@
 //! Demo: system monitor overlay
 //!
-//! A live-updating HUD showing real CPU usage, memory consumption, and system uptime.
-//! Demonstrates: Hud creation, Win32 performance APIs, colored progress bars,
+//! A live-updating draggable panel showing real CPU usage, memory consumption, and system uptime.
+//! Demonstrates: Panel creation, draggable surface, Win32 performance APIs, colored progress bars,
 //! design system tokens, 2-second update loop.
 //!
 //! Run on Windows: cargo run -p winpane --example system_monitor
@@ -24,7 +24,7 @@ use windows::Win32::System::SystemInformation::{
     GetTickCount64, GlobalMemoryStatusEx, MEMORYSTATUSEX,
 };
 use windows::Win32::System::Threading::GetSystemTimes;
-use winpane::{Color, Context, HudConfig, RectElement, TextElement};
+use winpane::{Color, Context, PanelConfig, RectElement, TextElement};
 
 // ── CPU helpers ────────────────────────────────────────────────
 
@@ -111,15 +111,15 @@ fn bar_color(percent: u32) -> Color {
 
 // ── Scene setup ────────────────────────────────────────────────
 
-fn setup_static_scene(hud: &winpane::Hud) {
+fn setup_static_scene(panel: &winpane::Panel) {
     // Background
-    hud.set_rect(
+    panel.set_rect(
         "bg",
         RectElement {
             x: 0.0,
             y: 0.0,
             width: 180.0,
-            height: 80.0,
+            height: 108.0,
             fill: Color::rgba(18, 18, 22, 228),
             corner_radius: 10.0,
             border_color: Some(Color::rgba(255, 255, 255, 18)),
@@ -131,11 +131,11 @@ fn setup_static_scene(hud: &winpane::Hud) {
     // Row labels (secondary text color)
     let label_color = Color::rgba(148, 148, 160, 255);
     for (key, text, y) in [
-        ("cpu_label", "CPU", 8.0),
-        ("mem_label", "MEM", 30.0),
-        ("up_label", "UP", 52.0),
+        ("cpu_label", "CPU", 36.0),
+        ("mem_label", "MEM", 58.0),
+        ("up_label", "UP", 80.0),
     ] {
-        hud.set_text(
+        panel.set_text(
             key,
             TextElement {
                 text: text.into(),
@@ -151,11 +151,11 @@ fn setup_static_scene(hud: &winpane::Hud) {
 
     // Bar track backgrounds (elevated color)
     let track_color = Color::rgba(28, 28, 33, 255);
-    hud.set_rect(
+    panel.set_rect(
         "cpu_bar_bg",
         RectElement {
             x: 92.0,
-            y: 10.0,
+            y: 38.0,
             width: 76.0,
             height: 10.0,
             fill: track_color,
@@ -163,11 +163,11 @@ fn setup_static_scene(hud: &winpane::Hud) {
             ..Default::default()
         },
     );
-    hud.set_rect(
+    panel.set_rect(
         "mem_bar_bg",
         RectElement {
             x: 110.0,
-            y: 32.0,
+            y: 60.0,
             width: 58.0,
             height: 10.0,
             fill: track_color,
@@ -175,29 +175,55 @@ fn setup_static_scene(hud: &winpane::Hud) {
             ..Default::default()
         },
     );
+
+    // Title bar in drag region
+    panel.set_rect(
+        "title_bg",
+        RectElement {
+            x: 0.0,
+            y: 0.0,
+            width: 180.0,
+            height: 28.0,
+            fill: Color::rgba(28, 28, 33, 255),
+            corner_radius: 0.0,
+            ..Default::default()
+        },
+    );
+    panel.set_text(
+        "title",
+        TextElement {
+            x: 8.0,
+            y: 6.0,
+            text: "System Monitor".into(),
+            font_size: 13.0,
+            color: Color::rgba(148, 148, 160, 255),
+            bold: true,
+            ..Default::default()
+        },
+    );
 }
 
 // ── Dynamic updates ────────────────────────────────────────────
 
-fn update_cpu_display(hud: &winpane::Hud, pct: f64) {
+fn update_cpu_display(panel: &winpane::Panel, pct: f64) {
     let pct_u32 = pct.round() as u32;
-    hud.set_text(
+    panel.set_text(
         "cpu_pct",
         TextElement {
             text: format!("{pct_u32}%"),
             x: 52.0,
-            y: 8.0,
+            y: 36.0,
             font_size: 12.0,
             color: Color::rgba(232, 232, 237, 255),
             font_family: Some("Consolas".into()),
             ..Default::default()
         },
     );
-    hud.set_rect(
+    panel.set_rect(
         "cpu_bar",
         RectElement {
             x: 92.0,
-            y: 10.0,
+            y: 38.0,
             width: (76.0 * pct / 100.0) as f32,
             height: 10.0,
             fill: bar_color(pct_u32),
@@ -207,24 +233,24 @@ fn update_cpu_display(hud: &winpane::Hud, pct: f64) {
     );
 }
 
-fn update_memory_display(hud: &winpane::Hud, info: &MemInfo) {
-    hud.set_text(
+fn update_memory_display(panel: &winpane::Panel, info: &MemInfo) {
+    panel.set_text(
         "mem_val",
         TextElement {
             text: format!("{:.1} GB", info.used_gb),
             x: 48.0,
-            y: 30.0,
+            y: 58.0,
             font_size: 12.0,
             color: Color::rgba(232, 232, 237, 255),
             font_family: Some("Consolas".into()),
             ..Default::default()
         },
     );
-    hud.set_rect(
+    panel.set_rect(
         "mem_bar",
         RectElement {
             x: 110.0,
-            y: 32.0,
+            y: 60.0,
             width: (58.0 * info.percent as f64 / 100.0) as f32,
             height: 10.0,
             fill: bar_color(info.percent),
@@ -234,13 +260,13 @@ fn update_memory_display(hud: &winpane::Hud, info: &MemInfo) {
     );
 }
 
-fn update_uptime_display(hud: &winpane::Hud) {
-    hud.set_text(
+fn update_uptime_display(panel: &winpane::Panel) {
+    panel.set_text(
         "up_val",
         TextElement {
             text: format_uptime(),
             x: 48.0,
-            y: 52.0,
+            y: 80.0,
             font_size: 12.0,
             color: Color::rgba(232, 232, 237, 255),
             font_family: Some("Consolas".into()),
@@ -255,15 +281,17 @@ fn update_uptime_display(hud: &winpane::Hud) {
 fn main() -> Result<(), winpane::Error> {
     let ctx = Context::new()?;
 
-    let hud = ctx.create_hud(HudConfig {
+    let panel = ctx.create_panel(PanelConfig {
         x: 20,
         y: 20,
         width: 180,
-        height: 80,
+        height: 108,
+        draggable: true,
+        drag_height: 28,
     })?;
 
-    setup_static_scene(&hud);
-    hud.show();
+    setup_static_scene(&panel);
+    panel.show();
 
     println!("winpane system_monitor: live system stats at top-left.");
     println!("Updates every 2 seconds. Press Ctrl+C to exit.");
@@ -275,14 +303,14 @@ fn main() -> Result<(), winpane::Error> {
 
         if let Some(curr_cpu) = sample_cpu() {
             let pct = cpu_percent(&prev_cpu, &curr_cpu);
-            update_cpu_display(&hud, pct);
+            update_cpu_display(&panel, pct);
             prev_cpu = curr_cpu;
         }
 
         if let Some(mem) = get_memory_info() {
-            update_memory_display(&hud, &mem);
+            update_memory_display(&panel, &mem);
         }
 
-        update_uptime_display(&hud);
+        update_uptime_display(&panel);
     }
 }
