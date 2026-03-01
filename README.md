@@ -4,34 +4,23 @@ Create transparent floating overlays on Windows — stats HUDs, interactive pane
 
 ![winpane overlays floating over VS Code](docs/images/winpane.png)
 
-![winpane glucose monitor overlay floating over VS Code](docs/images/hero.gif)
+![winpane demo](docs/images/hero.gif)
 
 <video src="docs/demo-video.mp4" autoplay loop muted playsinline width="720" title="winpane overlays demo"></video>
 
 ## Try it
 
-Examples are draggable (remember position) and will show up bottom right on monitor 0 by default. Run any Rust example (the flags are implemented on the examples, see [examples](examples/rust/) for guidance on implementing): 
+Examples are draggable, remember their position, and default to the bottom-right corner. Most support `--no-titlebar`, `--position X,Y`, `--monitor N`, and more — run any example with `--help` to see its flags.
+
 ```sh
-# Simple clock overlay example
 cargo run -p winpane --example clock_overlay
-
-# interactive timer with buttons
 cargo run -p winpane --example countdown_timer
-
-# real CPU/memory usage, hide title bar with --no-titlebar
-cargo run -p winpane --example system_monitor -- --no-titlebar    
-
-# live stock prices, show on first monitor
+cargo run -p winpane --example system_monitor -- --no-titlebar
 cargo run -p winpane --example stock_ticker -- --monitor 1
-
-# Glucose monitor  (demo mode - cycles all visual states), no titlebar
-cargo run -p winpane --example glucose_monitor -- --demo --unit mmol --no-titlebar 
-
-# example hidden from screen capture, try to screenshot, explicit position 
+cargo run -p winpane --example glucose_monitor -- --demo --unit mmol --no-titlebar
 cargo run -p winpane --example capture_excluded -- --position 100,100
-```
 
-# Any example's help
+# see all flags for any example
 cargo run -p winpane --example clock_overlay -- --help
 ```
 
@@ -201,9 +190,9 @@ If building from source, see the [TypeScript guide](docs/guides/typescript.md).
 
 ## Why I built this
 
-I was diagnosed with Type 1 diabetes last year (2025). Most CGM apps are geolocked and unavailable in Kenya, so I built [mysukari.com](https://mysukari.com) — a free platform that connects any CGM via Nightscout for reporting and analysis. I wanted a small desktop overlay showing my glucose reading and trend arrow, updating every few minutes, hidden from screen shares. Nothing lightweight and multi-language existed, so I built winpane.
+I was diagnosed with Type 1 diabetes in 2025. Most CGM apps are geolocked and unavailable in Kenya, so I built [mysukari.com](https://mysukari.com) — a free platform that connects any CGM via Nightscout for reporting and analysis. I wanted a small desktop overlay showing my glucose reading and trend arrow, updating every few minutes, hidden from screen shares. Nothing lightweight and multi-language existed, so I built winpane.
 
-I had no prior experience with DirectComposition, Direct2D, or Win32 GPU rendering. [Claude Opus 4.6](https://www.anthropic.com/claude) was instrumental in building this.
+I had no prior experience with DirectComposition, Direct2D, or Win32 GPU rendering. [GitHub Copilot](https://github.com/features/copilot) with Claude Opus 4.6 was instrumental in building this.
 
 ## License
 
