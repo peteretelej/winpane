@@ -35,48 +35,48 @@ cargo run -p winpane --example clock_overlay -- --help
 
 | Example | What it does |
 |---------|-------------|
-| `clock_overlay` | Live desktop clock, updates every second |
-| `glucose_monitor` | CGM overlay — polls Nightscout or uses simulated data |
-| `stock_ticker` | Stock prices with live/simulated data |
-| `countdown_timer` | Interactive timer with Start/Reset buttons |
-| `system_monitor` | Real CPU and memory usage |
-| `color_picker` | Pixel color under cursor, updated live |
-| `sticky_notes` | Floating notes, toggled via tray icon |
-| `interactive_panel` | Clickable buttons, hover effects, drag |
-| `tray_ticker` | System tray icon with popup panel |
-| `pip_viewer` | Live thumbnail of another window |
-| `anchored_companion` | Panel that follows another window |
-| `hud_demo` | Basic stats overlay |
-| `backdrop_demo` | Mica / Acrylic backdrop effects (Win11) |
-| `fade_demo` | Fade-in / fade-out animations |
-| `capture_excluded` | Overlay hidden from screen capture |
-| `custom_draw` | Procedural D2D drawing |
+| [`clock_overlay`](examples/rust/clock_overlay.rs) | Live desktop clock, updates every second |
+| [`glucose_monitor`](examples/rust/glucose_monitor.rs) | CGM overlay — polls Nightscout or uses simulated data |
+| [`stock_ticker`](examples/rust/stock_ticker.rs) | Stock prices with live/simulated data |
+| [`countdown_timer`](examples/rust/countdown_timer.rs) | Interactive timer with Start/Reset buttons |
+| [`system_monitor`](examples/rust/system_monitor.rs) | Real CPU and memory usage |
+| [`color_picker`](examples/rust/color_picker.rs) | Pixel color under cursor, updated live |
+| [`sticky_notes`](examples/rust/sticky_notes.rs) | Floating notes, toggled via tray icon |
+| [`interactive_panel`](examples/rust/interactive_panel.rs) | Clickable buttons, hover effects, drag |
+| [`tray_ticker`](examples/rust/tray_ticker.rs) | System tray icon with popup panel |
+| [`pip_viewer`](examples/rust/pip_viewer.rs) | Live thumbnail of another window |
+| [`anchored_companion`](examples/rust/anchored_companion.rs) | Panel that follows another window |
+| [`hud_demo`](examples/rust/hud_demo.rs) | Basic stats overlay |
+| [`backdrop_demo`](examples/rust/backdrop_demo.rs) | Mica / Acrylic backdrop effects (Win11) |
+| [`fade_demo`](examples/rust/fade_demo.rs) | Fade-in / fade-out animations |
+| [`capture_excluded`](examples/rust/capture_excluded.rs) | Overlay hidden from screen capture |
+| [`custom_draw`](examples/rust/custom_draw.rs) | Procedural D2D drawing |
 
 Run any Rust example: `cargo run -p winpane --example <name>`. Some examples may be buggy, please report issues, contributions welcome!
 
 ### TypeScript
 
-`examples/typescript/`: `clock_overlay.ts`, `glucose_monitor.ts`, `pomodoro.ts`, `sticky_notes.ts`, `stock_ticker.ts`
+[`examples/typescript/`](examples/typescript/): [`clock_overlay.ts`](examples/typescript/clock_overlay.ts), [`glucose_monitor.ts`](examples/typescript/glucose_monitor.ts), [`pomodoro.ts`](examples/typescript/pomodoro.ts), [`sticky_notes.ts`](examples/typescript/sticky_notes.ts), [`stock_ticker.ts`](examples/typescript/stock_ticker.ts)
 
 Run: `npx tsx examples/typescript/<name>.ts` (requires addon built; see [TypeScript guide](docs/guides/typescript.md))
 
 ### Python (JSON-RPC)
 
-`examples/python/`: `clock_overlay.py`, `glucose_monitor.py`, `hud_demo.py`
+[`examples/python/`](examples/python/): [`clock_overlay.py`](examples/python/clock_overlay.py), [`glucose_monitor.py`](examples/python/glucose_monitor.py), [`hud_demo.py`](examples/python/hud_demo.py)
 
 Run: `python examples/python/<name>.py` (requires `winpane-host` built; see [Python guide](docs/guides/python.md))
 
 ### Node.js
 
-`examples/node/`: `backdrop_demo.js`, `hud_demo.js`, `interactive_panel.js`
+[`examples/node/`](examples/node/): [`backdrop_demo.js`](examples/node/backdrop_demo.js), [`hud_demo.js`](examples/node/hud_demo.js), [`interactive_panel.js`](examples/node/interactive_panel.js)
 
 Run: `node examples/node/<name>.js` (requires addon built; see [Node.js guide](docs/guides/nodejs.md))
 
 ### C
 
-`examples/c/`: `custom_draw.c`, `hello_hud.c`
+[`examples/c/`](examples/c/): [`custom_draw.c`](examples/c/custom_draw.c), [`hello_hud.c`](examples/c/hello_hud.c)
 
-See `build.bat` or `CMakeLists.txt` for build instructions.
+See [`build.bat`](examples/c/build.bat) or [`CMakeLists.txt`](examples/c/CMakeLists.txt) for build instructions.
 
 </details>
 
