@@ -51,6 +51,7 @@ fn main() -> Result<(), winpane::Error> {
         height: 140,
         draggable: false,
         drag_height: 0,
+        position_key: None,
     })?;
 
     popup.set_rect(

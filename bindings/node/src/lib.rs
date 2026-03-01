@@ -318,6 +318,20 @@ impl SurfaceHandle {
             )),
         }
     }
+
+    fn get_position(&self) -> Result<(i32, i32)> {
+        match self {
+            SurfaceHandle::Hud(h) => h
+                .get_position()
+                .map_err(|e| Error::new(Status::GenericFailure, format!("{e}"))),
+            SurfaceHandle::Panel(p) => p
+                .get_position()
+                .map_err(|e| Error::new(Status::GenericFailure, format!("{e}"))),
+            SurfaceHandle::Pip(p) => p
+                .get_position()
+                .map_err(|e| Error::new(Status::GenericFailure, format!("{e}"))),
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -333,6 +347,7 @@ pub struct HudOptions {
     pub monitor: Option<u32>,
     pub anchor: Option<String>,
     pub margin: Option<u32>,
+    pub position_key: Option<String>,
 }
 
 #[napi(object)]
@@ -346,6 +361,7 @@ pub struct PanelOptions {
     pub margin: Option<u32>,
     pub draggable: Option<bool>,
     pub drag_height: Option<u32>,
+    pub position_key: Option<String>,
 }
 
 #[napi(object)]
@@ -358,6 +374,7 @@ pub struct PipOptions {
     pub monitor: Option<u32>,
     pub anchor: Option<String>,
     pub margin: Option<u32>,
+    pub position_key: Option<String>,
 }
 
 #[napi(object)]
@@ -424,6 +441,8 @@ pub struct WinPaneEvent {
     pub key: Option<String>,
     pub button: Option<String>,
     pub item_id: Option<u32>,
+    pub x: Option<i32>,
+    pub y: Option<i32>,
 }
 
 // ---------------------------------------------------------------------------
@@ -485,6 +504,7 @@ impl WinPane {
             placement,
             width: options.width,
             height: options.height,
+            position_key: options.position_key,
         };
         let hud = self
             .ctx()?
@@ -511,6 +531,7 @@ impl WinPane {
             height: options.height,
             draggable: options.draggable.unwrap_or(false),
             drag_height: options.drag_height.unwrap_or(0),
+            position_key: options.position_key,
         };
         let panel = self
             .ctx()?
@@ -536,6 +557,7 @@ impl WinPane {
             placement,
             width: options.width,
             height: options.height,
+            position_key: options.position_key,
         };
         let pip = self
             .ctx()?
@@ -694,6 +716,13 @@ impl WinPane {
         let surface = self.get_surface(surface_id)?;
         surface.set_capture_excluded(excluded);
         Ok(())
+    }
+
+    #[napi]
+    pub fn get_position(&self, surface_id: u32) -> Result<Vec<i32>> {
+        let surface = self.get_surface(surface_id)?;
+        let (x, y) = surface.get_position()?;
+        Ok(vec![x, y])
     }
 
     // -- Backdrop -----------------------------------------------------------
@@ -875,6 +904,8 @@ impl WinPane {
                 key: Some(key.clone()),
                 button: None,
                 item_id: None,
+                x: None,
+                y: None,
             },
             winpane::Event::ElementHovered { surface_id, key } => WinPaneEvent {
                 event_type: "element_hovered".to_string(),
@@ -882,6 +913,8 @@ impl WinPane {
                 key: Some(key.clone()),
                 button: None,
                 item_id: None,
+                x: None,
+                y: None,
             },
             winpane::Event::ElementLeft { surface_id, key } => WinPaneEvent {
                 event_type: "element_left".to_string(),
@@ -889,6 +922,8 @@ impl WinPane {
                 key: Some(key.clone()),
                 button: None,
                 item_id: None,
+                x: None,
+                y: None,
             },
             winpane::Event::TrayClicked { button } => {
                 let button_str = match button {
@@ -902,6 +937,8 @@ impl WinPane {
                     key: None,
                     button: Some(button_str.to_string()),
                     item_id: None,
+                    x: None,
+                    y: None,
                 }
             }
             winpane::Event::TrayMenuItemClicked { id } => WinPaneEvent {
@@ -910,6 +947,8 @@ impl WinPane {
                 key: None,
                 button: None,
                 item_id: Some(*id),
+                x: None,
+                y: None,
             },
             winpane::Event::PipSourceClosed { surface_id } => WinPaneEvent {
                 event_type: "pip_source_closed".to_string(),
@@ -917,6 +956,8 @@ impl WinPane {
                 key: None,
                 button: None,
                 item_id: None,
+                x: None,
+                y: None,
             },
             winpane::Event::AnchorTargetClosed { surface_id } => WinPaneEvent {
                 event_type: "anchor_target_closed".to_string(),
@@ -924,6 +965,17 @@ impl WinPane {
                 key: None,
                 button: None,
                 item_id: None,
+                x: None,
+                y: None,
+            },
+            winpane::Event::SurfaceMoved { surface_id, x, y } => WinPaneEvent {
+                event_type: "surface_moved".to_string(),
+                surface_id: self.surface_id_map.get(&surface_id.0).copied(),
+                key: None,
+                button: None,
+                item_id: None,
+                x: Some(*x),
+                y: Some(*y),
             },
             winpane::Event::DeviceRecovered => WinPaneEvent {
                 event_type: "device_recovered".to_string(),
@@ -931,6 +983,8 @@ impl WinPane {
                 key: None,
                 button: None,
                 item_id: None,
+                x: None,
+                y: None,
             },
         }
     }

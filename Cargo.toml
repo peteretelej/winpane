@@ -23,6 +23,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "bmp"] }
 cbindgen = "0.29"
+dirs = "6"
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "warn"

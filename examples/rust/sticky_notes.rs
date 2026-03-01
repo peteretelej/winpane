@@ -70,6 +70,7 @@ fn main() -> Result<(), winpane::Error> {
         height: 160,
         draggable: true,
         drag_height: 28,
+        position_key: None,
     })?;
 
     panel.set_backdrop(Backdrop::Mica);

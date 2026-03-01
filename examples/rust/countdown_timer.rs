@@ -41,8 +41,7 @@ fn timer_color(remaining: u32, state: &TimerState, elapsed_ms: u128) -> winpane:
         TimerState::Running if remaining > 10 => Color::rgba(251, 191, 36, 255),
         TimerState::Running => {
             // Pulsing red: sin wave alpha 128–255 at ~1Hz
-            let pulse =
-                ((elapsed_ms % 1000) as f64 / 1000.0 * std::f64::consts::TAU).sin();
+            let pulse = ((elapsed_ms % 1000) as f64 / 1000.0 * std::f64::consts::TAU).sin();
             let alpha = (191.5 + 63.5 * pulse) as u8;
             Color::rgba(239, 68, 68, alpha)
         }
@@ -93,6 +92,7 @@ fn main() -> Result<(), winpane::Error> {
         height: 140,
         draggable: true,
         drag_height: 28,
+        position_key: None,
     })?;
 
     // Background

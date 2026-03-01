@@ -43,6 +43,7 @@ fn main() -> Result<(), winpane::Error> {
         placement: Placement::Position { x: 50, y: 50 },
         width: 400,
         height: 300,
+        position_key: None,
     })?;
 
     pip.set_opacity(0.95);

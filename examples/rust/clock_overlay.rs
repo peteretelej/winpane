@@ -50,6 +50,7 @@ fn main() -> Result<(), winpane::Error> {
         height: 88,
         draggable: true,
         drag_height: 28,
+        position_key: None,
     })?;
 
     // Glass background with rounded corners

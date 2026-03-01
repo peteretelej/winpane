@@ -23,6 +23,7 @@ typedef enum WINPANE_winpane_event_type_t {
     WINPANE_WINPANE_EVENT_TYPE_T_PIP_SOURCE_CLOSED = 6,
     WINPANE_WINPANE_EVENT_TYPE_T_ANCHOR_TARGET_CLOSED = 7,
     WINPANE_WINPANE_EVENT_TYPE_T_DEVICE_RECOVERED = 8,
+    WINPANE_WINPANE_EVENT_TYPE_T_SURFACE_MOVED = 9,
 } WINPANE_winpane_event_type_t;
 
 typedef enum WINPANE_winpane_mouse_button_t {
@@ -58,6 +59,8 @@ typedef struct WINPANE_winpane_event_t {
     uint8_t key[256];
     enum WINPANE_winpane_mouse_button_t mouse_button;
     uint32_t menu_item_id;
+    int32_t x;
+    int32_t y;
 } WINPANE_winpane_event_t;
 
 typedef struct WINPANE_winpane_hud_config_t {
@@ -71,6 +74,7 @@ typedef struct WINPANE_winpane_hud_config_t {
     uint32_t monitor_margin;
     uint32_t width;
     uint32_t height;
+    const char *position_key;
 } WINPANE_winpane_hud_config_t;
 
 typedef struct WINPANE_winpane_panel_config_t {
@@ -86,6 +90,7 @@ typedef struct WINPANE_winpane_panel_config_t {
     uint32_t height;
     int32_t draggable;
     uint32_t drag_height;
+    const char *position_key;
 } WINPANE_winpane_panel_config_t;
 
 typedef struct WINPANE_winpane_color_t {
@@ -160,6 +165,7 @@ typedef struct WINPANE_WinpanePipConfig {
     uint32_t monitor_margin;
     uint32_t width;
     uint32_t height;
+    const char *position_key;
 } WINPANE_WinpanePipConfig;
 
 typedef struct WINPANE_WinpaneSourceRect {
@@ -365,6 +371,10 @@ int32_t winpane_backdrop_supported(void);
 int32_t winpane_surface_fade_in(struct WINPANE_WinpaneSurface *surface, uint32_t duration_ms);
 
 int32_t winpane_surface_fade_out(struct WINPANE_WinpaneSurface *surface, uint32_t duration_ms);
+
+int32_t winpane_get_position(const struct WINPANE_WinpaneSurface *surface,
+                             int32_t *out_x,
+                             int32_t *out_y);
 
 #ifdef __cplusplus
 }  // extern "C"

@@ -149,6 +149,7 @@ fn main() -> Result<(), winpane::Error> {
         height: 93,
         draggable: true,
         drag_height: 28,
+        position_key: None,
     })?;
 
     panel.set_capture_excluded(true);

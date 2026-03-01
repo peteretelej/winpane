@@ -54,6 +54,7 @@ fn main() -> Result<(), winpane::Error> {
         height: 120,
         draggable: false,
         drag_height: 0,
+        position_key: None,
     })?;
 
     // Background

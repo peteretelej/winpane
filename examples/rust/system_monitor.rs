@@ -287,6 +287,7 @@ fn main() -> Result<(), winpane::Error> {
         height: 108,
         draggable: true,
         drag_height: 28,
+        position_key: None,
     })?;
 
     setup_static_scene(&panel);

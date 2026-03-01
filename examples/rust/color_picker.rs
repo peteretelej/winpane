@@ -145,6 +145,7 @@ fn main() -> Result<(), winpane::Error> {
         placement: Placement::Position { x: 100, y: 100 },
         width: 160,
         height: 80,
+        position_key: None,
     })?;
 
     setup_static_scene(&hud);

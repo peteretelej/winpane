@@ -25,6 +25,7 @@ fn main() -> Result<(), winpane::Error> {
         placement: Placement::Position { x: 200, y: 200 },
         width: 400,
         height: 300,
+        position_key: None,
     })?;
 
     // Add a retained-mode background

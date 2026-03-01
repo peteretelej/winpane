@@ -33,6 +33,7 @@ mod windows_tests {
             placement: Placement::Position { x: 100, y: 200 },
             width: 320,
             height: 180,
+            position_key: None,
         };
         assert_eq!(config.width, 320);
     }

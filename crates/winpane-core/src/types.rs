@@ -220,6 +220,7 @@ pub struct HudConfig {
     pub placement: Placement,
     pub width: u32,
     pub height: u32,
+    pub position_key: Option<String>,
 }
 
 // --- PanelConfig ---
@@ -232,6 +233,7 @@ pub struct PanelConfig {
     pub draggable: bool,
     /// Logical pixels from top of panel that act as a drag handle.
     pub drag_height: u32,
+    pub position_key: Option<String>,
 }
 
 // --- TrayConfig ---
@@ -260,6 +262,7 @@ pub struct PipConfig {
     pub placement: Placement,
     pub width: u32,
     pub height: u32,
+    pub position_key: Option<String>,
 }
 
 // --- SourceRect ---
@@ -333,13 +336,35 @@ pub enum Backdrop {
 
 #[derive(Debug, Clone)]
 pub enum Event {
-    ElementClicked { surface_id: SurfaceId, key: String },
-    ElementHovered { surface_id: SurfaceId, key: String },
-    ElementLeft { surface_id: SurfaceId, key: String },
-    TrayClicked { button: MouseButton },
-    TrayMenuItemClicked { id: u32 },
-    PipSourceClosed { surface_id: SurfaceId },
-    AnchorTargetClosed { surface_id: SurfaceId },
+    ElementClicked {
+        surface_id: SurfaceId,
+        key: String,
+    },
+    ElementHovered {
+        surface_id: SurfaceId,
+        key: String,
+    },
+    ElementLeft {
+        surface_id: SurfaceId,
+        key: String,
+    },
+    TrayClicked {
+        button: MouseButton,
+    },
+    TrayMenuItemClicked {
+        id: u32,
+    },
+    PipSourceClosed {
+        surface_id: SurfaceId,
+    },
+    AnchorTargetClosed {
+        surface_id: SurfaceId,
+    },
+    SurfaceMoved {
+        surface_id: SurfaceId,
+        x: i32,
+        y: i32,
+    },
     DeviceRecovered,
 }
 

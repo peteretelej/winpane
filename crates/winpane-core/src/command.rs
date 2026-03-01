@@ -116,6 +116,10 @@ pub enum Command {
         surface: SurfaceId,
         excluded: bool,
     },
+    GetPosition {
+        surface: SurfaceId,
+        reply: mpsc::Sender<Result<(i32, i32), Error>>,
+    },
 }
 
 pub type CommandSender = mpsc::Sender<Command>;

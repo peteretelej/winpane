@@ -26,6 +26,7 @@ fn main() -> Result<(), winpane::Error> {
         placement: Placement::Position { x: 100, y: 100 },
         width: 320,
         height: 180,
+        position_key: None,
     })?;
 
     // Dark semi-transparent background with rounded corners

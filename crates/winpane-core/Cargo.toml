@@ -12,6 +12,8 @@ workspace = true
 [dependencies]
 indexmap = { workspace = true }
 windows-numerics = { workspace = true }
+dirs = { workspace = true }
+serde_json = { workspace = true }
 
 [dependencies.windows]
 workspace = true

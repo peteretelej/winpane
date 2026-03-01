@@ -11,6 +11,7 @@ export interface HudOptions {
   monitor?: number;
   anchor?: 'top_left' | 'top_right' | 'bottom_left' | 'bottom_right';
   margin?: number;
+  positionKey?: string;
 }
 
 export interface PanelOptions {
@@ -23,6 +24,7 @@ export interface PanelOptions {
   margin?: number;
   draggable?: boolean;
   dragHeight?: number;
+  positionKey?: string;
 }
 
 export interface PipOptions {
@@ -34,6 +36,7 @@ export interface PipOptions {
   monitor?: number;
   anchor?: 'top_left' | 'top_right' | 'bottom_left' | 'bottom_right';
   margin?: number;
+  positionKey?: string;
 }
 
 export interface TrayOptions {
@@ -93,6 +96,8 @@ export interface WinPaneEvent {
   key?: string;
   button?: string;
   itemId?: number;
+  x?: number;
+  y?: number;
 }
 
 export class WinPane {
@@ -123,6 +128,9 @@ export class WinPane {
   setCaptureExcluded(surfaceId: number, excluded: boolean): void;
   setBackdrop(surfaceId: number, backdrop: string): void;
   backdropSupported(): boolean;
+
+  // Position
+  getPosition(surfaceId: number): number[];
 
   // Anchoring
   anchorTo(surfaceId: number, targetHwnd: number, anchor: string, offsetX: number, offsetY: number): void;

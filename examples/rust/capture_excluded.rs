@@ -26,6 +26,7 @@ fn main() -> Result<(), winpane::Error> {
         placement: Placement::Position { x: 100, y: 100 },
         width: 350,
         height: 150,
+        position_key: None,
     })?;
 
     hud.set_rect(

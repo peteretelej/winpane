@@ -1,6 +1,7 @@
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::sync::mpsc;
+use std::time::{Duration, Instant};
 
 use windows::Win32::Foundation::*;
 use windows::Win32::System::Com::*;
@@ -10,6 +11,7 @@ use crate::command::{Command, CommandReceiver, CommandSender};
 use crate::display;
 use crate::input::{HitTestMap, PanelState};
 use crate::monitor::{MonitorEvent, PENDING_MONITOR_EVENTS, Watch, WatchReason, WindowMonitor};
+use crate::persist;
 use crate::renderer::{GpuResources, RenderError, SurfaceRenderer};
 use crate::scene::SceneGraph;
 use crate::tray::{
@@ -21,9 +23,9 @@ use crate::types::{
     SurfaceId, TrayConfig, TrayId,
 };
 use crate::window::{
-    PENDING_DPI_CHANGES, PENDING_FADE_COMPLETIONS, PENDING_TRAY_EVENTS, SendHwnd,
-    create_control_window, create_hud_window, create_panel_window, ensure_classes_registered,
-    get_dpi_scale, try_set_dpi_awareness,
+    PENDING_DPI_CHANGES, PENDING_FADE_COMPLETIONS, PENDING_POSITION_CHANGES, PENDING_TRAY_EVENTS,
+    SendHwnd, create_control_window, create_hud_window, create_panel_window,
+    ensure_classes_registered, get_dpi_scale, try_set_dpi_awareness,
 };
 
 use windows::Win32::Graphics::Dwm::{
@@ -67,6 +69,7 @@ pub(crate) struct Surface {
     pub kind: SurfaceKind,
     pub opacity: f32,
     pub fading_out: bool,
+    pub position_key: Option<String>,
 }
 
 // --- EngineHandle (returned to winpane crate) ---
@@ -202,6 +205,9 @@ unsafe fn engine_thread_main(
         let mut monitor = WindowMonitor::new();
         let mut anchor_states: HashMap<SurfaceId, AnchorState> = HashMap::new();
 
+        // 8c. Position save debounce state
+        let mut pending_saves: HashMap<String, (i32, i32, Instant)> = HashMap::new();
+
         // 9. Message loop
         let mut msg = MSG::default();
         loop {
@@ -224,6 +230,9 @@ unsafe fn engine_thread_main(
 
             // Process fade completion events
             process_fade_completions(&mut surfaces);
+
+            // Process position change events (SurfaceMoved + debounced persistence)
+            process_position_changes(&surfaces, &event_tx, &mut pending_saves);
 
             // Drain command queue (non-blocking)
             while let Ok(cmd) = cmd_rx.try_recv() {
@@ -316,13 +325,8 @@ unsafe fn engine_thread_main(
                                     .get(&key)
                                     .is_some_and(super::scene::Element::is_interactive);
                             s.scene.set(key, element);
-                            if needs_hit_rebuild
-                                && let SurfaceKind::Panel(state) = &mut s.kind
-                            {
-                                state.hit_test_map.rebuild(
-                                    &s.scene,
-                                    s.renderer.dpi_scale,
-                                );
+                            if needs_hit_rebuild && let SurfaceKind::Panel(state) = &mut s.kind {
+                                state.hit_test_map.rebuild(&s.scene, s.renderer.dpi_scale);
                             }
                         }
                     }
@@ -584,6 +588,17 @@ unsafe fn engine_thread_main(
                             crate::window::set_capture_excluded(s.renderer.hwnd, excluded);
                         }
                     }
+                    Command::GetPosition { surface, reply } => {
+                        let result = surfaces
+                            .get(&surface)
+                            .map(|s| {
+                                let mut rect = RECT::default();
+                                let _ = GetWindowRect(s.renderer.hwnd, &mut rect);
+                                (rect.left, rect.top)
+                            })
+                            .ok_or(Error::SurfaceNotFound);
+                        let _ = reply.send(result);
+                    }
                 }
             }
 
@@ -799,6 +814,47 @@ unsafe fn process_tray_events(
             }
         });
     } // unsafe
+}
+
+// --- Position change processing ---
+
+fn process_position_changes(
+    surfaces: &HashMap<SurfaceId, Surface>,
+    event_tx: &mpsc::Sender<Event>,
+    pending_saves: &mut HashMap<String, (i32, i32, Instant)>,
+) {
+    PENDING_POSITION_CHANGES.with(|q| {
+        let events: Vec<_> = q.borrow_mut().drain(..).collect();
+        for ev in events {
+            // Find surface by HWND
+            let Some((&id, surface)) = surfaces
+                .iter()
+                .find(|(_, s)| s.renderer.hwnd.0 as isize == ev.hwnd)
+            else {
+                continue;
+            };
+            // Emit event
+            let _ = event_tx.send(Event::SurfaceMoved {
+                surface_id: id,
+                x: ev.x,
+                y: ev.y,
+            });
+            // Update pending save (trailing-edge debounce)
+            if let Some(ref key) = surface.position_key {
+                pending_saves.insert(key.clone(), (ev.x, ev.y, Instant::now()));
+            }
+        }
+    });
+    // Flush entries older than 500ms
+    let now = Instant::now();
+    pending_saves.retain(|key, (x, y, ts)| {
+        if now.duration_since(*ts) > Duration::from_millis(500) {
+            persist::save_position(key, *x, *y);
+            false // remove entry
+        } else {
+            true // keep pending
+        }
+    });
 }
 
 // --- Monitor event processing ---
@@ -1058,12 +1114,20 @@ unsafe fn create_hud_surface(
     // SAFETY: Window and renderer creation with valid GPU resources.
     unsafe {
         let monitors = display::enumerate_monitors();
-        let (x, y) = display::resolve_placement(
-            &config.placement,
-            config.width,
-            config.height,
-            &monitors,
-        );
+        let (mut x, mut y) =
+            display::resolve_placement(&config.placement, config.width, config.height, &monitors);
+
+        // Restore saved position if position_key is set
+        let mut physical_coords = matches!(config.placement, Placement::Monitor { .. });
+        if let Some(ref key) = config.position_key
+            && let Some((saved_x, saved_y)) = persist::load_position(key)
+            && persist::is_position_on_screen(saved_x, saved_y, &monitors)
+        {
+            x = saved_x;
+            y = saved_y;
+            physical_coords = true; // saved positions are physical coords
+        }
+
         let hwnd = create_hud_window(x, y, config.width, config.height)?;
 
         let renderer = match SurfaceRenderer::new(gpu, hwnd, config.width, config.height) {
@@ -1076,9 +1140,16 @@ unsafe fn create_hud_surface(
 
         // Adjust window position/size for DPI (CreateWindowExW uses physical pixels under PMv2)
         let scale = renderer.dpi_scale;
-        let physical_coords = matches!(config.placement, Placement::Monitor { .. });
-        let final_x = if physical_coords { x } else { (x as f32 * scale) as i32 };
-        let final_y = if physical_coords { y } else { (y as f32 * scale) as i32 };
+        let final_x = if physical_coords {
+            x
+        } else {
+            (x as f32 * scale) as i32
+        };
+        let final_y = if physical_coords {
+            y
+        } else {
+            (y as f32 * scale) as i32
+        };
         let _ = SetWindowPos(
             hwnd,
             None,
@@ -1101,6 +1172,7 @@ unsafe fn create_hud_surface(
                 kind: SurfaceKind::Hud,
                 opacity: 1.0,
                 fading_out: false,
+                position_key: config.position_key,
             },
         );
 
@@ -1118,12 +1190,19 @@ unsafe fn create_panel_surface(
     // SAFETY: Panel window creation with valid GPU resources and event sender.
     unsafe {
         let monitors = display::enumerate_monitors();
-        let (x, y) = display::resolve_placement(
-            &config.placement,
-            config.width,
-            config.height,
-            &monitors,
-        );
+        let (mut x, mut y) =
+            display::resolve_placement(&config.placement, config.width, config.height, &monitors);
+
+        // Restore saved position if position_key is set
+        let mut physical_coords = matches!(config.placement, Placement::Monitor { .. });
+        if let Some(ref key) = config.position_key
+            && let Some((saved_x, saved_y)) = persist::load_position(key)
+            && persist::is_position_on_screen(saved_x, saved_y, &monitors)
+        {
+            x = saved_x;
+            y = saved_y;
+            physical_coords = true;
+        }
 
         // 1. Create panel window
         let hwnd = create_panel_window(x, y, config.width, config.height)?;
@@ -1139,9 +1218,16 @@ unsafe fn create_panel_surface(
 
         // 3. DPI-scaled SetWindowPos (CreateWindowExW uses physical pixels under PMv2)
         let scale = renderer.dpi_scale;
-        let physical_coords = matches!(config.placement, Placement::Monitor { .. });
-        let final_x = if physical_coords { x } else { (x as f32 * scale) as i32 };
-        let final_y = if physical_coords { y } else { (y as f32 * scale) as i32 };
+        let final_x = if physical_coords {
+            x
+        } else {
+            (x as f32 * scale) as i32
+        };
+        let final_y = if physical_coords {
+            y
+        } else {
+            (y as f32 * scale) as i32
+        };
         let _ = SetWindowPos(
             hwnd,
             None,
@@ -1181,6 +1267,7 @@ unsafe fn create_panel_surface(
                 kind: SurfaceKind::Panel(panel_state),
                 opacity: 1.0,
                 fading_out: false,
+                position_key: config.position_key,
             },
         );
 
@@ -1210,12 +1297,19 @@ unsafe fn create_pip_surface(
 
         // Resolve placement
         let monitors = display::enumerate_monitors();
-        let (x, y) = display::resolve_placement(
-            &config.placement,
-            config.width,
-            config.height,
-            &monitors,
-        );
+        let (mut x, mut y) =
+            display::resolve_placement(&config.placement, config.width, config.height, &monitors);
+
+        // Restore saved position if position_key is set
+        let mut physical_coords = matches!(config.placement, Placement::Monitor { .. });
+        if let Some(ref key) = config.position_key
+            && let Some((saved_x, saved_y)) = persist::load_position(key)
+            && persist::is_position_on_screen(saved_x, saved_y, &monitors)
+        {
+            x = saved_x;
+            y = saved_y;
+            physical_coords = true;
+        }
 
         // Create window (same as HUD - click-through, topmost)
         let hwnd = create_hud_window(x, y, config.width, config.height)?;
@@ -1233,9 +1327,16 @@ unsafe fn create_pip_surface(
         let dpi = get_dpi_scale(hwnd);
 
         // Apply DPI-scaled position
-        let physical_coords = matches!(config.placement, Placement::Monitor { .. });
-        let final_x = if physical_coords { x } else { (x as f32 * dpi) as i32 };
-        let final_y = if physical_coords { y } else { (y as f32 * dpi) as i32 };
+        let final_x = if physical_coords {
+            x
+        } else {
+            (x as f32 * dpi) as i32
+        };
+        let final_y = if physical_coords {
+            y
+        } else {
+            (y as f32 * dpi) as i32
+        };
         let _ = SetWindowPos(
             hwnd,
             Some(HWND_TOPMOST),
@@ -1288,6 +1389,7 @@ unsafe fn create_pip_surface(
                 kind: SurfaceKind::Pip(pip_state),
                 opacity: 1.0,
                 fading_out: false,
+                position_key: config.position_key.clone(),
             },
         );
 

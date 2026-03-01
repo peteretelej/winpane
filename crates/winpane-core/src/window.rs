@@ -46,6 +46,19 @@ thread_local! {
     pub(crate) static PENDING_FADE_COMPLETIONS: RefCell<Vec<FadeCompleteEvent>> = const { RefCell::new(Vec::new()) };
 }
 
+// --- Position change queue (thread-local, same thread as message loop) ---
+
+pub(crate) struct PositionChangeEvent {
+    pub hwnd: isize,
+    pub x: i32,
+    pub y: i32,
+}
+
+thread_local! {
+    pub(crate) static PENDING_POSITION_CHANGES: RefCell<Vec<PositionChangeEvent>> =
+        const { RefCell::new(Vec::new()) };
+}
+
 /// Tray icon callback message. WM_APP (0x8000) is used for command wake;
 /// WM_APP + 1 is used for tray icon notifications.
 pub(crate) const WM_TRAY_CALLBACK: u32 = 0x8001;
@@ -221,6 +234,20 @@ extern "system" fn hud_wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPA
                 // should call PostQuitMessage (during Shutdown). If surface
                 // wndprocs call it, dropping any single HUD would terminate
                 // the entire engine message loop.
+                DefWindowProcW(hwnd, msg, wparam, lparam)
+            }
+
+            WM_WINDOWPOSCHANGED => {
+                let wp = &*(lparam.0 as *const WINDOWPOS);
+                if (wp.flags.0 & SWP_NOMOVE.0) == 0 {
+                    PENDING_POSITION_CHANGES.with(|q| {
+                        q.borrow_mut().push(PositionChangeEvent {
+                            hwnd: hwnd.0 as isize,
+                            x: wp.x,
+                            y: wp.y,
+                        });
+                    });
+                }
                 DefWindowProcW(hwnd, msg, wparam, lparam)
             }
 
@@ -400,6 +427,20 @@ extern "system" fn panel_wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: L
             WM_DESTROY => {
                 // Do NOT call PostQuitMessage(0) here. Only control_wndproc
                 // should call PostQuitMessage (during Shutdown).
+                DefWindowProcW(hwnd, msg, wparam, lparam)
+            }
+
+            WM_WINDOWPOSCHANGED => {
+                let wp = &*(lparam.0 as *const WINDOWPOS);
+                if (wp.flags.0 & SWP_NOMOVE.0) == 0 {
+                    PENDING_POSITION_CHANGES.with(|q| {
+                        q.borrow_mut().push(PositionChangeEvent {
+                            hwnd: hwnd.0 as isize,
+                            x: wp.x,
+                            y: wp.y,
+                        });
+                    });
+                }
                 DefWindowProcW(hwnd, msg, wparam, lparam)
             }
 

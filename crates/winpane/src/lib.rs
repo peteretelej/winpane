@@ -246,6 +246,17 @@ impl Hud {
         });
     }
 
+    /// Returns the current physical screen position (x, y) of this surface.
+    pub fn get_position(&self) -> Result<(i32, i32), Error> {
+        let (reply_tx, reply_rx) = mpsc::channel();
+        let _ = self.sender.send(Command::GetPosition {
+            surface: self.id,
+            reply: reply_tx,
+        });
+        wake_engine(self.control_hwnd);
+        reply_rx.recv().map_err(|_| Error::Shutdown)?
+    }
+
     fn send(&self, cmd: Command) {
         let _ = self.sender.send(cmd);
         wake_engine(self.control_hwnd);
@@ -386,6 +397,17 @@ impl Panel {
         });
     }
 
+    /// Returns the current physical screen position (x, y) of this surface.
+    pub fn get_position(&self) -> Result<(i32, i32), Error> {
+        let (reply_tx, reply_rx) = mpsc::channel();
+        let _ = self.sender.send(Command::GetPosition {
+            surface: self.id,
+            reply: reply_tx,
+        });
+        wake_engine(self.control_hwnd);
+        reply_rx.recv().map_err(|_| Error::Shutdown)?
+    }
+
     fn send(&self, cmd: Command) {
         let _ = self.sender.send(cmd);
         wake_engine(self.control_hwnd);
@@ -498,6 +520,17 @@ impl Pip {
 
     pub fn id(&self) -> SurfaceId {
         self.id
+    }
+
+    /// Returns the current physical screen position (x, y) of this surface.
+    pub fn get_position(&self) -> Result<(i32, i32), Error> {
+        let (reply_tx, reply_rx) = mpsc::channel();
+        let _ = self.sender.send(Command::GetPosition {
+            surface: self.id,
+            reply: reply_tx,
+        });
+        wake_engine(self.control_hwnd);
+        reply_rx.recv().map_err(|_| Error::Shutdown)?
     }
 
     fn send(&self, cmd: Command) {

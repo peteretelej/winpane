@@ -198,6 +198,20 @@ impl SurfaceHandle {
         }
     }
 
+    fn get_position(&self) -> Result<(i32, i32), (i32, String)> {
+        match self {
+            SurfaceHandle::Hud(h) => h
+                .get_position()
+                .map_err(|e| (INTERNAL_ERROR, format!("get_position failed: {e}"))),
+            SurfaceHandle::Panel(p) => p
+                .get_position()
+                .map_err(|e| (INTERNAL_ERROR, format!("get_position failed: {e}"))),
+            SurfaceHandle::Pip(p) => p
+                .get_position()
+                .map_err(|e| (INTERNAL_ERROR, format!("get_position failed: {e}"))),
+        }
+    }
+
     fn clear_source_region(&self) -> Result<(), (i32, String)> {
         match self {
             SurfaceHandle::Pip(p) => {
@@ -419,6 +433,9 @@ impl Dispatcher {
                 Ok(serde_json::json!({ "supported": winpane::backdrop_supported() }))
             }
 
+            // Position query
+            "get_position" => self.get_position(params),
+
             // Lifecycle
             "destroy" => self.destroy(params),
 
@@ -434,6 +451,7 @@ impl Dispatcher {
             placement,
             width: get_u32(params, "width")?,
             height: get_u32(params, "height")?,
+            position_key: opt_str(params, "position_key").map(ToString::to_string),
         };
         let hud = self
             .ctx
@@ -453,6 +471,7 @@ impl Dispatcher {
             height: get_u32(params, "height")?,
             draggable: opt_bool(params, "draggable").unwrap_or(false),
             drag_height: opt_u32(params, "drag_height").unwrap_or(0),
+            position_key: opt_str(params, "position_key").map(ToString::to_string),
         };
         let panel = self
             .ctx
@@ -481,6 +500,7 @@ impl Dispatcher {
             placement,
             width: get_u32(params, "width")?,
             height: get_u32(params, "height")?,
+            position_key: opt_str(params, "position_key").map(ToString::to_string),
         };
         let pip = self
             .ctx
@@ -727,6 +747,18 @@ impl Dispatcher {
         Ok(serde_json::json!({}))
     }
 
+    // -- Position query -----------------------------------------------------
+
+    fn get_position(&self, params: &Value) -> Result<Value, (i32, String)> {
+        let surface_id = get_str(params, "surface_id")?;
+        let surface = self
+            .surfaces
+            .get(surface_id)
+            .ok_or_else(|| (INVALID_PARAMS, format!("unknown surface_id: {surface_id}")))?;
+        let (x, y) = surface.get_position()?;
+        Ok(serde_json::json!({ "x": x, "y": y }))
+    }
+
     // -- Anchoring ----------------------------------------------------------
 
     fn anchor_to(&self, params: &Value) -> Result<Value, (i32, String)> {
@@ -964,6 +996,18 @@ pub fn event_to_json(event: &Event, id_map: &HashMap<u64, String>) -> Value {
             serde_json::json!({
                 "type": "anchor_target_closed",
                 "surface_id": sid,
+            })
+        }
+        Event::SurfaceMoved { surface_id, x, y } => {
+            let sid = id_map
+                .get(&surface_id.0)
+                .cloned()
+                .unwrap_or_else(|| format!("s?{}", surface_id.0));
+            serde_json::json!({
+                "type": "surface_moved",
+                "surface_id": sid,
+                "x": x,
+                "y": y,
             })
         }
         Event::DeviceRecovered => {

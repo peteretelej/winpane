@@ -12,6 +12,7 @@ mod windows_tests {
             height: 100,
             draggable: true,
             drag_height: 30,
+            position_key: None,
         };
     }
 
@@ -66,6 +67,7 @@ mod windows_tests {
                 height: 100,
                 draggable: false,
                 drag_height: 0,
+                position_key: None,
             })
             .expect("create_panel failed");
 

@@ -95,6 +95,24 @@ unsafe fn cstr_to_string(ptr: *const c_char) -> Result<String, String> {
 /// WINPANE_CONFIG_VERSION: consumers set this in config structs.
 pub const WINPANE_CONFIG_VERSION: u32 = 2;
 
+// --- FFI position_key helper ---
+
+/// Parse a C string position_key: NULL or empty → None, >256 bytes → None, else Some(key).
+fn parse_position_key(ptr: *const c_char) -> Option<String> {
+    if ptr.is_null() {
+        return None;
+    }
+    // SAFETY: caller guarantees valid null-terminated C string if non-null
+    let s = unsafe { CStr::from_ptr(ptr) }
+        .to_string_lossy()
+        .into_owned();
+    if s.is_empty() || s.len() > 256 {
+        None
+    } else {
+        Some(s)
+    }
+}
+
 // --- FFI placement helper ---
 
 fn parse_ffi_placement(
@@ -154,6 +172,7 @@ pub struct WinpaneHudConfig {
     pub monitor_margin: u32,
     pub width: u32,
     pub height: u32,
+    pub position_key: *const c_char,
 }
 
 impl WinpaneHudConfig {
@@ -183,6 +202,7 @@ impl WinpaneHudConfig {
             placement,
             width: self.width,
             height: self.height,
+            position_key: parse_position_key(self.position_key),
         })
     }
 }
@@ -201,6 +221,7 @@ pub struct WinpanePanelConfig {
     pub height: u32,
     pub draggable: i32,
     pub drag_height: u32,
+    pub position_key: *const c_char,
 }
 
 impl WinpanePanelConfig {
@@ -232,6 +253,7 @@ impl WinpanePanelConfig {
             height: self.height,
             draggable: self.draggable != 0,
             drag_height: self.drag_height,
+            position_key: parse_position_key(self.position_key),
         })
     }
 }
@@ -292,6 +314,7 @@ pub struct WinpanePipConfig {
     pub monitor_margin: u32,
     pub width: u32,
     pub height: u32,
+    pub position_key: *const c_char,
 }
 
 impl WinpanePipConfig {
@@ -322,6 +345,7 @@ impl WinpanePipConfig {
             placement,
             width: self.width,
             height: self.height,
+            position_key: parse_position_key(self.position_key),
         })
     }
 }
@@ -518,6 +542,7 @@ pub enum WinpaneEventType {
     PipSourceClosed = 6,
     AnchorTargetClosed = 7,
     DeviceRecovered = 8,
+    SurfaceMoved = 9,
 }
 
 #[repr(C)]
@@ -535,6 +560,8 @@ pub struct WinpaneEvent {
     pub key: [u8; 256], // null-terminated UTF-8
     pub mouse_button: WinpaneMouseButton,
     pub menu_item_id: u32,
+    pub x: i32,
+    pub y: i32,
 }
 
 impl WinpaneEvent {
@@ -545,6 +572,8 @@ impl WinpaneEvent {
             key: [0u8; 256],
             mouse_button: WinpaneMouseButton::Left,
             menu_item_id: 0,
+            x: 0,
+            y: 0,
         };
         match event {
             winpane::Event::ElementClicked { surface_id, key } => {
@@ -584,6 +613,12 @@ impl WinpaneEvent {
             }
             winpane::Event::DeviceRecovered => {
                 e.event_type = WinpaneEventType::DeviceRecovered;
+            }
+            winpane::Event::SurfaceMoved { surface_id, x, y } => {
+                e.event_type = WinpaneEventType::SurfaceMoved;
+                e.surface_id = surface_id.0;
+                e.x = *x;
+                e.y = *y;
             }
         }
         e
@@ -772,6 +807,14 @@ impl FfiSurface {
             FfiSurface::Hud(h) => h.fade_out(duration_ms),
             FfiSurface::Panel(p) => p.fade_out(duration_ms),
             FfiSurface::Pip(p) => p.fade_out(duration_ms),
+        }
+    }
+
+    fn get_position(&self) -> Result<(i32, i32), String> {
+        match self {
+            FfiSurface::Hud(h) => h.get_position().map_err(|e| e.to_string()),
+            FfiSurface::Panel(p) => p.get_position().map_err(|e| e.to_string()),
+            FfiSurface::Pip(p) => p.get_position().map_err(|e| e.to_string()),
         }
     }
 }
@@ -1677,6 +1720,32 @@ pub unsafe extern "C" fn winpane_surface_fade_out(
         require_non_null(surface, "surface")?;
         // SAFETY: surface validated non-null above
         unsafe { &*surface }.inner.fade_out(duration_ms);
+        Ok::<(), String>(())
+    })
+}
+
+// ============================================================
+// Position query
+// ============================================================
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn winpane_get_position(
+    surface: *const WinpaneSurface,
+    out_x: *mut i32,
+    out_y: *mut i32,
+) -> i32 {
+    ffi_try!({
+        require_non_null(surface, "surface")?;
+        require_non_null_mut(out_x, "out_x")?;
+        require_non_null_mut(out_y, "out_y")?;
+        // SAFETY: surface validated non-null above
+        let surface = unsafe { &*surface };
+        let (x, y) = surface.inner.get_position()?;
+        // SAFETY: out pointers validated non-null above
+        unsafe {
+            *out_x = x;
+            *out_y = y;
+        }
         Ok::<(), String>(())
     })
 }

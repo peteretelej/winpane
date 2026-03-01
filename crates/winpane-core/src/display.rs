@@ -33,14 +33,7 @@ pub fn enumerate_monitors() -> Vec<MonitorInfo> {
         info.monitorInfo.cbSize = size_of::<MONITORINFOEXW>() as u32;
 
         // SAFETY: hmonitor is valid within this callback; info is correctly sized.
-        if unsafe {
-            GetMonitorInfoW(
-                hmonitor,
-                std::ptr::from_mut(&mut info).cast(),
-            )
-        }
-        .as_bool()
-        {
+        if unsafe { GetMonitorInfoW(hmonitor, std::ptr::from_mut(&mut info).cast()) }.as_bool() {
             let rc = info.monitorInfo.rcMonitor;
             let is_primary =
                 (info.monitorInfo.dwFlags & MONITORINFOF_PRIMARY) == MONITORINFOF_PRIMARY;
@@ -81,11 +74,7 @@ pub fn enumerate_monitors() -> Vec<MonitorInfo> {
     }
 
     // Sort: primary first, then by x ascending (left-to-right)
-    results.sort_by(|a, b| {
-        b.is_primary
-            .cmp(&a.is_primary)
-            .then_with(|| a.x.cmp(&b.x))
-    });
+    results.sort_by(|a, b| b.is_primary.cmp(&a.is_primary).then_with(|| a.x.cmp(&b.x)));
 
     if results.is_empty() {
         results.push(fallback_monitor());
@@ -159,12 +148,7 @@ mod tests {
     #[test]
     fn resolve_position_passthrough() {
         let monitors = vec![fallback_monitor()];
-        let (x, y) = resolve_placement(
-            &Placement::Position { x: 42, y: 99 },
-            100,
-            50,
-            &monitors,
-        );
+        let (x, y) = resolve_placement(&Placement::Position { x: 42, y: 99 }, 100, 50, &monitors);
         assert_eq!((x, y), (42, 99));
     }
 

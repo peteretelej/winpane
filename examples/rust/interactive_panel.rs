@@ -28,6 +28,7 @@ fn main() -> Result<(), winpane::Error> {
         height: 220,
         draggable: true,
         drag_height: 32,
+        position_key: None,
     })?;
 
     // Dark background
