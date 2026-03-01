@@ -2,7 +2,11 @@
 
 Create transparent floating overlays on Windows — stats HUDs, interactive panels, PiP thumbnails, tray icons. Rust core, usable from TypeScript, Python, C, Go, Zig.
 
-<!-- screenshot: Phase 10 will add a hero image or GIF here -->
+![winpane overlays floating over VS Code](docs/images/winpane.png)
+
+![winpane glucose monitor overlay floating over VS Code](docs/images/hero.gif)
+
+<video src="docs/demo-video.mp4" autoplay loop muted playsinline width="720" title="winpane overlays demo"></video>
 
 ## Try it
 
@@ -197,7 +201,7 @@ If building from source, see the [TypeScript guide](docs/guides/typescript.md).
 
 ## Why I built this
 
-I was diagnosed with Type 1 diabetes in 2025. Most CGM apps are geolocked and unavailable in Kenya, so I built [mysukari.com](https://mysukari.com) — a free platform that connects any CGM via Nightscout for reporting and analysis. I wanted a small desktop overlay showing my glucose reading and trend arrow, updating every few minutes, hidden from screen shares. Nothing lightweight and multi-language existed, so I built winpane.
+I was diagnosed with Type 1 diabetes last year (2025). Most CGM apps are geolocked and unavailable in Kenya, so I built [mysukari.com](https://mysukari.com) — a free platform that connects any CGM via Nightscout for reporting and analysis. I wanted a small desktop overlay showing my glucose reading and trend arrow, updating every few minutes, hidden from screen shares. Nothing lightweight and multi-language existed, so I built winpane.
 
 I had no prior experience with DirectComposition, Direct2D, or Win32 GPU rendering. [Claude Opus 4.6](https://www.anthropic.com/claude) was instrumental in building this.
 
