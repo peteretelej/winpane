@@ -1,5 +1,7 @@
 <!-- AGENTS.md must remain concise - critical info & compacted indexes only, no verbose explanations -->
 
+Read ~/.agents/AGENTS.md if it exists for global instructions.
+
 # winpane
 
 Windows overlay SDK. Out-of-process DirectComposition surfaces (HUD, Panel, PiP, Tray) with retained-mode scene graph. Rust core, C ABI, Node.js, JSON-RPC CLI host.
