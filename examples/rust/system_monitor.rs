@@ -24,7 +24,7 @@ use windows::Win32::System::SystemInformation::{
     GetTickCount64, GlobalMemoryStatusEx, MEMORYSTATUSEX,
 };
 use windows::Win32::System::Threading::GetSystemTimes;
-use winpane::{Color, Context, PanelConfig, Placement, RectElement, TextElement};
+use winpane::{Anchor, Color, Context, PanelConfig, Placement, RectElement, TextElement};
 
 // ── CPU helpers ────────────────────────────────────────────────
 
@@ -111,7 +111,7 @@ fn bar_color(percent: u32) -> Color {
 
 // ── Scene setup ────────────────────────────────────────────────
 
-fn setup_static_scene(panel: &winpane::Panel) {
+fn setup_static_scene(panel: &winpane::Panel, no_titlebar: bool) {
     // Background
     panel.set_rect(
         "bg",
@@ -177,30 +177,32 @@ fn setup_static_scene(panel: &winpane::Panel) {
     );
 
     // Title bar in drag region
-    panel.set_rect(
-        "title_bg",
-        RectElement {
-            x: 0.0,
-            y: 0.0,
-            width: 180.0,
-            height: 28.0,
-            fill: Color::rgba(28, 28, 33, 255),
-            corner_radius: 10.0,
-            ..Default::default()
-        },
-    );
-    panel.set_text(
-        "title",
-        TextElement {
-            x: 8.0,
-            y: 6.0,
-            text: "System Monitor".into(),
-            font_size: 13.0,
-            color: Color::rgba(148, 148, 160, 255),
-            bold: true,
-            ..Default::default()
-        },
-    );
+    if !no_titlebar {
+        panel.set_rect(
+            "title_bg",
+            RectElement {
+                x: 0.0,
+                y: 0.0,
+                width: 180.0,
+                height: 28.0,
+                fill: Color::rgba(28, 28, 33, 255),
+                corner_radius: 10.0,
+                ..Default::default()
+            },
+        );
+        panel.set_text(
+            "title",
+            TextElement {
+                x: 8.0,
+                y: 6.0,
+                text: "System Monitor".into(),
+                font_size: 13.0,
+                color: Color::rgba(148, 148, 160, 255),
+                bold: true,
+                ..Default::default()
+            },
+        );
+    }
 }
 
 // ── Dynamic updates ────────────────────────────────────────────
@@ -279,18 +281,71 @@ fn update_uptime_display(panel: &winpane::Panel) {
 
 #[allow(clippy::print_stdout)]
 fn main() -> Result<(), winpane::Error> {
+    // ── CLI flags ──────────────────────────────────────────────────
+    let args: Vec<String> = std::env::args().collect();
+
+    if args.iter().any(|a| a == "--help" || a == "-h") {
+        println!("Usage: system_monitor [OPTIONS]");
+        println!();
+        println!("Options:");
+        println!("  --no-titlebar       Hide title bar, drag anywhere");
+        println!("  --opacity <0.0-1.0> Surface opacity");
+        println!("  --backdrop <type>   Backdrop: mica, acrylic");
+        println!("  --capture-excluded  Hide from screenshots");
+        println!("  --position <X,Y>    Explicit position");
+        println!("  --monitor <N>       Monitor index (0=primary)");
+        std::process::exit(0);
+    }
+
+    let no_titlebar = args.iter().any(|a| a == "--no-titlebar");
+    let capture_excluded = args.iter().any(|a| a == "--capture-excluded");
+
+    let opacity: f32 = args.iter().position(|a| a == "--opacity")
+        .and_then(|i| args.get(i + 1)?.parse().ok())
+        .unwrap_or(1.0);
+
+    let backdrop = args.iter().position(|a| a == "--backdrop")
+        .and_then(|i| args.get(i + 1).map(String::as_str))
+        .and_then(|s| match s {
+            "mica" => Some(winpane::Backdrop::Mica),
+            "acrylic" => Some(winpane::Backdrop::Acrylic),
+            _ => None,
+        });
+
+    let monitor_index: usize = args.iter().position(|a| a == "--monitor")
+        .and_then(|i| args.get(i + 1)?.parse().ok())
+        .unwrap_or(0);
+
+    let explicit_position: Option<(i32, i32)> = args.iter().position(|a| a == "--position")
+        .and_then(|i| {
+            let val = args.get(i + 1)?;
+            let parts: Vec<&str> = val.split(',').collect();
+            Some((parts.first()?.parse().ok()?, parts.get(1)?.parse().ok()?))
+        });
+    // ───────────────────────────────────────────────────────────────
+
+    let placement = if let Some((x, y)) = explicit_position {
+        Placement::Position { x, y }
+    } else {
+        Placement::Monitor { index: monitor_index, anchor: Anchor::BottomRight, margin: 20 }
+    };
+
     let ctx = Context::new()?;
 
     let panel = ctx.create_panel(PanelConfig {
-        placement: Placement::Position { x: 20, y: 20 },
+        placement,
         width: 180,
         height: 108,
         draggable: true,
-        drag_height: 28,
-        position_key: None,
+        drag_height: if no_titlebar { 108 } else { 28 },
+        position_key: Some("system_monitor".into()),
     })?;
 
-    setup_static_scene(&panel);
+    if let Some(bd) = backdrop { panel.set_backdrop(bd); }
+    if capture_excluded { panel.set_capture_excluded(true); }
+    if opacity < 1.0 { panel.set_opacity(opacity); }
+
+    setup_static_scene(&panel, no_titlebar);
     panel.show();
 
     println!("winpane system_monitor: live system stats at top-left.");

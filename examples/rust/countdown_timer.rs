@@ -82,18 +82,71 @@ fn hover_rect(x: f32, y: f32, width: f32) -> winpane::RectElement {
 fn main() -> Result<(), winpane::Error> {
     use std::thread;
     use std::time::{Duration, Instant};
-    use winpane::{Color, Context, Event, PanelConfig, Placement, RectElement, TextElement};
+    use winpane::{Anchor, Color, Context, Event, PanelConfig, Placement, RectElement, TextElement};
+
+    // ── CLI flags ──────────────────────────────────────────────────
+    let args: Vec<String> = std::env::args().collect();
+
+    if args.iter().any(|a| a == "--help" || a == "-h") {
+        println!("Usage: countdown_timer [OPTIONS]");
+        println!();
+        println!("Options:");
+        println!("  --no-titlebar       Hide title bar, drag anywhere");
+        println!("  --opacity <0.0-1.0> Surface opacity");
+        println!("  --backdrop <type>   Backdrop: mica, acrylic");
+        println!("  --capture-excluded  Hide from screenshots");
+        println!("  --position <X,Y>    Explicit position");
+        println!("  --monitor <N>       Monitor index (0=primary)");
+        std::process::exit(0);
+    }
+
+    let no_titlebar = args.iter().any(|a| a == "--no-titlebar");
+    let capture_excluded = args.iter().any(|a| a == "--capture-excluded");
+
+    let opacity: f32 = args.iter().position(|a| a == "--opacity")
+        .and_then(|i| args.get(i + 1)?.parse().ok())
+        .unwrap_or(1.0);
+
+    let backdrop = args.iter().position(|a| a == "--backdrop")
+        .and_then(|i| args.get(i + 1).map(String::as_str))
+        .and_then(|s| match s {
+            "mica" => Some(winpane::Backdrop::Mica),
+            "acrylic" => Some(winpane::Backdrop::Acrylic),
+            _ => None,
+        });
+
+    let monitor_index: usize = args.iter().position(|a| a == "--monitor")
+        .and_then(|i| args.get(i + 1)?.parse().ok())
+        .unwrap_or(0);
+
+    let explicit_position: Option<(i32, i32)> = args.iter().position(|a| a == "--position")
+        .and_then(|i| {
+            let val = args.get(i + 1)?;
+            let parts: Vec<&str> = val.split(',').collect();
+            Some((parts.first()?.parse().ok()?, parts.get(1)?.parse().ok()?))
+        });
+    // ───────────────────────────────────────────────────────────────
+
+    let placement = if let Some((x, y)) = explicit_position {
+        Placement::Position { x, y }
+    } else {
+        Placement::Monitor { index: monitor_index, anchor: Anchor::BottomRight, margin: 130 }
+    };
 
     let ctx = Context::new()?;
 
     let panel = ctx.create_panel(PanelConfig {
-        placement: Placement::Position { x: 850, y: 450 },
+        placement,
         width: 220,
         height: 140,
         draggable: true,
-        drag_height: 28,
-        position_key: None,
+        drag_height: if no_titlebar { 140 } else { 28 },
+        position_key: Some("countdown_timer".into()),
     })?;
+
+    if let Some(bd) = backdrop { panel.set_backdrop(bd); }
+    if capture_excluded { panel.set_capture_excluded(true); }
+    if opacity < 1.0 { panel.set_opacity(opacity); }
 
     // Background
     panel.set_rect(
@@ -112,18 +165,20 @@ fn main() -> Result<(), winpane::Error> {
     );
 
     // Title
-    panel.set_text(
-        "title",
-        TextElement {
-            text: "Countdown".into(),
-            x: 12.0,
-            y: 8.0,
-            font_size: 16.0,
-            color: Color::rgba(232, 232, 237, 255),
-            bold: true,
-            ..Default::default()
-        },
-    );
+    if !no_titlebar {
+        panel.set_text(
+            "title",
+            TextElement {
+                text: "Countdown".into(),
+                x: 12.0,
+                y: 8.0,
+                font_size: 16.0,
+                color: Color::rgba(232, 232, 237, 255),
+                bold: true,
+                ..Default::default()
+            },
+        );
+    }
 
     // Close button
     panel.set_rect(

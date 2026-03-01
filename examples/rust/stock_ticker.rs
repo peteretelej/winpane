@@ -27,7 +27,7 @@ use std::hash::{Hash, Hasher};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use winpane::{Color, Context, PanelConfig, Placement, RectElement, TextElement};
+use winpane::{Anchor, Color, Context, PanelConfig, Placement, RectElement, TextElement};
 
 struct StockQuote {
     symbol: String,
@@ -205,6 +205,49 @@ fn layout_ticker(panel: &winpane::Panel, quotes: &[StockQuote]) {
 
 #[allow(clippy::print_stdout)]
 fn main() -> Result<(), winpane::Error> {
+    // ── CLI flags ──────────────────────────────────────────────────
+    let args: Vec<String> = std::env::args().collect();
+
+    if args.iter().any(|a| a == "--help" || a == "-h") {
+        println!("Usage: stock_ticker [OPTIONS]");
+        println!();
+        println!("Options:");
+        println!("  --no-titlebar       Hide title bar, drag anywhere");
+        println!("  --opacity <0.0-1.0> Surface opacity");
+        println!("  --backdrop <type>   Backdrop: mica, acrylic");
+        println!("  --capture-excluded  Hide from screenshots");
+        println!("  --position <X,Y>    Explicit position");
+        println!("  --monitor <N>       Monitor index (0=primary)");
+        std::process::exit(0);
+    }
+
+    let no_titlebar = args.iter().any(|a| a == "--no-titlebar");
+    let capture_excluded = args.iter().any(|a| a == "--capture-excluded");
+
+    let opacity: f32 = args.iter().position(|a| a == "--opacity")
+        .and_then(|i| args.get(i + 1)?.parse().ok())
+        .unwrap_or(1.0);
+
+    let backdrop = args.iter().position(|a| a == "--backdrop")
+        .and_then(|i| args.get(i + 1).map(String::as_str))
+        .and_then(|s| match s {
+            "mica" => Some(winpane::Backdrop::Mica),
+            "acrylic" => Some(winpane::Backdrop::Acrylic),
+            _ => None,
+        });
+
+    let monitor_index: usize = args.iter().position(|a| a == "--monitor")
+        .and_then(|i| args.get(i + 1)?.parse().ok())
+        .unwrap_or(0);
+
+    let explicit_position: Option<(i32, i32)> = args.iter().position(|a| a == "--position")
+        .and_then(|i| {
+            let val = args.get(i + 1)?;
+            let parts: Vec<&str> = val.split(',').collect();
+            Some((parts.first()?.parse().ok()?, parts.get(1)?.parse().ok()?))
+        });
+    // ───────────────────────────────────────────────────────────────
+
     // Parse TICKER_SYMBOLS env (default: AAPL,MSFT)
     let symbols: Vec<String> = std::env::var("TICKER_SYMBOLS")
         .unwrap_or_else(|_| "AAPL,MSFT".to_string())
@@ -217,20 +260,25 @@ fn main() -> Result<(), winpane::Error> {
 
     let ctx = Context::new()?;
 
+    let placement = if let Some((x, y)) = explicit_position {
+        Placement::Position { x, y }
+    } else {
+        Placement::Monitor { index: monitor_index, anchor: Anchor::BottomRight, margin: 20 }
+    };
+
     // Position top-right, 20px inset (assumes 1080p — 1920×1080)
     let panel = ctx.create_panel(PanelConfig {
-        placement: Placement::Position {
-            x: (1920 - width - 20) as i32,
-            y: 20,
-        },
+        placement,
         width,
         height: 56,
         draggable: true,
-        drag_height: 24,
-        position_key: None,
+        drag_height: if no_titlebar { 56 } else { 24 },
+        position_key: Some("stock_ticker".into()),
     })?;
 
-    panel.set_capture_excluded(true);
+    if let Some(bd) = backdrop { panel.set_backdrop(bd); }
+    if capture_excluded { panel.set_capture_excluded(true); }
+    if opacity < 1.0 { panel.set_opacity(opacity); }
 
     // Glass background with border
     panel.set_rect(
@@ -249,29 +297,31 @@ fn main() -> Result<(), winpane::Error> {
     );
 
     // Compact grip dots in drag region
-    panel.set_rect(
-        "title_bg",
-        RectElement {
-            x: 0.0,
-            y: 0.0,
-            width: width as f32,
-            height: 24.0,
-            fill: Color::rgba(28, 28, 33, 255),
-            corner_radius: 6.0,
-            ..Default::default()
-        },
-    );
-    panel.set_text(
-        "grip",
-        TextElement {
-            x: (width / 2 - 6) as f32,
-            y: 4.0,
-            text: "⋮⋮".into(),
-            font_size: 12.0,
-            color: Color::rgba(148, 148, 160, 128),
-            ..Default::default()
-        },
-    );
+    if !no_titlebar {
+        panel.set_rect(
+            "title_bg",
+            RectElement {
+                x: 0.0,
+                y: 0.0,
+                width: width as f32,
+                height: 24.0,
+                fill: Color::rgba(28, 28, 33, 255),
+                corner_radius: 6.0,
+                ..Default::default()
+            },
+        );
+        panel.set_text(
+            "grip",
+            TextElement {
+                x: (width / 2 - 6) as f32,
+                y: 4.0,
+                text: "⋮⋮".into(),
+                font_size: 12.0,
+                color: Color::rgba(148, 148, 160, 128),
+                ..Default::default()
+            },
+        );
+    }
 
     panel.show();
 

@@ -19,7 +19,7 @@
 // Danger:         rgba(239, 68, 68, 255)    Radius: 10/6 px
 // ────────────────────────────────────────────────────────────────
 
-use winpane::{Backdrop, Color, Context, PanelConfig, Placement, RectElement, TextElement};
+use winpane::{Anchor, Backdrop, Color, Context, PanelConfig, Placement, RectElement, TextElement};
 
 #[allow(clippy::print_stdout)]
 fn main() -> Result<(), winpane::Error> {
@@ -27,7 +27,7 @@ fn main() -> Result<(), winpane::Error> {
 
     // Left panel: Mica backdrop
     let panel1 = ctx.create_panel(PanelConfig {
-        placement: Placement::Position { x: 100, y: 100 },
+        placement: Placement::Monitor { index: 0, anchor: Anchor::TopLeft, margin: 20 },
         width: 300,
         height: 200,
         ..Default::default()
@@ -62,7 +62,7 @@ fn main() -> Result<(), winpane::Error> {
 
     // Right panel: Acrylic backdrop
     let panel2 = ctx.create_panel(PanelConfig {
-        placement: Placement::Position { x: 450, y: 100 },
+        placement: Placement::Monitor { index: 0, anchor: Anchor::TopRight, margin: 20 },
         width: 300,
         height: 200,
         ..Default::default()

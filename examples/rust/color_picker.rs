@@ -152,6 +152,8 @@ fn main() -> Result<(), winpane::Error> {
     update_display(&hud, 0, 0, 0);
     hud.show();
 
+    let monitors = ctx.monitors();
+
     println!("winpane color_picker: live pixel sampler following your cursor.");
     println!("Move the mouse to sample colours. Press Ctrl+C to exit.");
 
@@ -162,7 +164,15 @@ fn main() -> Result<(), winpane::Error> {
             continue;
         };
 
-        hud.set_position(cx + 20, cy + 20);
+        // DPI-aware positioning: GetCursorPos returns physical coords but
+        // set_position expects logical coords (engine DPI-scales them).
+        let cursor_monitor = monitors.iter()
+            .find(|m| cx >= m.x && cx < m.x + m.width as i32 && cy >= m.y && cy < m.y + m.height as i32)
+            .or(monitors.first());
+        let scale = cursor_monitor.map(|m| m.dpi as f32 / 96.0).unwrap_or(1.0);
+        let lx = (cx as f32 / scale) as i32;
+        let ly = (cy as f32 / scale) as i32;
+        hud.set_position(lx + 20, ly + 20);
 
         let Some((r, g, b)) = sample_pixel(cx, cy) else {
             continue;

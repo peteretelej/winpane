@@ -18,8 +18,59 @@
 #[allow(clippy::print_stdout)]
 fn main() -> Result<(), winpane::Error> {
     use winpane::{
-        Color, Context, Event, MenuItem, PanelConfig, Placement, RectElement, TextElement,
+        Anchor, Color, Context, Event, MenuItem, PanelConfig, Placement, RectElement, TextElement,
         TrayConfig,
+    };
+
+    // ── CLI flags ──────────────────────────────────────────────────
+    let args: Vec<String> = std::env::args().collect();
+
+    if args.iter().any(|a| a == "--help" || a == "-h") {
+        println!("Usage: tray_ticker [OPTIONS]");
+        println!();
+        println!("Options:");
+        println!("  --no-titlebar       Hide title bar, drag anywhere");
+        println!("  --opacity <0.0-1.0> Surface opacity");
+        println!("  --backdrop <type>   Backdrop: mica, acrylic");
+        println!("  --capture-excluded  Hide from screenshots");
+        println!("  --position <X,Y>    Explicit position");
+        println!("  --monitor <N>       Monitor index (0=primary)");
+        std::process::exit(0);
+    }
+
+    let no_titlebar = args.iter().any(|a| a == "--no-titlebar");
+    let capture_excluded = args.iter().any(|a| a == "--capture-excluded");
+
+    let opacity: f32 = args.iter().position(|a| a == "--opacity")
+        .and_then(|i| args.get(i + 1)?.parse().ok())
+        .unwrap_or(1.0);
+
+    let backdrop = args.iter().position(|a| a == "--backdrop")
+        .and_then(|i| args.get(i + 1).map(String::as_str))
+        .and_then(|s| match s {
+            "mica" => Some(winpane::Backdrop::Mica),
+            "acrylic" => Some(winpane::Backdrop::Acrylic),
+            _ => None,
+        });
+
+    let monitor_index: usize = args.iter().position(|a| a == "--monitor")
+        .and_then(|i| args.get(i + 1)?.parse().ok())
+        .unwrap_or(0);
+
+    let explicit_position: Option<(i32, i32)> = args.iter().position(|a| a == "--position")
+        .and_then(|i| {
+            let val = args.get(i + 1)?;
+            let parts: Vec<&str> = val.split(',').collect();
+            Some((parts.first()?.parse().ok()?, parts.get(1)?.parse().ok()?))
+        });
+    // ───────────────────────────────────────────────────────────────
+
+    let _no_titlebar = no_titlebar; // Popup panel has no titlebar to hide
+
+    let placement = if let Some((x, y)) = explicit_position {
+        Placement::Position { x, y }
+    } else {
+        Placement::Monitor { index: monitor_index, anchor: Anchor::BottomRight, margin: 20 }
     };
 
     let ctx = Context::new()?;
@@ -46,13 +97,17 @@ fn main() -> Result<(), winpane::Error> {
 
     // Create popup panel
     let popup = ctx.create_panel(PanelConfig {
-        placement: Placement::Position { x: 0, y: 0 },
+        placement,
         width: 220,
         height: 140,
         draggable: false,
         drag_height: 0,
-        position_key: None,
+        position_key: Some("tray_ticker".into()),
     })?;
+
+    if let Some(bd) = backdrop { popup.set_backdrop(bd); }
+    if capture_excluded { popup.set_capture_excluded(true); }
+    if opacity < 1.0 { popup.set_opacity(opacity); }
 
     popup.set_rect(
         "bg",

@@ -19,8 +19,57 @@
 #[allow(clippy::print_stdout)]
 fn main() -> Result<(), winpane::Error> {
     use winpane::{
-        Backdrop, Color, Context, Event, MenuItem, PanelConfig, Placement, RectElement,
+        Anchor, Backdrop, Color, Context, Event, MenuItem, PanelConfig, Placement, RectElement,
         TextElement, TrayConfig,
+    };
+
+    // ── CLI flags ──────────────────────────────────────────────────
+    let args: Vec<String> = std::env::args().collect();
+
+    if args.iter().any(|a| a == "--help" || a == "-h") {
+        println!("Usage: sticky_notes [OPTIONS]");
+        println!();
+        println!("Options:");
+        println!("  --no-titlebar       Hide title bar, drag anywhere");
+        println!("  --opacity <0.0-1.0> Surface opacity");
+        println!("  --backdrop <type>   Backdrop: mica, acrylic");
+        println!("  --capture-excluded  Hide from screenshots");
+        println!("  --position <X,Y>    Explicit position");
+        println!("  --monitor <N>       Monitor index (0=primary)");
+        std::process::exit(0);
+    }
+
+    let no_titlebar = args.iter().any(|a| a == "--no-titlebar");
+    let capture_excluded = args.iter().any(|a| a == "--capture-excluded");
+
+    let opacity: f32 = args.iter().position(|a| a == "--opacity")
+        .and_then(|i| args.get(i + 1)?.parse().ok())
+        .unwrap_or(1.0);
+
+    let backdrop_arg = args.iter().position(|a| a == "--backdrop")
+        .and_then(|i| args.get(i + 1).map(String::as_str))
+        .and_then(|s| match s {
+            "mica" => Some(Backdrop::Mica),
+            "acrylic" => Some(Backdrop::Acrylic),
+            _ => None,
+        });
+
+    let monitor_index: usize = args.iter().position(|a| a == "--monitor")
+        .and_then(|i| args.get(i + 1)?.parse().ok())
+        .unwrap_or(0);
+
+    let explicit_position: Option<(i32, i32)> = args.iter().position(|a| a == "--position")
+        .and_then(|i| {
+            let val = args.get(i + 1)?;
+            let parts: Vec<&str> = val.split(',').collect();
+            Some((parts.first()?.parse().ok()?, parts.get(1)?.parse().ok()?))
+        });
+    // ───────────────────────────────────────────────────────────────
+
+    let placement = if let Some((x, y)) = explicit_position {
+        Placement::Position { x, y }
+    } else {
+        Placement::Monitor { index: monitor_index, anchor: Anchor::TopLeft, margin: 40 }
     };
 
     let ctx = Context::new()?;
@@ -65,15 +114,17 @@ fn main() -> Result<(), winpane::Error> {
 
     // ── Panel: 240×160, draggable title bar ────────────────────
     let panel = ctx.create_panel(PanelConfig {
-        placement: Placement::Position { x: 200, y: 200 },
+        placement,
         width: 240,
         height: 160,
         draggable: true,
-        drag_height: 28,
-        position_key: None,
+        drag_height: if no_titlebar { 160 } else { 28 },
+        position_key: Some("sticky_notes".into()),
     })?;
 
-    panel.set_backdrop(Backdrop::Mica);
+    panel.set_backdrop(backdrop_arg.unwrap_or(Backdrop::Mica));
+    if capture_excluded { panel.set_capture_excluded(true); }
+    if opacity < 1.0 { panel.set_opacity(opacity); }
 
     // Background rect (glass fallback — visible on Win10, tints Mica on Win11)
     panel.set_rect(
@@ -92,18 +143,20 @@ fn main() -> Result<(), winpane::Error> {
     );
 
     // Title
-    panel.set_text(
-        "title",
-        TextElement {
-            text: "Notes".into(),
-            x: 12.0,
-            y: 8.0,
-            font_size: 16.0,
-            color: Color::rgba(232, 232, 237, 255),
-            bold: true,
-            ..Default::default()
-        },
-    );
+    if !no_titlebar {
+        panel.set_text(
+            "title",
+            TextElement {
+                text: "Notes".into(),
+                x: 12.0,
+                y: 8.0,
+                font_size: 16.0,
+                color: Color::rgba(232, 232, 237, 255),
+                bold: true,
+                ..Default::default()
+            },
+        );
+    }
 
     // Close button — transparent hit-target rect
     panel.set_rect(
