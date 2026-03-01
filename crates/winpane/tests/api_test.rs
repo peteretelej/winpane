@@ -6,7 +6,7 @@
 
 #[cfg(target_os = "windows")]
 mod windows_tests {
-    use winpane::{Color, Error, HudConfig, ImageElement, RectElement, TextElement};
+    use winpane::{Color, Error, HudConfig, ImageElement, Placement, RectElement, TextElement};
 
     #[test]
     fn color_constants_exist() {
@@ -30,12 +30,10 @@ mod windows_tests {
     #[test]
     fn hud_config_construction() {
         let config = HudConfig {
-            x: 100,
-            y: 200,
+            placement: Placement::Position { x: 100, y: 200 },
             width: 320,
             height: 180,
         };
-        assert_eq!(config.x, 100);
         assert_eq!(config.width, 320);
     }
 

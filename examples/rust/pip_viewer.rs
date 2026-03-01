@@ -5,7 +5,7 @@
 //!
 //! Run on Windows: cargo run -p winpane --example pip_viewer
 
-use winpane::{Context, Event, PipConfig};
+use winpane::{Context, Event, PipConfig, Placement};
 
 #[cfg(target_os = "windows")]
 fn find_window_by_title(title: &str) -> Option<isize> {
@@ -40,8 +40,7 @@ fn main() -> Result<(), winpane::Error> {
     let ctx = Context::new()?;
     let pip = ctx.create_pip(PipConfig {
         source_hwnd,
-        x: 50,
-        y: 50,
+        placement: Placement::Position { x: 50, y: 50 },
         width: 400,
         height: 300,
     })?;

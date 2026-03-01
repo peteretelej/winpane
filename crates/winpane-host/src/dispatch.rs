@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use serde_json::Value;
 use winpane::{
     Anchor, Backdrop, Context, Event, Hud, HudConfig, ImageElement, MenuItem, MouseButton, Panel,
-    PanelConfig, Pip, PipConfig, RectElement, SourceRect, SurfaceId, TextElement, Tray, TrayConfig,
+    PanelConfig, Pip, PipConfig, Placement, RectElement, SourceRect, SurfaceId, TextElement, Tray,
+    TrayConfig,
 };
 
 use crate::protocol::{INTERNAL_ERROR, INVALID_PARAMS, METHOD_NOT_FOUND};
@@ -307,6 +308,29 @@ fn parse_anchor(s: &str) -> Result<Anchor, (i32, String)> {
     }
 }
 
+fn parse_placement(params: &Value) -> Result<Placement, (i32, String)> {
+    if let Some(p) = params.get("placement") {
+        if let Some(pos) = p.get("position") {
+            return Ok(Placement::Position {
+                x: get_i32(pos, "x")?,
+                y: get_i32(pos, "y")?,
+            });
+        }
+        if let Some(mon) = p.get("monitor") {
+            return Ok(Placement::Monitor {
+                index: get_u32(mon, "index")? as usize,
+                anchor: parse_anchor(get_str(mon, "anchor")?)?,
+                margin: opt_u32(mon, "margin").unwrap_or(20),
+            });
+        }
+    }
+    // Fallback: read x, y directly for backward compatibility
+    Ok(Placement::Position {
+        x: get_i32(params, "x")?,
+        y: get_i32(params, "y")?,
+    })
+}
+
 // ---------------------------------------------------------------------------
 // Dispatcher
 // ---------------------------------------------------------------------------
@@ -405,9 +429,9 @@ impl Dispatcher {
     // -- Surface creation ---------------------------------------------------
 
     fn create_hud(&mut self, params: &Value) -> Result<Value, (i32, String)> {
+        let placement = parse_placement(params)?;
         let config = HudConfig {
-            x: get_i32(params, "x")?,
-            y: get_i32(params, "y")?,
+            placement,
             width: get_u32(params, "width")?,
             height: get_u32(params, "height")?,
         };
@@ -422,9 +446,9 @@ impl Dispatcher {
     }
 
     fn create_panel(&mut self, params: &Value) -> Result<Value, (i32, String)> {
+        let placement = parse_placement(params)?;
         let config = PanelConfig {
-            x: get_i32(params, "x")?,
-            y: get_i32(params, "y")?,
+            placement,
             width: get_u32(params, "width")?,
             height: get_u32(params, "height")?,
             draggable: opt_bool(params, "draggable").unwrap_or(false),
@@ -451,10 +475,10 @@ impl Dispatcher {
                     "missing or invalid source_hwnd (expected integer)".into(),
                 )
             })? as isize;
+        let placement = parse_placement(params)?;
         let config = PipConfig {
             source_hwnd,
-            x: get_i32(params, "x")?,
-            y: get_i32(params, "y")?,
+            placement,
             width: get_u32(params, "width")?,
             height: get_u32(params, "height")?,
         };

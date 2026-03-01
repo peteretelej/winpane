@@ -6,7 +6,7 @@ use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use winpane::{
     Anchor, Backdrop, Color, HudConfig, ImageElement, MenuItem, MouseButton, PanelConfig,
-    PipConfig, RectElement, SourceRect, SurfaceId, TextElement, TrayConfig,
+    PipConfig, Placement, RectElement, SourceRect, SurfaceId, TextElement, TrayConfig,
 };
 
 // ---------------------------------------------------------------------------
@@ -90,6 +90,31 @@ fn parse_anchor(s: &str) -> Result<Anchor> {
                 "invalid anchor: {s} (expected top_left, top_right, bottom_left, bottom_right)"
             ),
         )),
+    }
+}
+
+fn parse_placement_options(
+    x: Option<i32>,
+    y: Option<i32>,
+    monitor: Option<u32>,
+    anchor: Option<&str>,
+    margin: Option<u32>,
+) -> Result<Placement> {
+    if let Some(mon) = monitor {
+        let anchor = match anchor {
+            Some(s) => parse_anchor(s)?,
+            None => Anchor::TopLeft,
+        };
+        Ok(Placement::Monitor {
+            index: mon as usize,
+            anchor,
+            margin: margin.unwrap_or(20),
+        })
+    } else {
+        Ok(Placement::Position {
+            x: x.unwrap_or(100),
+            y: y.unwrap_or(100),
+        })
     }
 }
 
@@ -305,6 +330,9 @@ pub struct HudOptions {
     pub height: u32,
     pub x: Option<i32>,
     pub y: Option<i32>,
+    pub monitor: Option<u32>,
+    pub anchor: Option<String>,
+    pub margin: Option<u32>,
 }
 
 #[napi(object)]
@@ -313,6 +341,9 @@ pub struct PanelOptions {
     pub height: u32,
     pub x: Option<i32>,
     pub y: Option<i32>,
+    pub monitor: Option<u32>,
+    pub anchor: Option<String>,
+    pub margin: Option<u32>,
     pub draggable: Option<bool>,
     pub drag_height: Option<u32>,
 }
@@ -324,6 +355,9 @@ pub struct PipOptions {
     pub height: u32,
     pub x: Option<i32>,
     pub y: Option<i32>,
+    pub monitor: Option<u32>,
+    pub anchor: Option<String>,
+    pub margin: Option<u32>,
 }
 
 #[napi(object)]
@@ -440,9 +474,15 @@ impl WinPane {
 
     #[napi]
     pub fn create_hud(&mut self, options: HudOptions) -> Result<u32> {
+        let placement = parse_placement_options(
+            options.x,
+            options.y,
+            options.monitor,
+            options.anchor.as_deref(),
+            options.margin,
+        )?;
         let config = HudConfig {
-            x: options.x.unwrap_or(0),
-            y: options.y.unwrap_or(0),
+            placement,
             width: options.width,
             height: options.height,
         };
@@ -458,9 +498,15 @@ impl WinPane {
 
     #[napi]
     pub fn create_panel(&mut self, options: PanelOptions) -> Result<u32> {
+        let placement = parse_placement_options(
+            options.x,
+            options.y,
+            options.monitor,
+            options.anchor.as_deref(),
+            options.margin,
+        )?;
         let config = PanelConfig {
-            x: options.x.unwrap_or(0),
-            y: options.y.unwrap_or(0),
+            placement,
             width: options.width,
             height: options.height,
             draggable: options.draggable.unwrap_or(false),
@@ -478,10 +524,16 @@ impl WinPane {
 
     #[napi]
     pub fn create_pip(&mut self, options: PipOptions) -> Result<u32> {
+        let placement = parse_placement_options(
+            options.x,
+            options.y,
+            options.monitor,
+            options.anchor.as_deref(),
+            options.margin,
+        )?;
         let config = PipConfig {
             source_hwnd: options.source_hwnd as isize,
-            x: options.x.unwrap_or(0),
-            y: options.y.unwrap_or(0),
+            placement,
             width: options.width,
             height: options.height,
         };

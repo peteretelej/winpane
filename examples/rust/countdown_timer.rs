@@ -83,13 +83,12 @@ fn hover_rect(x: f32, y: f32, width: f32) -> winpane::RectElement {
 fn main() -> Result<(), winpane::Error> {
     use std::thread;
     use std::time::{Duration, Instant};
-    use winpane::{Color, Context, Event, PanelConfig, RectElement, TextElement};
+    use winpane::{Color, Context, Event, PanelConfig, Placement, RectElement, TextElement};
 
     let ctx = Context::new()?;
 
     let panel = ctx.create_panel(PanelConfig {
-        x: 850,
-        y: 450,
+        placement: Placement::Position { x: 850, y: 450 },
         width: 220,
         height: 140,
         draggable: true,

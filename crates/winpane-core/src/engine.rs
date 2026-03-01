@@ -7,6 +7,7 @@ use windows::Win32::System::Com::*;
 use windows::Win32::UI::WindowsAndMessaging::*;
 
 use crate::command::{Command, CommandReceiver, CommandSender};
+use crate::display;
 use crate::input::{HitTestMap, PanelState};
 use crate::monitor::{MonitorEvent, PENDING_MONITOR_EVENTS, Watch, WatchReason, WindowMonitor};
 use crate::renderer::{GpuResources, RenderError, SurfaceRenderer};
@@ -16,8 +17,8 @@ use crate::tray::{
     update_tray_icon, update_tray_tooltip,
 };
 use crate::types::{
-    Anchor, Error, Event, HudConfig, MouseButton, PanelConfig, PipConfig, SourceRect, SurfaceId,
-    TrayConfig, TrayId,
+    Anchor, Error, Event, HudConfig, MouseButton, PanelConfig, PipConfig, Placement, SourceRect,
+    SurfaceId, TrayConfig, TrayId,
 };
 use crate::window::{
     PENDING_DPI_CHANGES, PENDING_FADE_COMPLETIONS, PENDING_TRAY_EVENTS, SendHwnd,
@@ -1056,7 +1057,14 @@ unsafe fn create_hud_surface(
 ) -> Result<SurfaceId, Error> {
     // SAFETY: Window and renderer creation with valid GPU resources.
     unsafe {
-        let hwnd = create_hud_window(config.x, config.y, config.width, config.height)?;
+        let monitors = display::enumerate_monitors();
+        let (x, y) = display::resolve_placement(
+            &config.placement,
+            config.width,
+            config.height,
+            &monitors,
+        );
+        let hwnd = create_hud_window(x, y, config.width, config.height)?;
 
         let renderer = match SurfaceRenderer::new(gpu, hwnd, config.width, config.height) {
             Ok(r) => r,
@@ -1068,11 +1076,14 @@ unsafe fn create_hud_surface(
 
         // Adjust window position/size for DPI (CreateWindowExW uses physical pixels under PMv2)
         let scale = renderer.dpi_scale;
+        let physical_coords = matches!(config.placement, Placement::Monitor { .. });
+        let final_x = if physical_coords { x } else { (x as f32 * scale) as i32 };
+        let final_y = if physical_coords { y } else { (y as f32 * scale) as i32 };
         let _ = SetWindowPos(
             hwnd,
             None,
-            (config.x as f32 * scale) as i32,
-            (config.y as f32 * scale) as i32,
+            final_x,
+            final_y,
             (config.width as f32 * scale) as i32,
             (config.height as f32 * scale) as i32,
             SWP_NOZORDER | SWP_NOACTIVATE,
@@ -1106,8 +1117,16 @@ unsafe fn create_panel_surface(
 ) -> Result<SurfaceId, Error> {
     // SAFETY: Panel window creation with valid GPU resources and event sender.
     unsafe {
+        let monitors = display::enumerate_monitors();
+        let (x, y) = display::resolve_placement(
+            &config.placement,
+            config.width,
+            config.height,
+            &monitors,
+        );
+
         // 1. Create panel window
-        let hwnd = create_panel_window(config.x, config.y, config.width, config.height)?;
+        let hwnd = create_panel_window(x, y, config.width, config.height)?;
 
         // 2. Create renderer (same pipeline as HUD)
         let renderer = match SurfaceRenderer::new(gpu, hwnd, config.width, config.height) {
@@ -1120,11 +1139,14 @@ unsafe fn create_panel_surface(
 
         // 3. DPI-scaled SetWindowPos (CreateWindowExW uses physical pixels under PMv2)
         let scale = renderer.dpi_scale;
+        let physical_coords = matches!(config.placement, Placement::Monitor { .. });
+        let final_x = if physical_coords { x } else { (x as f32 * scale) as i32 };
+        let final_y = if physical_coords { y } else { (y as f32 * scale) as i32 };
         let _ = SetWindowPos(
             hwnd,
             None,
-            (config.x as f32 * scale) as i32,
-            (config.y as f32 * scale) as i32,
+            final_x,
+            final_y,
             (config.width as f32 * scale) as i32,
             (config.height as f32 * scale) as i32,
             SWP_NOZORDER | SWP_NOACTIVATE,
@@ -1186,8 +1208,17 @@ unsafe fn create_pip_surface(
             return Err(Error::WindowCreation("source window is not valid".into()));
         }
 
+        // Resolve placement
+        let monitors = display::enumerate_monitors();
+        let (x, y) = display::resolve_placement(
+            &config.placement,
+            config.width,
+            config.height,
+            &monitors,
+        );
+
         // Create window (same as HUD - click-through, topmost)
-        let hwnd = create_hud_window(config.x, config.y, config.width, config.height)?;
+        let hwnd = create_hud_window(x, y, config.width, config.height)?;
 
         // Create SurfaceRenderer (GPU resources - unused for PiP but keeps Surface struct uniform)
         let renderer = match SurfaceRenderer::new(gpu, hwnd, config.width, config.height) {
@@ -1202,11 +1233,14 @@ unsafe fn create_pip_surface(
         let dpi = get_dpi_scale(hwnd);
 
         // Apply DPI-scaled position
+        let physical_coords = matches!(config.placement, Placement::Monitor { .. });
+        let final_x = if physical_coords { x } else { (x as f32 * dpi) as i32 };
+        let final_y = if physical_coords { y } else { (y as f32 * dpi) as i32 };
         let _ = SetWindowPos(
             hwnd,
             Some(HWND_TOPMOST),
-            (config.x as f32 * dpi) as i32,
-            (config.y as f32 * dpi) as i32,
+            final_x,
+            final_y,
             (config.width as f32 * dpi) as i32,
             (config.height as f32 * dpi) as i32,
             SWP_NOACTIVATE,

@@ -18,7 +18,8 @@
 #[allow(clippy::print_stdout)]
 fn main() -> Result<(), winpane::Error> {
     use winpane::{
-        Color, Context, Event, MenuItem, PanelConfig, RectElement, TextElement, TrayConfig,
+        Color, Context, Event, MenuItem, PanelConfig, Placement, RectElement, TextElement,
+        TrayConfig,
     };
 
     let ctx = Context::new()?;
@@ -45,8 +46,7 @@ fn main() -> Result<(), winpane::Error> {
 
     // Create popup panel
     let popup = ctx.create_panel(PanelConfig {
-        x: 0,
-        y: 0,
+        placement: Placement::Position { x: 0, y: 0 },
         width: 220,
         height: 140,
         draggable: false,

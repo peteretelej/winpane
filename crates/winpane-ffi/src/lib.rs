@@ -93,7 +93,35 @@ unsafe fn cstr_to_string(ptr: *const c_char) -> Result<String, String> {
 // ============================================================
 
 /// WINPANE_CONFIG_VERSION: consumers set this in config structs.
-pub const WINPANE_CONFIG_VERSION: u32 = 1;
+pub const WINPANE_CONFIG_VERSION: u32 = 2;
+
+// --- FFI placement helper ---
+
+fn parse_ffi_placement(
+    placement_type: u32,
+    position_x: i32,
+    position_y: i32,
+    monitor_index: u32,
+    monitor_anchor: u32,
+    monitor_margin: u32,
+) -> winpane::Placement {
+    match placement_type {
+        1 => winpane::Placement::Monitor {
+            index: monitor_index as usize,
+            anchor: match monitor_anchor {
+                1 => winpane::Anchor::TopRight,
+                2 => winpane::Anchor::BottomLeft,
+                3 => winpane::Anchor::BottomRight,
+                _ => winpane::Anchor::TopLeft,
+            },
+            margin: monitor_margin,
+        },
+        _ => winpane::Placement::Position {
+            x: position_x,
+            y: position_y,
+        },
+    }
+}
 
 // --- Color ---
 
@@ -118,8 +146,12 @@ impl WinpaneColor {
 pub struct WinpaneHudConfig {
     pub version: u32,
     pub size: u32,
-    pub x: i32,
-    pub y: i32,
+    pub placement_type: u32, // 0 = Position, 1 = Monitor
+    pub position_x: i32,
+    pub position_y: i32,
+    pub monitor_index: u32,
+    pub monitor_anchor: u32, // 0=TopLeft, 1=TopRight, 2=BottomLeft, 3=BottomRight
+    pub monitor_margin: u32,
     pub width: u32,
     pub height: u32,
 }
@@ -139,9 +171,16 @@ impl WinpaneHudConfig {
                 size_of::<Self>()
             ));
         }
+        let placement = parse_ffi_placement(
+            self.placement_type,
+            self.position_x,
+            self.position_y,
+            self.monitor_index,
+            self.monitor_anchor,
+            self.monitor_margin,
+        );
         Ok(winpane::HudConfig {
-            x: self.x,
-            y: self.y,
+            placement,
             width: self.width,
             height: self.height,
         })
@@ -152,8 +191,12 @@ impl WinpaneHudConfig {
 pub struct WinpanePanelConfig {
     pub version: u32,
     pub size: u32,
-    pub x: i32,
-    pub y: i32,
+    pub placement_type: u32,
+    pub position_x: i32,
+    pub position_y: i32,
+    pub monitor_index: u32,
+    pub monitor_anchor: u32,
+    pub monitor_margin: u32,
     pub width: u32,
     pub height: u32,
     pub draggable: i32,
@@ -175,9 +218,16 @@ impl WinpanePanelConfig {
                 size_of::<Self>()
             ));
         }
+        let placement = parse_ffi_placement(
+            self.placement_type,
+            self.position_x,
+            self.position_y,
+            self.monitor_index,
+            self.monitor_anchor,
+            self.monitor_margin,
+        );
         Ok(winpane::PanelConfig {
-            x: self.x,
-            y: self.y,
+            placement,
             width: self.width,
             height: self.height,
             draggable: self.draggable != 0,
@@ -234,8 +284,12 @@ pub struct WinpanePipConfig {
     pub version: u32,
     pub size: u32,
     pub source_hwnd: isize,
-    pub x: i32,
-    pub y: i32,
+    pub placement_type: u32,
+    pub position_x: i32,
+    pub position_y: i32,
+    pub monitor_index: u32,
+    pub monitor_anchor: u32,
+    pub monitor_margin: u32,
     pub width: u32,
     pub height: u32,
 }
@@ -255,10 +309,17 @@ impl WinpanePipConfig {
                 size_of::<Self>()
             ));
         }
+        let placement = parse_ffi_placement(
+            self.placement_type,
+            self.position_x,
+            self.position_y,
+            self.monitor_index,
+            self.monitor_anchor,
+            self.monitor_margin,
+        );
         Ok(winpane::PipConfig {
             source_hwnd: self.source_hwnd,
-            x: self.x,
-            y: self.y,
+            placement,
             width: self.width,
             height: self.height,
         })

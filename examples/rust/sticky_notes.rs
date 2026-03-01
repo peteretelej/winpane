@@ -19,8 +19,8 @@
 #[allow(clippy::print_stdout)]
 fn main() -> Result<(), winpane::Error> {
     use winpane::{
-        Backdrop, Color, Context, Event, MenuItem, PanelConfig, RectElement, TextElement,
-        TrayConfig,
+        Backdrop, Color, Context, Event, MenuItem, PanelConfig, Placement, RectElement,
+        TextElement, TrayConfig,
     };
 
     let ctx = Context::new()?;
@@ -65,8 +65,7 @@ fn main() -> Result<(), winpane::Error> {
 
     // ── Panel: 240×160, draggable title bar ────────────────────
     let panel = ctx.create_panel(PanelConfig {
-        x: 200,
-        y: 200,
+        placement: Placement::Position { x: 200, y: 200 },
         width: 240,
         height: 160,
         draggable: true,

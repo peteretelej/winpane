@@ -15,15 +15,14 @@
 // Danger:         rgba(239, 68, 68, 255)    Radius: 10/6 px
 // ────────────────────────────────────────────────────────────────
 
-use winpane::{Color, Context, DrawOp, HudConfig, RectElement};
+use winpane::{Color, Context, DrawOp, HudConfig, Placement, RectElement};
 
 #[allow(clippy::print_stdout)]
 fn main() -> Result<(), winpane::Error> {
     let ctx = Context::new()?;
 
     let hud = ctx.create_hud(HudConfig {
-        x: 200,
-        y: 200,
+        placement: Placement::Position { x: 200, y: 200 },
         width: 400,
         height: 300,
     })?;

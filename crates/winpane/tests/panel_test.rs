@@ -7,8 +7,7 @@ mod windows_tests {
     #[test]
     fn panel_config_construction() {
         let _ = PanelConfig {
-            x: 0,
-            y: 0,
+            placement: Placement::Position { x: 0, y: 0 },
             width: 200,
             height: 100,
             draggable: true,
@@ -62,8 +61,7 @@ mod windows_tests {
         let ctx = Context::new().expect("Context::new failed");
         let panel = ctx
             .create_panel(PanelConfig {
-                x: 0,
-                y: 0,
+                placement: Placement::Position { x: 0, y: 0 },
                 width: 100,
                 height: 100,
                 draggable: false,

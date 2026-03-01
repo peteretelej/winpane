@@ -41,8 +41,9 @@ int main(void) {
     winpane_hud_config_t config = {0};
     config.version = WINPANE_CONFIG_VERSION;
     config.size = sizeof(config);
-    config.x = 200;
-    config.y = 200;
+    config.placement_type = 0; /* Position */
+    config.position_x = 200;
+    config.position_y = 200;
     config.width = 400;
     config.height = 300;
 

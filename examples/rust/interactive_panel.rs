@@ -18,13 +18,12 @@
 
 #[allow(clippy::print_stdout)]
 fn main() -> Result<(), winpane::Error> {
-    use winpane::{Color, Context, Event, PanelConfig, RectElement, TextElement};
+    use winpane::{Color, Context, Event, PanelConfig, Placement, RectElement, TextElement};
 
     let ctx = Context::new()?;
 
     let panel = ctx.create_panel(PanelConfig {
-        x: 200,
-        y: 200,
+        placement: Placement::Position { x: 200, y: 200 },
         width: 280,
         height: 220,
         draggable: true,

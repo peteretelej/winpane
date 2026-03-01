@@ -29,7 +29,7 @@ use std::hash::{Hash, Hasher};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use winpane::{Color, Context, PanelConfig, RectElement, TextElement};
+use winpane::{Color, Context, PanelConfig, Placement, RectElement, TextElement};
 
 /// A single glucose reading with value, trend direction, and fetch timestamp.
 struct GlucoseReading {
@@ -144,8 +144,7 @@ fn main() -> Result<(), winpane::Error> {
     let ctx = Context::new()?;
 
     let panel = ctx.create_panel(PanelConfig {
-        x: 1760,
-        y: 902,
+        placement: Placement::Position { x: 1760, y: 902 },
         width: 140,
         height: 93,
         draggable: true,

@@ -8,6 +8,9 @@ export interface HudOptions {
   height: number;
   x?: number;
   y?: number;
+  monitor?: number;
+  anchor?: 'top_left' | 'top_right' | 'bottom_left' | 'bottom_right';
+  margin?: number;
 }
 
 export interface PanelOptions {
@@ -15,6 +18,9 @@ export interface PanelOptions {
   height: number;
   x?: number;
   y?: number;
+  monitor?: number;
+  anchor?: 'top_left' | 'top_right' | 'bottom_left' | 'bottom_right';
+  margin?: number;
   draggable?: boolean;
   dragHeight?: number;
 }
@@ -25,6 +31,9 @@ export interface PipOptions {
   height: number;
   x?: number;
   y?: number;
+  monitor?: number;
+  anchor?: 'top_left' | 'top_right' | 'bottom_left' | 'bottom_right';
+  margin?: number;
 }
 
 export interface TrayOptions {

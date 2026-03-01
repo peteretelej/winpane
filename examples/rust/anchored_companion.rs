@@ -15,7 +15,7 @@
 // Danger:         rgba(239, 68, 68, 255)    Radius: 10/6 px
 // ────────────────────────────────────────────────────────────────
 
-use winpane::{Anchor, Color, Context, Event, PanelConfig, RectElement, TextElement};
+use winpane::{Anchor, Color, Context, Event, PanelConfig, Placement, RectElement, TextElement};
 
 #[cfg(target_os = "windows")]
 fn find_window_by_title(title: &str) -> Option<isize> {
@@ -49,8 +49,7 @@ fn main() -> Result<(), winpane::Error> {
     let ctx = Context::new()?;
 
     let panel = ctx.create_panel(PanelConfig {
-        x: 0,
-        y: 0,
+        placement: Placement::Position { x: 0, y: 0 },
         width: 180,
         height: 120,
         draggable: false,

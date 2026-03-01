@@ -23,7 +23,7 @@ use std::time::Duration;
 use windows::Win32::Foundation::POINT;
 use windows::Win32::Graphics::Gdi::{GetDC, GetPixel, ReleaseDC};
 use windows::Win32::UI::WindowsAndMessaging::GetCursorPos;
-use winpane::{Color, Context, HudConfig, RectElement, TextElement};
+use winpane::{Color, Context, HudConfig, Placement, RectElement, TextElement};
 
 /// Sample the pixel colour at screen coordinates (`x`, `y`).
 ///
@@ -142,8 +142,7 @@ fn main() -> Result<(), winpane::Error> {
     let ctx = Context::new()?;
 
     let hud = ctx.create_hud(HudConfig {
-        x: 100,
-        y: 100,
+        placement: Placement::Position { x: 100, y: 100 },
         width: 160,
         height: 80,
     })?;

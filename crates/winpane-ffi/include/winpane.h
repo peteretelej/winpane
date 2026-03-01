@@ -11,7 +11,7 @@
 /**
  * WINPANE_CONFIG_VERSION: consumers set this in config structs.
  */
-#define WINPANE_WINPANE_CONFIG_VERSION 1
+#define WINPANE_WINPANE_CONFIG_VERSION 2
 
 typedef enum WINPANE_winpane_event_type_t {
     WINPANE_WINPANE_EVENT_TYPE_T_NONE = 0,
@@ -63,8 +63,12 @@ typedef struct WINPANE_winpane_event_t {
 typedef struct WINPANE_winpane_hud_config_t {
     uint32_t version;
     uint32_t size;
-    int32_t x;
-    int32_t y;
+    uint32_t placement_type;
+    int32_t position_x;
+    int32_t position_y;
+    uint32_t monitor_index;
+    uint32_t monitor_anchor;
+    uint32_t monitor_margin;
     uint32_t width;
     uint32_t height;
 } WINPANE_winpane_hud_config_t;
@@ -72,8 +76,12 @@ typedef struct WINPANE_winpane_hud_config_t {
 typedef struct WINPANE_winpane_panel_config_t {
     uint32_t version;
     uint32_t size;
-    int32_t x;
-    int32_t y;
+    uint32_t placement_type;
+    int32_t position_x;
+    int32_t position_y;
+    uint32_t monitor_index;
+    uint32_t monitor_anchor;
+    uint32_t monitor_margin;
     uint32_t width;
     uint32_t height;
     int32_t draggable;
@@ -144,8 +152,12 @@ typedef struct WINPANE_WinpanePipConfig {
     uint32_t version;
     uint32_t size;
     intptr_t source_hwnd;
-    int32_t x;
-    int32_t y;
+    uint32_t placement_type;
+    int32_t position_x;
+    int32_t position_y;
+    uint32_t monitor_index;
+    uint32_t monitor_anchor;
+    uint32_t monitor_margin;
     uint32_t width;
     uint32_t height;
 } WINPANE_WinpanePipConfig;

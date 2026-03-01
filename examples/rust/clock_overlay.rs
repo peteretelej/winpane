@@ -20,7 +20,7 @@ use std::thread;
 use std::time::Duration;
 
 use windows::Win32::System::SystemInformation::GetLocalTime;
-use winpane::{Color, Context, PanelConfig, RectElement, TextElement};
+use winpane::{Color, Context, PanelConfig, Placement, RectElement, TextElement};
 
 fn get_local_time() -> (String, String) {
     // SAFETY: GetLocalTime is always safe to call; returns local calendar time.
@@ -45,8 +45,7 @@ fn main() -> Result<(), winpane::Error> {
 
     // Bottom-right placement assuming 1920×1080 primary monitor
     let panel = ctx.create_panel(PanelConfig {
-        x: 1750,
-        y: 972,
+        placement: Placement::Position { x: 1750, y: 972 },
         width: 150,
         height: 88,
         draggable: true,

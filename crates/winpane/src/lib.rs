@@ -3,8 +3,9 @@
 // All Win32 calls stay in winpane-core. This crate is pure Rust wrapping EngineHandle.
 
 pub use winpane_core::{
-    Anchor, Backdrop, Color, DrawOp, Error, Event, HudConfig, ImageElement, MenuItem, MouseButton,
-    PanelConfig, PipConfig, RectElement, SourceRect, SurfaceId, TextElement, TrayConfig, TrayId,
+    Anchor, Backdrop, Color, DrawOp, Error, Event, HudConfig, ImageElement, MenuItem, MonitorInfo,
+    MouseButton, PanelConfig, PipConfig, Placement, RectElement, SourceRect, SurfaceId,
+    TextElement, TrayConfig, TrayId,
 };
 
 /// Returns true if the current Windows build supports DWM backdrop effects (Win11 22H2+).
@@ -98,6 +99,12 @@ impl Context {
     /// Polls for the next event. Returns None if no events are pending.
     pub fn poll_event(&self) -> Option<Event> {
         self.event_rx.try_recv().ok()
+    }
+
+    /// Returns information about all connected display monitors.
+    /// The primary monitor is listed first, followed by others sorted left-to-right.
+    pub fn monitors(&self) -> Vec<MonitorInfo> {
+        winpane_core::enumerate_monitors()
     }
 }
 

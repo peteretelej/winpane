@@ -2,6 +2,7 @@
 // Public API is exposed through the `winpane` crate.
 
 pub(crate) mod command;
+pub(crate) mod display;
 pub(crate) mod engine;
 pub(crate) mod input;
 pub(crate) mod monitor;
@@ -13,6 +14,9 @@ pub(crate) mod window;
 
 // Re-export public types for end users (via winpane crate)
 pub use types::*;
+
+// Re-export display enumeration for public API
+pub use display::enumerate_monitors;
 
 /// Returns true if the current Windows build supports DWM backdrop effects (Win11 22H2+).
 #[cfg(target_os = "windows")]

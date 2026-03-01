@@ -27,7 +27,7 @@ use std::hash::{Hash, Hasher};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use winpane::{Color, Context, PanelConfig, RectElement, TextElement};
+use winpane::{Color, Context, PanelConfig, Placement, RectElement, TextElement};
 
 struct StockQuote {
     symbol: String,
@@ -219,8 +219,10 @@ fn main() -> Result<(), winpane::Error> {
 
     // Position top-right, 20px inset (assumes 1080p — 1920×1080)
     let panel = ctx.create_panel(PanelConfig {
-        x: (1920 - width - 20) as i32,
-        y: 20,
+        placement: Placement::Position {
+            x: (1920 - width - 20) as i32,
+            y: 20,
+        },
         width,
         height: 56,
         draggable: true,

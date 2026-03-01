@@ -24,7 +24,7 @@ use windows::Win32::System::SystemInformation::{
     GetTickCount64, GlobalMemoryStatusEx, MEMORYSTATUSEX,
 };
 use windows::Win32::System::Threading::GetSystemTimes;
-use winpane::{Color, Context, PanelConfig, RectElement, TextElement};
+use winpane::{Color, Context, PanelConfig, Placement, RectElement, TextElement};
 
 // ── CPU helpers ────────────────────────────────────────────────
 
@@ -282,8 +282,7 @@ fn main() -> Result<(), winpane::Error> {
     let ctx = Context::new()?;
 
     let panel = ctx.create_panel(PanelConfig {
-        x: 20,
-        y: 20,
+        placement: Placement::Position { x: 20, y: 20 },
         width: 180,
         height: 108,
         draggable: true,

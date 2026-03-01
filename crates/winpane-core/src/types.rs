@@ -217,8 +217,7 @@ pub enum DrawOp {
 
 #[derive(Debug, Clone)]
 pub struct HudConfig {
-    pub x: i32,
-    pub y: i32,
+    pub placement: Placement,
     pub width: u32,
     pub height: u32,
 }
@@ -227,8 +226,7 @@ pub struct HudConfig {
 
 #[derive(Debug, Clone, Default)]
 pub struct PanelConfig {
-    pub x: i32,
-    pub y: i32,
+    pub placement: Placement,
     pub width: u32,
     pub height: u32,
     pub draggable: bool,
@@ -259,8 +257,7 @@ pub struct TrayId(pub u64);
 pub struct PipConfig {
     /// Raw HWND value of the source window to thumbnail.
     pub source_hwnd: isize,
-    pub x: i32,
-    pub y: i32,
+    pub placement: Placement,
     pub width: u32,
     pub height: u32,
 }
@@ -285,6 +282,40 @@ pub enum Anchor {
     TopRight,
     BottomLeft,
     BottomRight,
+}
+
+// --- MonitorInfo ---
+
+/// Information about a connected display monitor.
+#[derive(Debug, Clone)]
+pub struct MonitorInfo {
+    pub x: i32,
+    pub y: i32,
+    pub width: u32,
+    pub height: u32,
+    pub dpi: u32,
+    pub is_primary: bool,
+}
+
+// --- Placement ---
+
+/// Describes where a surface should be placed on screen.
+#[derive(Debug, Clone)]
+pub enum Placement {
+    /// Explicit logical pixel coordinates (DPI-scaled by the engine).
+    Position { x: i32, y: i32 },
+    /// Place relative to a monitor edge. Coordinates are physical pixels.
+    Monitor {
+        index: usize,
+        anchor: Anchor,
+        margin: u32,
+    },
+}
+
+impl Default for Placement {
+    fn default() -> Self {
+        Placement::Position { x: 100, y: 100 }
+    }
 }
 
 // --- Backdrop ---
