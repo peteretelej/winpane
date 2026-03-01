@@ -185,7 +185,7 @@ fn setup_static_scene(panel: &winpane::Panel) {
             width: 180.0,
             height: 28.0,
             fill: Color::rgba(28, 28, 33, 255),
-            corner_radius: 0.0,
+            corner_radius: 10.0,
             ..Default::default()
         },
     );

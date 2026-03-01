@@ -245,8 +245,6 @@ fn main() -> Result<(), winpane::Error> {
         },
     );
 
-    panel.show();
-
     // Compact grip dots in drag region
     panel.set_rect(
         "title_bg",
@@ -256,7 +254,7 @@ fn main() -> Result<(), winpane::Error> {
             width: width as f32,
             height: 24.0,
             fill: Color::rgba(28, 28, 33, 255),
-            corner_radius: 0.0,
+            corner_radius: 6.0,
             ..Default::default()
         },
     );
@@ -271,6 +269,8 @@ fn main() -> Result<(), winpane::Error> {
             ..Default::default()
         },
     );
+
+    panel.show();
 
     println!("winpane stock_ticker: tracking {}", symbols.join(", "));
     println!("Press Ctrl+C to exit.");

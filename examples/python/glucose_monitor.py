@@ -147,14 +147,13 @@ def main():
             "border_width": 1,
         })
 
-        send("show", {"surface_id": sid})
-
         # Title bar in drag region
         send("set_rect", {
             "surface_id": sid,
             "key": "title_bg",
             "x": 0, "y": 0, "width": 140, "height": 28,
             "fill": "#1c1c21ff",
+            "corner_radius": 10,
         })
         send("set_text", {
             "surface_id": sid,
@@ -165,6 +164,8 @@ def main():
             "bold": True,
             "color": "#9494a0ff",
         })
+
+        send("show", {"surface_id": sid})
 
         nightscout_url = os.environ.get("NIGHTSCOUT_URL")
         nightscout_token = os.environ.get("NIGHTSCOUT_TOKEN")

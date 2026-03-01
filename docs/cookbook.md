@@ -543,7 +543,7 @@ panel.set_rect("bg", RectElement {
 panel.set_rect("title_bg", RectElement {
     x: 0.0, y: 0.0, width: 200.0, height: 28.0,
     fill: Color::rgba(28, 28, 33, 255),       // Elevated
-    corner_radius: 0.0,
+    corner_radius: 10.0,
     ..Default::default()
 });
 
@@ -582,14 +582,14 @@ panel.show();
 // Node.js
 const wp = new WinPane();
 const id = wp.createPanel({ width: 200, height: 128, x: 100, y: 100, draggable: true, dragHeight: 28 });
-wp.setRect(id, "title_bg", { x: 0, y: 0, width: 200, height: 28, fill: "#1c1c21ff" });
+wp.setRect(id, "title_bg", { x: 0, y: 0, width: 200, height: 28, fill: "#1c1c21ff", cornerRadius: 10 });
 wp.setText(id, "title", { text: "My Widget", x: 8, y: 6, fontSize: 13, bold: true, color: "#9494a0ff" });
 wp.show(id);
 ```
 ```json
 // JSON-RPC
 {"jsonrpc":"2.0","method":"create_panel","params":{"x":100,"y":100,"width":200,"height":128,"draggable":true,"drag_height":28},"id":1}
-{"jsonrpc":"2.0","method":"set_rect","params":{"surface_id":"...","key":"title_bg","x":0,"y":0,"width":200,"height":28,"fill":"#1c1c21ff"},"id":2}
+{"jsonrpc":"2.0","method":"set_rect","params":{"surface_id":"...","key":"title_bg","x":0,"y":0,"width":200,"height":28,"fill":"#1c1c21ff","corner_radius":10},"id":2}
 {"jsonrpc":"2.0","method":"set_text","params":{"surface_id":"...","key":"title","text":"My Widget","x":8,"y":6,"font_size":13,"bold":true,"color":"#9494a0ff"},"id":3}
 ```
 

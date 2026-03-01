@@ -68,15 +68,13 @@ def main():
             "border_width": 1,
         })
 
-        # Show it
-        send("show", {"surface_id": sid})
-
         # Title bar in drag region
         send("set_rect", {
             "surface_id": sid,
             "key": "title_bg",
             "x": 0, "y": 0, "width": 150, "height": 28,
             "fill": "#1c1c21ff",
+            "corner_radius": 10,
         })
         send("set_text", {
             "surface_id": sid,
@@ -87,6 +85,9 @@ def main():
             "bold": True,
             "color": "#9494a0ff",
         })
+
+        # Show it
+        send("show", {"surface_id": sid})
 
         print("winpane clock: ticking clock at bottom-right. Ctrl+C to exit.")
 

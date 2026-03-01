@@ -157,12 +157,11 @@ wp.setRect(panel, "bg", {
   borderColor: "#ffffff12",
   borderWidth: 1,
 });
-wp.show(panel);
-
 // Compact grip dots in drag region
 wp.setRect(panel, "title_bg", {
   x: 0, y: 0, width, height: 24,
   fill: "#1c1c21ff",
+  cornerRadius: 6,
 });
 wp.setText(panel, "grip", {
   text: "⋮⋮",
@@ -170,6 +169,8 @@ wp.setText(panel, "grip", {
   fontSize: 12,
   color: "#9494a080",
 });
+
+wp.show(panel);
 
 let prices = symbols.map(seedPrice);
 let lastPoll = 0;

@@ -31,12 +31,11 @@ wp.setRect(panel, "bg", {
   borderWidth: 1,
 });
 
-wp.show(panel);
-
 // Title bar in drag region
 wp.setRect(panel, "title_bg", {
   x: 0, y: 0, width: 150, height: 28,
   fill: "#1c1c21ff",
+  cornerRadius: 10,
 });
 wp.setText(panel, "title", {
   text: "Clock",
@@ -45,6 +44,8 @@ wp.setText(panel, "title", {
   bold: true,
   color: "#9494a0ff",
 });
+
+wp.show(panel);
 
 console.log("winpane clock: ticking clock at bottom-right. Ctrl+C to exit.");
 

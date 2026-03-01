@@ -69,8 +69,6 @@ fn main() -> Result<(), winpane::Error> {
         },
     );
 
-    panel.show();
-
     // Title bar in drag region
     panel.set_rect(
         "title_bg",
@@ -80,7 +78,7 @@ fn main() -> Result<(), winpane::Error> {
             width: 150.0,
             height: 28.0,
             fill: Color::rgba(28, 28, 33, 255),
-            corner_radius: 0.0,
+            corner_radius: 10.0,
             ..Default::default()
         },
     );
@@ -96,6 +94,8 @@ fn main() -> Result<(), winpane::Error> {
             ..Default::default()
         },
     );
+
+    panel.show();
 
     println!("winpane clock_overlay: floating clock at bottom-right.");
     println!("Updates every second. Press Ctrl+C to exit.");

@@ -170,8 +170,6 @@ fn main() -> Result<(), winpane::Error> {
         },
     );
 
-    panel.show();
-
     // Title bar in drag region
     panel.set_rect(
         "title_bg",
@@ -181,7 +179,7 @@ fn main() -> Result<(), winpane::Error> {
             width: 140.0,
             height: 28.0,
             fill: Color::rgba(28, 28, 33, 255),
-            corner_radius: 0.0,
+            corner_radius: 10.0,
             ..Default::default()
         },
     );
@@ -197,6 +195,8 @@ fn main() -> Result<(), winpane::Error> {
             ..Default::default()
         },
     );
+
+    panel.show();
 
     let nightscout_url = std::env::var("NIGHTSCOUT_URL").ok();
     let nightscout_token = std::env::var("NIGHTSCOUT_TOKEN").ok();
