@@ -40,6 +40,8 @@ Panels with `draggable: true` define a drag region at the top of the window, `dr
 
 The drag region check happens after the interactive element check. If an interactive button overlaps the drag region, the button wins.
 
+**Cursor feedback:** When the cursor hovers over the drag region (`HTCAPTION`), `panel_wndproc` handles `WM_SETCURSOR` to show `IDC_SIZEALL` (the four-arrow move cursor). This is self-gating — if `draggable` is false, `HTCAPTION` is never returned so the cursor change never fires.
+
 ## Focus management
 
 winpane never calls `SetForegroundWindow` or `SetFocus`. All windows use `WS_EX_NOACTIVATE`, and the window procedure returns `MA_NOACTIVATE` from `WM_MOUSEACTIVATE`. This means clicking on a Panel's interactive element does not steal focus from the user's current application.
