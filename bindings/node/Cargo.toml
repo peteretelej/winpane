@@ -2,7 +2,7 @@
 name = "winpane-node"
 version = "0.0.1"
 edition = "2024"
-rust-version = "1.87"
+rust-version = "1.88"
 license = "MIT"
 description = "Node.js native addon for winpane - Windows companion surface SDK"
 
