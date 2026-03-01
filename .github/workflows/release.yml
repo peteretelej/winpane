@@ -27,8 +27,7 @@ jobs:
           tool: cargo-wix
 
       - name: Build MSI
-        run: cargo wix --no-build --nocapture
-        working-directory: crates/winpane-host
+        run: cargo wix -p winpane-host --no-build --nocapture
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
@@ -40,7 +39,6 @@ jobs:
             target/release/winpane.lib
             crates/winpane-ffi/include/winpane.h
             target/wix/*.msi
-            crates/winpane-host/target/wix/*.msi
 
   build-node:
     runs-on: windows-latest
