@@ -7,6 +7,7 @@ echo "Running pre-push checks (target: $TARGET)..."
 
 echo "  fmt"
 cargo fmt --all -- --check
+cargo fmt --manifest-path bindings/node/Cargo.toml -- --check
 
 echo "  clippy"
 cargo clippy --workspace --all-targets --target "$TARGET" -- -D warnings

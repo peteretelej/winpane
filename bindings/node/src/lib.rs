@@ -765,7 +765,7 @@ impl WinPane {
                 return Err(Error::new(
                     Status::InvalidArg,
                     format!("invalid backdrop: {backdrop} (expected none, mica, acrylic)"),
-                ))
+                ));
             }
         };
         surface.set_backdrop(backdrop);
@@ -846,13 +846,13 @@ impl WinPane {
                 return Err(Error::new(
                     Status::InvalidArg,
                     format!("{panel_surface_id} is not a Panel"),
-                ))
+                ));
             }
             None => {
                 return Err(Error::new(
                     Status::InvalidArg,
                     format!("unknown surface_id: {panel_surface_id}"),
-                ))
+                ));
             }
         };
         let tray = self.get_tray(tray_id)?;

@@ -4,6 +4,8 @@ Create transparent floating overlays on Windows — stats HUDs, interactive pane
 
 ![winpane overlays floating over VS Code](docs/images/winpane.png)
 
+## Demo
+
 ![winpane demo](docs/images/hero.gif)
 
 <video src="docs/demo-video.mp4" autoplay loop muted playsinline width="720" title="winpane overlays demo"></video>
