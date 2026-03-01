@@ -514,3 +514,85 @@ loop {
 ```json
 // JSON-RPC: Chain create_tray, create_panel, set_popup, anchor_to calls sequentially.
 ```
+
+## 11. Adding a visual drag handle
+
+Panel surfaces support native drag via `draggable: true` + `drag_height`, but the drag region is invisible by default. Draw a title bar so users know where to grab.
+
+```rust
+use winpane::{Color, Context, PanelConfig, RectElement, TextElement};
+
+let ctx = Context::new()?;
+let panel = ctx.create_panel(PanelConfig {
+    x: 100, y: 100, width: 200, height: 128,
+    draggable: true,
+    drag_height: 28,           // top 28px is the drag region
+})?;
+
+// Background
+panel.set_rect("bg", RectElement {
+    x: 0.0, y: 0.0, width: 200.0, height: 128.0,
+    fill: Color::rgba(18, 18, 22, 228),
+    corner_radius: 10.0,
+    border_color: Some(Color::rgba(255, 255, 255, 18)),
+    border_width: 1.0,
+    ..Default::default()
+});
+
+// Title bar background (sits inside the drag region)
+panel.set_rect("title_bg", RectElement {
+    x: 0.0, y: 0.0, width: 200.0, height: 28.0,
+    fill: Color::rgba(28, 28, 33, 255),       // Elevated
+    corner_radius: 0.0,
+    ..Default::default()
+});
+
+// Title text
+panel.set_text("title", TextElement {
+    x: 8.0, y: 6.0,
+    text: "My Widget".into(),
+    font_size: 13.0,
+    color: Color::rgba(148, 148, 160, 255),   // Secondary
+    bold: true,
+    ..Default::default()
+});
+
+// Optional: grip dots (right-aligned)
+panel.set_text("grip", TextElement {
+    x: 180.0, y: 6.0,
+    text: "⠿".into(),
+    font_size: 13.0,
+    color: Color::rgba(148, 148, 160, 128),
+    ..Default::default()
+});
+
+// Content goes below the drag region (y >= 28)
+panel.set_text("content", TextElement {
+    x: 16.0, y: 40.0,
+    text: "Hello, world!".into(),
+    font_size: 14.0,
+    color: Color::rgba(232, 232, 237, 255),
+    ..Default::default()
+});
+
+panel.show();
+```
+
+```js
+// Node.js
+const wp = new WinPane();
+const id = wp.createPanel({ width: 200, height: 128, x: 100, y: 100, draggable: true, dragHeight: 28 });
+wp.setRect(id, "title_bg", { x: 0, y: 0, width: 200, height: 28, fill: "#1c1c21ff" });
+wp.setText(id, "title", { text: "My Widget", x: 8, y: 6, fontSize: 13, bold: true, color: "#9494a0ff" });
+wp.show(id);
+```
+```json
+// JSON-RPC
+{"jsonrpc":"2.0","method":"create_panel","params":{"x":100,"y":100,"width":200,"height":128,"draggable":true,"drag_height":28},"id":1}
+{"jsonrpc":"2.0","method":"set_rect","params":{"surface_id":"...","key":"title_bg","x":0,"y":0,"width":200,"height":28,"fill":"#1c1c21ff"},"id":2}
+{"jsonrpc":"2.0","method":"set_text","params":{"surface_id":"...","key":"title","text":"My Widget","x":8,"y":6,"font_size":13,"bold":true,"color":"#9494a0ff"},"id":3}
+```
+
+> **Tip:** The cursor automatically changes to a move icon (↔) when hovering over the drag region — no extra code needed.
+
+> **Tip:** For full-surface drag, set `drag_height` equal to the surface height. Every pixel becomes draggable.
