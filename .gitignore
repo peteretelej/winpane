@@ -10,7 +10,10 @@ Cargo.lock
 
 # IDE
 .idea/
-.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/c_cpp_properties.json
+!.vscode/extensions.json
 *.swp
 *.swo
 

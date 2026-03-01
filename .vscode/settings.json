@@ -1,0 +1,26 @@
+{
+  // ── Rust / Cargo ──────────────────────────────────────────────
+  "rust-analyzer.cargo.allTargets": true,
+
+  // ── C/C++ IntelliSense ────────────────────────────────────────
+  // Handled by .vscode/c_cpp_properties.json
+
+  // ── TypeScript ────────────────────────────────────────────────
+  // examples/typescript has its own tsconfig.json so TS errors
+  // resolve when that folder is part of the workspace.
+
+  // ── File associations ─────────────────────────────────────────
+  "files.associations": {
+    "*.def": "plaintext"
+  },
+
+  // ── Search / Explorer exclusions ──────────────────────────────
+  "files.exclude": {
+    "**/target": true,
+    "**/node_modules": true
+  },
+  "search.exclude": {
+    "**/target": true,
+    "**/node_modules": true
+  }
+}

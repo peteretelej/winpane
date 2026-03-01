@@ -1,0 +1,15 @@
+{
+  "configurations": [
+    {
+      "name": "Win32",
+      "includePath": [
+        "${workspaceFolder}/crates/winpane-ffi/include"
+      ],
+      "defines": [],
+      "compilerPath": "cl.exe",
+      "cStandard": "c17",
+      "intelliSenseMode": "windows-msvc-x64"
+    }
+  ],
+  "version": 4
+}
