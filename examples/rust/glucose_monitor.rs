@@ -276,6 +276,7 @@ fn main() -> Result<(), winpane::Error> {
         .unwrap_or(false);
 
     let no_titlebar = args.iter().any(|a| a == "--no-titlebar");
+    let tb_h = if no_titlebar { 0u32 } else { 28 };
     let capture_excluded = args.iter().any(|a| a == "--capture-excluded");
 
     let opacity: f32 = args
@@ -322,9 +323,9 @@ fn main() -> Result<(), winpane::Error> {
     let panel = ctx.create_panel(PanelConfig {
         placement,
         width: 170,
-        height: 108,
+        height: 80 + tb_h,
         draggable: true,
-        drag_height: if no_titlebar { 108 } else { 28 },
+        drag_height: if no_titlebar { 80 + tb_h } else { 28 },
         position_key: Some("glucose_monitor".into()),
     })?;
 
@@ -345,7 +346,7 @@ fn main() -> Result<(), winpane::Error> {
             x: 0.0,
             y: 0.0,
             width: 170.0,
-            height: 108.0,
+            height: (80 + tb_h) as f32,
             fill: bg_color_for_sgv(160),
             corner_radius: 10.0,
             border_color: Some(Color::rgba(255, 255, 255, 18)),
@@ -446,7 +447,7 @@ fn main() -> Result<(), winpane::Error> {
                 x: 0.0,
                 y: 0.0,
                 width: 170.0,
-                height: 108.0,
+                height: (80 + tb_h) as f32,
                 fill: bg_color_for_sgv(sgv),
                 corner_radius: 10.0,
                 border_color: Some(Color::rgba(255, 255, 255, 18)),
@@ -462,7 +463,7 @@ fn main() -> Result<(), winpane::Error> {
             TextElement {
                 text: format!("{} {}", format_glucose(sgv, unit_mmol), arrow),
                 x: 12.0,
-                y: 34.0,
+                y: tb_h as f32 + 6.0,
                 font_size: 28.0,
                 color: arrow_color_for_sgv(sgv),
                 bold: true,
@@ -477,7 +478,7 @@ fn main() -> Result<(), winpane::Error> {
             TextElement {
                 text: unit_label(unit_mmol).to_string(),
                 x: 120.0,
-                y: 35.0,
+                y: tb_h as f32 + 7.0,
                 font_size: 11.0,
                 color: Color::rgba(148, 148, 160, 255),
                 ..Default::default()
@@ -490,7 +491,7 @@ fn main() -> Result<(), winpane::Error> {
             TextElement {
                 text: range_label(sgv).to_string(),
                 x: 12.0,
-                y: 66.0,
+                y: tb_h as f32 + 38.0,
                 font_size: 11.0,
                 color: arrow_color_for_sgv(sgv),
                 bold: true,
@@ -506,7 +507,7 @@ fn main() -> Result<(), winpane::Error> {
             TextElement {
                 text: stale_text,
                 x: 12.0,
-                y: 80.0,
+                y: tb_h as f32 + 52.0,
                 font_size: 12.0,
                 color: stale_color,
                 ..Default::default()

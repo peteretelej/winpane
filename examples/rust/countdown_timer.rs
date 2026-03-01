@@ -103,6 +103,7 @@ fn main() -> Result<(), winpane::Error> {
     }
 
     let no_titlebar = args.iter().any(|a| a == "--no-titlebar");
+    let tb_h = if no_titlebar { 0u32 } else { 28 };
     let capture_excluded = args.iter().any(|a| a == "--capture-excluded");
 
     let opacity: f32 = args
@@ -135,6 +136,12 @@ fn main() -> Result<(), winpane::Error> {
         });
     // ───────────────────────────────────────────────────────────────
 
+    // Layout positions (adjusted for optional title bar)
+    let sep_y = tb_h as f32;
+    let timer_y = tb_h as f32 + 10.0;
+    let btn_y = tb_h as f32 + 64.0;
+    let btn_text_y = tb_h as f32 + 72.0;
+
     let placement = if let Some((x, y)) = explicit_position {
         Placement::Position { x, y }
     } else {
@@ -150,9 +157,9 @@ fn main() -> Result<(), winpane::Error> {
     let panel = ctx.create_panel(PanelConfig {
         placement,
         width: 220,
-        height: 140,
+        height: 112 + tb_h,
         draggable: true,
-        drag_height: if no_titlebar { 140 } else { 28 },
+        drag_height: if no_titlebar { 112 + tb_h } else { 28 },
         position_key: Some("countdown_timer".into()),
     })?;
 
@@ -173,7 +180,7 @@ fn main() -> Result<(), winpane::Error> {
             x: 0.0,
             y: 0.0,
             width: 220.0,
-            height: 140.0,
+            height: (112 + tb_h) as f32,
             fill: Color::rgba(18, 18, 22, 255),
             corner_radius: 10.0,
             border_color: Some(Color::rgba(255, 255, 255, 23)),
@@ -230,7 +237,7 @@ fn main() -> Result<(), winpane::Error> {
         "sep",
         RectElement {
             x: 12.0,
-            y: 28.0,
+            y: sep_y,
             width: 196.0,
             height: 1.0,
             fill: Color::rgba(255, 255, 255, 18),
@@ -247,7 +254,7 @@ fn main() -> Result<(), winpane::Error> {
         TextElement {
             text: format_time(INITIAL_SECS),
             x: 65.0,
-            y: 38.0,
+            y: timer_y,
             font_size: 36.0,
             color: Color::rgba(232, 232, 237, 255),
             bold: true,
@@ -257,13 +264,13 @@ fn main() -> Result<(), winpane::Error> {
     );
 
     // Start button
-    panel.set_rect("btn_start", normal_rect(16.0, 92.0, 90.0));
+    panel.set_rect("btn_start", normal_rect(16.0, btn_y, 90.0));
     panel.set_text(
         "btn_start_text",
         TextElement {
             text: "Start".into(),
             x: 42.0,
-            y: 100.0,
+            y: btn_text_y,
             font_size: 13.0,
             color: Color::rgba(232, 232, 237, 255),
             ..Default::default()
@@ -271,13 +278,13 @@ fn main() -> Result<(), winpane::Error> {
     );
 
     // Reset button
-    panel.set_rect("btn_reset", normal_rect(114.0, 92.0, 90.0));
+    panel.set_rect("btn_reset", normal_rect(114.0, btn_y, 90.0));
     panel.set_text(
         "btn_reset_text",
         TextElement {
             text: "Reset".into(),
             x: 140.0,
-            y: 100.0,
+            y: btn_text_y,
             font_size: 13.0,
             color: Color::rgba(232, 232, 237, 255),
             ..Default::default()
@@ -328,10 +335,10 @@ fn main() -> Result<(), winpane::Error> {
                     ref key,
                 } if surface_id == panel_id => match key.as_str() {
                     "btn_start" => {
-                        panel.set_rect("btn_start", hover_rect(16.0, 92.0, 90.0));
+                        panel.set_rect("btn_start", hover_rect(16.0, btn_y, 90.0));
                     }
                     "btn_reset" => {
-                        panel.set_rect("btn_reset", hover_rect(114.0, 92.0, 90.0));
+                        panel.set_rect("btn_reset", hover_rect(114.0, btn_y, 90.0));
                     }
                     "close_btn" => {
                         panel.set_rect(
@@ -356,10 +363,10 @@ fn main() -> Result<(), winpane::Error> {
                     ref key,
                 } if surface_id == panel_id => match key.as_str() {
                     "btn_start" => {
-                        panel.set_rect("btn_start", normal_rect(16.0, 92.0, 90.0));
+                        panel.set_rect("btn_start", normal_rect(16.0, btn_y, 90.0));
                     }
                     "btn_reset" => {
-                        panel.set_rect("btn_reset", normal_rect(114.0, 92.0, 90.0));
+                        panel.set_rect("btn_reset", normal_rect(114.0, btn_y, 90.0));
                     }
                     "close_btn" => {
                         panel.set_rect(
@@ -400,7 +407,7 @@ fn main() -> Result<(), winpane::Error> {
                 TextElement {
                     text: format_time(remaining_secs),
                     x: 65.0,
-                    y: 38.0,
+                    y: timer_y,
                     font_size: 36.0,
                     color: timer_color(remaining_secs, &state, elapsed_ms),
                     bold: true,
@@ -416,7 +423,7 @@ fn main() -> Result<(), winpane::Error> {
                 TextElement {
                     text: format_time(remaining_secs),
                     x: 65.0,
-                    y: 38.0,
+                    y: timer_y,
                     font_size: 36.0,
                     color: timer_color(remaining_secs, &state, elapsed_ms),
                     bold: true,
@@ -438,7 +445,7 @@ fn main() -> Result<(), winpane::Error> {
                 TextElement {
                     text: start_label.into(),
                     x: 42.0,
-                    y: 100.0,
+                    y: btn_text_y,
                     font_size: 13.0,
                     color: Color::rgba(232, 232, 237, 255),
                     ..Default::default()

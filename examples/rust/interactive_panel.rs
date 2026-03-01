@@ -39,6 +39,7 @@ fn main() -> Result<(), winpane::Error> {
     }
 
     let no_titlebar = args.iter().any(|a| a == "--no-titlebar");
+    let tb_h = if no_titlebar { 0u32 } else { 32 };
     let capture_excluded = args.iter().any(|a| a == "--capture-excluded");
 
     let opacity: f32 = args
@@ -81,14 +82,22 @@ fn main() -> Result<(), winpane::Error> {
         }
     };
 
+    // Layout positions (adjusted for optional title bar)
+    let sep_y = tb_h as f32 + 2.0;
+    let btn_hello_y = tb_h as f32 + 18.0;
+    let btn_hello_text_y = tb_h as f32 + 28.0;
+    let btn_count_y = tb_h as f32 + 68.0;
+    let btn_count_text_y = tb_h as f32 + 78.0;
+    let status_y = tb_h as f32 + 128.0;
+
     let ctx = Context::new()?;
 
     let panel = ctx.create_panel(PanelConfig {
         placement,
         width: 280,
-        height: 220,
+        height: 188 + tb_h,
         draggable: true,
-        drag_height: if no_titlebar { 220 } else { 32 },
+        drag_height: if no_titlebar { 188 + tb_h } else { 32 },
         position_key: Some("interactive_panel".into()),
     })?;
 
@@ -109,7 +118,7 @@ fn main() -> Result<(), winpane::Error> {
             x: 0.0,
             y: 0.0,
             width: 280.0,
-            height: 220.0,
+            height: (188 + tb_h) as f32,
             fill: Color::rgba(18, 18, 22, 255),
             corner_radius: 10.0,
             border_color: Some(Color::rgba(255, 255, 255, 23)),
@@ -139,7 +148,7 @@ fn main() -> Result<(), winpane::Error> {
         "sep",
         RectElement {
             x: 12.0,
-            y: 34.0,
+            y: sep_y,
             width: 256.0,
             height: 1.0,
             fill: Color::rgba(255, 255, 255, 18),
@@ -155,7 +164,7 @@ fn main() -> Result<(), winpane::Error> {
         "btn_hello",
         RectElement {
             x: 20.0,
-            y: 50.0,
+            y: btn_hello_y,
             width: 240.0,
             height: 40.0,
             fill: Color::rgba(38, 38, 44, 255),
@@ -170,7 +179,7 @@ fn main() -> Result<(), winpane::Error> {
         TextElement {
             text: "Say Hello".into(),
             x: 100.0,
-            y: 60.0,
+            y: btn_hello_text_y,
             font_size: 13.0,
             color: Color::rgba(232, 232, 237, 255),
             ..Default::default()
@@ -182,7 +191,7 @@ fn main() -> Result<(), winpane::Error> {
         "btn_count",
         RectElement {
             x: 20.0,
-            y: 100.0,
+            y: btn_count_y,
             width: 240.0,
             height: 40.0,
             fill: Color::rgba(38, 38, 44, 255),
@@ -197,7 +206,7 @@ fn main() -> Result<(), winpane::Error> {
         TextElement {
             text: "Count: 0".into(),
             x: 100.0,
-            y: 110.0,
+            y: btn_count_text_y,
             font_size: 13.0,
             color: Color::rgba(232, 232, 237, 255),
             ..Default::default()
@@ -210,7 +219,7 @@ fn main() -> Result<(), winpane::Error> {
         TextElement {
             text: "Click a button or drag the title bar".into(),
             x: 20.0,
-            y: 160.0,
+            y: status_y,
             font_size: 11.0,
             color: Color::rgba(96, 96, 107, 255),
             ..Default::default()
@@ -238,7 +247,7 @@ fn main() -> Result<(), winpane::Error> {
                             TextElement {
                                 text: "Hello from winpane!".into(),
                                 x: 20.0,
-                                y: 160.0,
+                                y: status_y,
                                 font_size: 11.0,
                                 color: Color::rgba(52, 211, 153, 255),
                                 ..Default::default()
@@ -253,7 +262,7 @@ fn main() -> Result<(), winpane::Error> {
                             TextElement {
                                 text: format!("Count: {count}"),
                                 x: 100.0,
-                                y: 110.0,
+                                y: btn_count_text_y,
                                 font_size: 13.0,
                                 color: Color::rgba(232, 232, 237, 255),
                                 ..Default::default()
@@ -267,7 +276,11 @@ fn main() -> Result<(), winpane::Error> {
                     ref key,
                 } if surface_id == panel_id => {
                     if key == "btn_hello" || key == "btn_count" {
-                        let y = if key == "btn_hello" { 50.0 } else { 100.0 };
+                        let y = if key == "btn_hello" {
+                            btn_hello_y
+                        } else {
+                            btn_count_y
+                        };
                         panel.set_rect(
                             key,
                             RectElement {
@@ -289,7 +302,11 @@ fn main() -> Result<(), winpane::Error> {
                     ref key,
                 } if surface_id == panel_id => {
                     if key == "btn_hello" || key == "btn_count" {
-                        let y = if key == "btn_hello" { 50.0 } else { 100.0 };
+                        let y = if key == "btn_hello" {
+                            btn_hello_y
+                        } else {
+                            btn_count_y
+                        };
                         panel.set_rect(
                             key,
                             RectElement {

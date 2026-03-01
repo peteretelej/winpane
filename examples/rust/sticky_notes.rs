@@ -40,6 +40,7 @@ fn main() -> Result<(), winpane::Error> {
     }
 
     let no_titlebar = args.iter().any(|a| a == "--no-titlebar");
+    let tb_h = if no_titlebar { 0u32 } else { 28 };
     let capture_excluded = args.iter().any(|a| a == "--capture-excluded");
 
     let opacity: f32 = args
@@ -126,9 +127,9 @@ fn main() -> Result<(), winpane::Error> {
     let panel = ctx.create_panel(PanelConfig {
         placement,
         width: 240,
-        height: 160,
+        height: 132 + tb_h,
         draggable: true,
-        drag_height: if no_titlebar { 160 } else { 28 },
+        drag_height: if no_titlebar { 132 + tb_h } else { 28 },
         position_key: Some("sticky_notes".into()),
     })?;
 
@@ -147,7 +148,7 @@ fn main() -> Result<(), winpane::Error> {
             x: 0.0,
             y: 0.0,
             width: 240.0,
-            height: 160.0,
+            height: (132 + tb_h) as f32,
             fill: Color::rgba(18, 18, 22, 228),
             corner_radius: 10.0,
             border_color: Some(Color::rgba(255, 255, 255, 18)),
@@ -206,7 +207,7 @@ fn main() -> Result<(), winpane::Error> {
         "sep",
         RectElement {
             x: 12.0,
-            y: 28.0,
+            y: tb_h as f32,
             width: 216.0,
             height: 1.0,
             fill: Color::rgba(255, 255, 255, 18),
@@ -219,11 +220,11 @@ fn main() -> Result<(), winpane::Error> {
 
     // Note lines
     let notes = [
-        ("note_1", 38.0, "Remember to review PR"),
-        ("note_2", 56.0, "Deploy staging at 3pm"),
-        ("note_3", 74.0, "Call dentist"),
-        ("note_4", 92.0, "Buy groceries"),
-        ("note_5", 110.0, "Update dependencies"),
+        ("note_1", tb_h as f32 + 10.0, "Remember to review PR"),
+        ("note_2", tb_h as f32 + 28.0, "Deploy staging at 3pm"),
+        ("note_3", tb_h as f32 + 46.0, "Call dentist"),
+        ("note_4", tb_h as f32 + 64.0, "Buy groceries"),
+        ("note_5", tb_h as f32 + 82.0, "Update dependencies"),
     ];
 
     for (key, y, text) in &notes {

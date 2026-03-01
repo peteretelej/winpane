@@ -58,6 +58,7 @@ fn main() -> Result<(), winpane::Error> {
     }
 
     let no_titlebar = args.iter().any(|a| a == "--no-titlebar");
+    let tb_h = if no_titlebar { 0u32 } else { 28 };
     let capture_excluded = args.iter().any(|a| a == "--capture-excluded");
 
     let opacity: f32 = args
@@ -105,9 +106,9 @@ fn main() -> Result<(), winpane::Error> {
     let panel = ctx.create_panel(PanelConfig {
         placement,
         width: 150,
-        height: 88,
+        height: 60 + tb_h,
         draggable: true,
-        drag_height: if no_titlebar { 88 } else { 28 },
+        drag_height: if no_titlebar { 60 + tb_h } else { 28 },
         position_key: Some("clock_overlay".into()),
     })?;
 
@@ -128,7 +129,7 @@ fn main() -> Result<(), winpane::Error> {
             x: 0.0,
             y: 0.0,
             width: 150.0,
-            height: 88.0,
+            height: (60 + tb_h) as f32,
             fill: Color::rgba(18, 18, 22, 228),
             corner_radius: 10.0,
             border_color: Some(Color::rgba(255, 255, 255, 18)),
@@ -178,7 +179,7 @@ fn main() -> Result<(), winpane::Error> {
             TextElement {
                 text: time,
                 x: 16.0,
-                y: 36.0,
+                y: tb_h as f32 + 8.0,
                 font_size: 28.0,
                 color: Color::rgba(232, 232, 237, 255),
                 ..Default::default()
@@ -190,7 +191,7 @@ fn main() -> Result<(), winpane::Error> {
             TextElement {
                 text: date,
                 x: 16.0,
-                y: 68.0,
+                y: tb_h as f32 + 40.0,
                 font_size: 12.0,
                 color: Color::rgba(148, 148, 160, 204),
                 ..Default::default()

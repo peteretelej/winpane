@@ -111,7 +111,8 @@ fn bar_color(percent: u32) -> Color {
 
 // ── Scene setup ────────────────────────────────────────────────
 
-fn setup_static_scene(panel: &winpane::Panel, no_titlebar: bool) {
+fn setup_static_scene(panel: &winpane::Panel, no_titlebar: bool, tb_h: u32) {
+    let tb = tb_h as f32;
     // Background
     panel.set_rect(
         "bg",
@@ -119,7 +120,7 @@ fn setup_static_scene(panel: &winpane::Panel, no_titlebar: bool) {
             x: 0.0,
             y: 0.0,
             width: 180.0,
-            height: 108.0,
+            height: 80.0 + tb,
             fill: Color::rgba(18, 18, 22, 228),
             corner_radius: 10.0,
             border_color: Some(Color::rgba(255, 255, 255, 18)),
@@ -131,9 +132,9 @@ fn setup_static_scene(panel: &winpane::Panel, no_titlebar: bool) {
     // Row labels (secondary text color)
     let label_color = Color::rgba(148, 148, 160, 255);
     for (key, text, y) in [
-        ("cpu_label", "CPU", 36.0),
-        ("mem_label", "MEM", 58.0),
-        ("up_label", "UP", 80.0),
+        ("cpu_label", "CPU", tb + 8.0),
+        ("mem_label", "MEM", tb + 30.0),
+        ("up_label", "UP", tb + 52.0),
     ] {
         panel.set_text(
             key,
@@ -155,7 +156,7 @@ fn setup_static_scene(panel: &winpane::Panel, no_titlebar: bool) {
         "cpu_bar_bg",
         RectElement {
             x: 92.0,
-            y: 38.0,
+            y: tb + 10.0,
             width: 76.0,
             height: 10.0,
             fill: track_color,
@@ -167,7 +168,7 @@ fn setup_static_scene(panel: &winpane::Panel, no_titlebar: bool) {
         "mem_bar_bg",
         RectElement {
             x: 110.0,
-            y: 60.0,
+            y: tb + 32.0,
             width: 58.0,
             height: 10.0,
             fill: track_color,
@@ -207,14 +208,14 @@ fn setup_static_scene(panel: &winpane::Panel, no_titlebar: bool) {
 
 // ── Dynamic updates ────────────────────────────────────────────
 
-fn update_cpu_display(panel: &winpane::Panel, pct: f64) {
+fn update_cpu_display(panel: &winpane::Panel, pct: f64, y_off: f32) {
     let pct_u32 = pct.round() as u32;
     panel.set_text(
         "cpu_pct",
         TextElement {
             text: format!("{pct_u32}%"),
             x: 52.0,
-            y: 36.0,
+            y: y_off + 8.0,
             font_size: 12.0,
             color: Color::rgba(232, 232, 237, 255),
             font_family: Some("Consolas".into()),
@@ -225,7 +226,7 @@ fn update_cpu_display(panel: &winpane::Panel, pct: f64) {
         "cpu_bar",
         RectElement {
             x: 92.0,
-            y: 38.0,
+            y: y_off + 10.0,
             width: (76.0 * pct / 100.0) as f32,
             height: 10.0,
             fill: bar_color(pct_u32),
@@ -235,13 +236,13 @@ fn update_cpu_display(panel: &winpane::Panel, pct: f64) {
     );
 }
 
-fn update_memory_display(panel: &winpane::Panel, info: &MemInfo) {
+fn update_memory_display(panel: &winpane::Panel, info: &MemInfo, y_off: f32) {
     panel.set_text(
         "mem_val",
         TextElement {
             text: format!("{:.1} GB", info.used_gb),
             x: 48.0,
-            y: 58.0,
+            y: y_off + 30.0,
             font_size: 12.0,
             color: Color::rgba(232, 232, 237, 255),
             font_family: Some("Consolas".into()),
@@ -252,7 +253,7 @@ fn update_memory_display(panel: &winpane::Panel, info: &MemInfo) {
         "mem_bar",
         RectElement {
             x: 110.0,
-            y: 60.0,
+            y: y_off + 32.0,
             width: (58.0 * info.percent as f64 / 100.0) as f32,
             height: 10.0,
             fill: bar_color(info.percent),
@@ -262,13 +263,13 @@ fn update_memory_display(panel: &winpane::Panel, info: &MemInfo) {
     );
 }
 
-fn update_uptime_display(panel: &winpane::Panel) {
+fn update_uptime_display(panel: &winpane::Panel, y_off: f32) {
     panel.set_text(
         "up_val",
         TextElement {
             text: format_uptime(),
             x: 48.0,
-            y: 80.0,
+            y: y_off + 52.0,
             font_size: 12.0,
             color: Color::rgba(232, 232, 237, 255),
             font_family: Some("Consolas".into()),
@@ -298,6 +299,7 @@ fn main() -> Result<(), winpane::Error> {
     }
 
     let no_titlebar = args.iter().any(|a| a == "--no-titlebar");
+    let tb_h = if no_titlebar { 0u32 } else { 28 };
     let capture_excluded = args.iter().any(|a| a == "--capture-excluded");
 
     let opacity: f32 = args
@@ -345,9 +347,9 @@ fn main() -> Result<(), winpane::Error> {
     let panel = ctx.create_panel(PanelConfig {
         placement,
         width: 180,
-        height: 108,
+        height: 80 + tb_h,
         draggable: true,
-        drag_height: if no_titlebar { 108 } else { 28 },
+        drag_height: if no_titlebar { 80 + tb_h } else { 28 },
         position_key: Some("system_monitor".into()),
     })?;
 
@@ -361,12 +363,13 @@ fn main() -> Result<(), winpane::Error> {
         panel.set_opacity(opacity);
     }
 
-    setup_static_scene(&panel, no_titlebar);
+    setup_static_scene(&panel, no_titlebar, tb_h);
     panel.show();
 
     println!("winpane system_monitor: live system stats at top-left.");
     println!("Updates every 2 seconds. Press Ctrl+C to exit.");
 
+    let y_off = tb_h as f32;
     let mut prev_cpu = sample_cpu().expect("failed to read initial CPU times");
 
     loop {
@@ -374,14 +377,14 @@ fn main() -> Result<(), winpane::Error> {
 
         if let Some(curr_cpu) = sample_cpu() {
             let pct = cpu_percent(&prev_cpu, &curr_cpu);
-            update_cpu_display(&panel, pct);
+            update_cpu_display(&panel, pct, y_off);
             prev_cpu = curr_cpu;
         }
 
         if let Some(mem) = get_memory_info() {
-            update_memory_display(&panel, &mem);
+            update_memory_display(&panel, &mem, y_off);
         }
 
-        update_uptime_display(&panel);
+        update_uptime_display(&panel, y_off);
     }
 }

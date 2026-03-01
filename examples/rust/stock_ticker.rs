@@ -133,7 +133,7 @@ fn simulate_quotes(symbols: &[String], prev_prices: &[f64]) -> Vec<StockQuote> {
 }
 
 /// Lays out the ticker elements horizontally across the Panel.
-fn layout_ticker(panel: &winpane::Panel, quotes: &[StockQuote]) {
+fn layout_ticker(panel: &winpane::Panel, quotes: &[StockQuote], y_off: f32) {
     let mut x: f32 = 12.0;
     for (i, q) in quotes.iter().enumerate() {
         let color = price_color(q.change_pct);
@@ -145,7 +145,7 @@ fn layout_ticker(panel: &winpane::Panel, quotes: &[StockQuote]) {
             TextElement {
                 text: q.symbol.clone(),
                 x,
-                y: 32.0,
+                y: y_off + 8.0,
                 font_size: 12.0,
                 color: Color::rgba(148, 148, 160, 255),
                 bold: true,
@@ -160,7 +160,7 @@ fn layout_ticker(panel: &winpane::Panel, quotes: &[StockQuote]) {
             TextElement {
                 text: format!("{:.2}", q.price),
                 x,
-                y: 30.0,
+                y: y_off + 6.0,
                 font_size: 14.0,
                 color,
                 bold: true,
@@ -176,7 +176,7 @@ fn layout_ticker(panel: &winpane::Panel, quotes: &[StockQuote]) {
             TextElement {
                 text: arrow.to_string(),
                 x,
-                y: 30.0,
+                y: y_off + 6.0,
                 font_size: 14.0,
                 color,
                 font_family: Some("Consolas".to_string()),
@@ -192,7 +192,7 @@ fn layout_ticker(panel: &winpane::Panel, quotes: &[StockQuote]) {
                 TextElement {
                     text: "·".to_string(),
                     x,
-                    y: 30.0,
+                    y: y_off + 6.0,
                     font_size: 14.0,
                     color: Color::rgba(148, 148, 160, 128),
                     ..Default::default()
@@ -222,6 +222,7 @@ fn main() -> Result<(), winpane::Error> {
     }
 
     let no_titlebar = args.iter().any(|a| a == "--no-titlebar");
+    let tb_h = if no_titlebar { 0u32 } else { 24 };
     let capture_excluded = args.iter().any(|a| a == "--capture-excluded");
 
     let opacity: f32 = args
@@ -280,9 +281,9 @@ fn main() -> Result<(), winpane::Error> {
     let panel = ctx.create_panel(PanelConfig {
         placement,
         width,
-        height: 56,
+        height: 32 + tb_h,
         draggable: true,
-        drag_height: if no_titlebar { 56 } else { 24 },
+        drag_height: if no_titlebar { 32 + tb_h } else { 24 },
         position_key: Some("stock_ticker".into()),
     })?;
 
@@ -303,7 +304,7 @@ fn main() -> Result<(), winpane::Error> {
             x: 0.0,
             y: 0.0,
             width: width as f32,
-            height: 56.0,
+            height: (32 + tb_h) as f32,
             fill: Color::rgba(18, 18, 22, 228),
             corner_radius: 6.0,
             border_color: Some(Color::rgba(255, 255, 255, 18)),
@@ -386,7 +387,7 @@ fn main() -> Result<(), winpane::Error> {
                 printed_sim_msg = false;
             }
 
-            layout_ticker(&panel, &quotes);
+            layout_ticker(&panel, &quotes, tb_h as f32);
             last_poll = Instant::now();
         }
 
