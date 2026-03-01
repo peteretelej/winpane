@@ -82,7 +82,9 @@ fn hover_rect(x: f32, y: f32, width: f32) -> winpane::RectElement {
 fn main() -> Result<(), winpane::Error> {
     use std::thread;
     use std::time::{Duration, Instant};
-    use winpane::{Anchor, Color, Context, Event, PanelConfig, Placement, RectElement, TextElement};
+    use winpane::{
+        Anchor, Color, Context, Event, PanelConfig, Placement, RectElement, TextElement,
+    };
 
     // ── CLI flags ──────────────────────────────────────────────────
     let args: Vec<String> = std::env::args().collect();
@@ -103,11 +105,15 @@ fn main() -> Result<(), winpane::Error> {
     let no_titlebar = args.iter().any(|a| a == "--no-titlebar");
     let capture_excluded = args.iter().any(|a| a == "--capture-excluded");
 
-    let opacity: f32 = args.iter().position(|a| a == "--opacity")
+    let opacity: f32 = args
+        .iter()
+        .position(|a| a == "--opacity")
         .and_then(|i| args.get(i + 1)?.parse().ok())
         .unwrap_or(1.0);
 
-    let backdrop = args.iter().position(|a| a == "--backdrop")
+    let backdrop = args
+        .iter()
+        .position(|a| a == "--backdrop")
         .and_then(|i| args.get(i + 1).map(String::as_str))
         .and_then(|s| match s {
             "mica" => Some(winpane::Backdrop::Mica),
@@ -115,12 +121,14 @@ fn main() -> Result<(), winpane::Error> {
             _ => None,
         });
 
-    let monitor_index: usize = args.iter().position(|a| a == "--monitor")
+    let monitor_index: usize = args
+        .iter()
+        .position(|a| a == "--monitor")
         .and_then(|i| args.get(i + 1)?.parse().ok())
         .unwrap_or(0);
 
-    let explicit_position: Option<(i32, i32)> = args.iter().position(|a| a == "--position")
-        .and_then(|i| {
+    let explicit_position: Option<(i32, i32)> =
+        args.iter().position(|a| a == "--position").and_then(|i| {
             let val = args.get(i + 1)?;
             let parts: Vec<&str> = val.split(',').collect();
             Some((parts.first()?.parse().ok()?, parts.get(1)?.parse().ok()?))
@@ -130,7 +138,11 @@ fn main() -> Result<(), winpane::Error> {
     let placement = if let Some((x, y)) = explicit_position {
         Placement::Position { x, y }
     } else {
-        Placement::Monitor { index: monitor_index, anchor: Anchor::BottomRight, margin: 130 }
+        Placement::Monitor {
+            index: monitor_index,
+            anchor: Anchor::BottomRight,
+            margin: 130,
+        }
     };
 
     let ctx = Context::new()?;
@@ -144,9 +156,15 @@ fn main() -> Result<(), winpane::Error> {
         position_key: Some("countdown_timer".into()),
     })?;
 
-    if let Some(bd) = backdrop { panel.set_backdrop(bd); }
-    if capture_excluded { panel.set_capture_excluded(true); }
-    if opacity < 1.0 { panel.set_opacity(opacity); }
+    if let Some(bd) = backdrop {
+        panel.set_backdrop(bd);
+    }
+    if capture_excluded {
+        panel.set_capture_excluded(true);
+    }
+    if opacity < 1.0 {
+        panel.set_opacity(opacity);
+    }
 
     // Background
     panel.set_rect(

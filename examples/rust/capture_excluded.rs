@@ -23,7 +23,11 @@ fn main() -> Result<(), winpane::Error> {
     let ctx = Context::new()?;
 
     let hud = ctx.create_hud(HudConfig {
-        placement: Placement::Monitor { index: 0, anchor: Anchor::TopLeft, margin: 20 },
+        placement: Placement::Monitor {
+            index: 0,
+            anchor: Anchor::TopLeft,
+            margin: 20,
+        },
         width: 350,
         height: 150,
         position_key: None,

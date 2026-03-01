@@ -166,8 +166,11 @@ fn main() -> Result<(), winpane::Error> {
 
         // DPI-aware positioning: GetCursorPos returns physical coords but
         // set_position expects logical coords (engine DPI-scales them).
-        let cursor_monitor = monitors.iter()
-            .find(|m| cx >= m.x && cx < m.x + m.width as i32 && cy >= m.y && cy < m.y + m.height as i32)
+        let cursor_monitor = monitors
+            .iter()
+            .find(|m| {
+                cx >= m.x && cx < m.x + m.width as i32 && cy >= m.y && cy < m.y + m.height as i32
+            })
             .or(monitors.first());
         let scale = cursor_monitor.map(|m| m.dpi as f32 / 96.0).unwrap_or(1.0);
         let lx = (cx as f32 / scale) as i32;

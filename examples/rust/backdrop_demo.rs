@@ -27,7 +27,11 @@ fn main() -> Result<(), winpane::Error> {
 
     // Left panel: Mica backdrop
     let panel1 = ctx.create_panel(PanelConfig {
-        placement: Placement::Monitor { index: 0, anchor: Anchor::TopLeft, margin: 20 },
+        placement: Placement::Monitor {
+            index: 0,
+            anchor: Anchor::TopLeft,
+            margin: 20,
+        },
         width: 300,
         height: 200,
         ..Default::default()
@@ -62,7 +66,11 @@ fn main() -> Result<(), winpane::Error> {
 
     // Right panel: Acrylic backdrop
     let panel2 = ctx.create_panel(PanelConfig {
-        placement: Placement::Monitor { index: 0, anchor: Anchor::TopRight, margin: 20 },
+        placement: Placement::Monitor {
+            index: 0,
+            anchor: Anchor::TopRight,
+            margin: 20,
+        },
         width: 300,
         height: 200,
         ..Default::default()

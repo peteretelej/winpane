@@ -40,7 +40,11 @@ fn main() -> Result<(), winpane::Error> {
     let ctx = Context::new()?;
     let pip = ctx.create_pip(PipConfig {
         source_hwnd,
-        placement: Placement::Monitor { index: 0, anchor: Anchor::TopRight, margin: 20 },
+        placement: Placement::Monitor {
+            index: 0,
+            anchor: Anchor::TopRight,
+            margin: 20,
+        },
         width: 400,
         height: 300,
         position_key: None,
