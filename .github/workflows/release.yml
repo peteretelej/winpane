@@ -27,7 +27,8 @@ jobs:
           tool: cargo-wix
 
       - name: Build MSI
-        run: cargo wix --package winpane-host --no-build --nocapture
+        run: cargo wix --no-build --nocapture
+        working-directory: crates/winpane-host
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
@@ -39,6 +40,7 @@ jobs:
             target/release/winpane.lib
             crates/winpane-ffi/include/winpane.h
             target/wix/*.msi
+            crates/winpane-host/target/wix/*.msi
 
   build-node:
     runs-on: windows-latest
@@ -107,7 +109,7 @@ jobs:
       - name: Rename MSI
         run: |
           VERSION=${{ steps.version.outputs.VERSION }}
-          MSI_FILE=$(ls artifacts/target/wix/*.msi 2>/dev/null | head -1)
+          MSI_FILE=$(find artifacts -name '*.msi' 2>/dev/null | head -1)
           if [ -n "$MSI_FILE" ]; then
             cp "$MSI_FILE" "winpane-host-${VERSION}-x86_64.msi"
           fi
