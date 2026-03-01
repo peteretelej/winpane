@@ -6,9 +6,7 @@ Create transparent floating overlays on Windows — stats HUDs, interactive pane
 
 ## Demo
 
-![winpane demo](docs/images/hero.gif)
-
-<video src="docs/demo-video.mp4" autoplay loop muted playsinline width="720" title="winpane overlays demo"></video>
+<video src="https://github.com/user-attachments/assets/dc0ef4b6-7683-408f-b6c8-db81ac34a941" controls muted width="720" title="winpane overlays demo"></video>
 
 ## Try it
 
