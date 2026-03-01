@@ -21,13 +21,11 @@ cargo run -p winpane --example system_monitor -- --no-titlebar
 cargo run -p winpane --example stock_ticker -- --monitor 1
 
 # Glucose monitor  (demo mode - cycles all visual states), no titlebar
-cargo run -p winpane --example glucose_monitor -- --demo --no-titlebar 
+cargo run -p winpane --example glucose_monitor -- --demo --unit mmol --no-titlebar 
 
-# mmol/L units, explicit position (overrides monitor/anchor), shows up at 100,100
-cargo run -p winpane --example glucose_monitor -- --unit mmol 
-
-# example hidden from screen capture, try to screenshot 
-cargo run -p winpane --example capture_excluded
+# example hidden from screen capture, try to screenshot, explicit position 
+cargo run -p winpane --example capture_excluded -- --position 100,100
+```
 
 # Any example's help
 cargo run -p winpane --example clock_overlay -- --help
