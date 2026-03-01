@@ -6,9 +6,14 @@
 //! glucose values.
 //!
 //! Demonstrates: Panel creation, draggable surface, dynamic background color, text elements,
-//! timed polling, environment-driven configuration, design system tokens.
+//! timed polling, environment-driven configuration, design system tokens, CLI flags.
 //!
 //! Run on Windows: cargo run -p winpane --example glucose_monitor
+//!
+//! Flags:
+//!   --demo           — cycle through preset glucose values (ignores Nightscout)
+//!   --unit mmol      — display in mmol/L instead of mg/dL
+//!   --help           — print usage and exit
 //!
 //! Environment variables (optional):
 //!   NIGHTSCOUT_URL   — base URL of your Nightscout site (e.g. https://my.ns.site)
@@ -48,6 +53,46 @@ fn bg_color_for_sgv(sgv: u32) -> Color {
         70..=180 => Color::rgba(18, 40, 30, 228),
         181..=250 => Color::rgba(40, 36, 18, 228),
         _ => Color::rgba(40, 18, 18, 228),
+    }
+}
+
+/// Returns an arrow/text color based on the glucose range.
+fn arrow_color_for_sgv(sgv: u32) -> Color {
+    match sgv {
+        70..=180 => Color::rgba(52, 211, 153, 255),
+        55..=69 | 181..=250 => Color::rgba(251, 191, 36, 255),
+        _ => Color::rgba(239, 68, 68, 255),
+    }
+}
+
+/// Returns a human-readable range label for the glucose value.
+fn range_label(sgv: u32) -> &'static str {
+    match sgv {
+        70..=180 => "IN RANGE",
+        181..=250 => "HIGH",
+        251.. => "URGENT HIGH",
+        55..=69 => "LOW",
+        _ => "URGENT LOW",
+    }
+}
+
+const MGDL_TO_MMOL: f64 = 18.0182;
+
+/// Formats a glucose value in the requested unit.
+fn format_glucose(sgv: u32, mmol: bool) -> String {
+    if mmol {
+        format!("{:.1}", sgv as f64 / MGDL_TO_MMOL)
+    } else {
+        format!("{sgv}")
+    }
+}
+
+/// Returns the unit label string.
+fn unit_label(mmol: bool) -> &'static str {
+    if mmol {
+        "mmol/L"
+    } else {
+        "mg/dL"
     }
 }
 
@@ -119,8 +164,8 @@ fn simulate_reading(prev_sgv: u32) -> GlucoseReading {
     nanos.hash(&mut hasher);
     let hash = hasher.finish();
 
-    // Random delta in -15..=15
-    let delta = (hash % 31) as i32 - 15;
+    // Random delta in -20..=20
+    let delta = (hash % 41) as i32 - 20;
     let new_sgv = (prev_sgv as i32 + delta).clamp(40, 350) as u32;
 
     let direction = match delta {
@@ -139,14 +184,52 @@ fn simulate_reading(prev_sgv: u32) -> GlucoseReading {
     }
 }
 
+/// A single step in the demo sequence.
+struct DemoStep {
+    sgv: u32,
+    direction: &'static str,
+    hold_secs: u64,
+}
+
+const DEMO_SEQUENCE: &[DemoStep] = &[
+    DemoStep { sgv: 110, direction: "Flat", hold_secs: 5 },
+    DemoStep { sgv: 140, direction: "FortyFiveUp", hold_secs: 4 },
+    DemoStep { sgv: 180, direction: "SingleUp", hold_secs: 4 },
+    DemoStep { sgv: 220, direction: "SingleUp", hold_secs: 4 },
+    DemoStep { sgv: 290, direction: "DoubleUp", hold_secs: 5 },
+    DemoStep { sgv: 250, direction: "FortyFiveDown", hold_secs: 4 },
+    DemoStep { sgv: 180, direction: "SingleDown", hold_secs: 4 },
+    DemoStep { sgv: 110, direction: "FortyFiveDown", hold_secs: 4 },
+    DemoStep { sgv: 80, direction: "SingleDown", hold_secs: 4 },
+    DemoStep { sgv: 62, direction: "SingleDown", hold_secs: 5 },
+    DemoStep { sgv: 45, direction: "DoubleDown", hold_secs: 5 },
+    DemoStep { sgv: 70, direction: "FortyFiveUp", hold_secs: 4 },
+];
+
 #[allow(clippy::print_stdout)]
 fn main() -> Result<(), winpane::Error> {
+    let args: Vec<String> = std::env::args().collect();
+    if args.iter().any(|a| a == "--help") {
+        println!("Usage: glucose_monitor [--demo] [--unit mmol|mgdl]");
+        println!();
+        println!("  --demo        cycle through preset glucose values");
+        println!("  --unit mmol   display in mmol/L (default: mg/dL)");
+        return Ok(());
+    }
+    let demo_mode = args.iter().any(|a| a == "--demo");
+    let unit_mmol = args
+        .iter()
+        .position(|a| a == "--unit")
+        .and_then(|i| args.get(i + 1).map(String::as_str))
+        .map(|s| s == "mmol")
+        .unwrap_or(false);
+
     let ctx = Context::new()?;
 
     let panel = ctx.create_panel(PanelConfig {
         placement: Placement::Position { x: 1760, y: 902 },
-        width: 140,
-        height: 93,
+        width: 170,
+        height: 108,
         draggable: true,
         drag_height: 28,
         position_key: None,
@@ -160,9 +243,9 @@ fn main() -> Result<(), winpane::Error> {
         RectElement {
             x: 0.0,
             y: 0.0,
-            width: 140.0,
-            height: 93.0,
-            fill: bg_color_for_sgv(120),
+            width: 170.0,
+            height: 108.0,
+            fill: bg_color_for_sgv(160),
             corner_radius: 10.0,
             border_color: Some(Color::rgba(255, 255, 255, 18)),
             border_width: 1.0,
@@ -176,7 +259,7 @@ fn main() -> Result<(), winpane::Error> {
         RectElement {
             x: 0.0,
             y: 0.0,
-            width: 140.0,
+            width: 170.0,
             height: 28.0,
             fill: Color::rgba(28, 28, 33, 255),
             corner_radius: 10.0,
@@ -207,7 +290,9 @@ fn main() -> Result<(), winpane::Error> {
         Duration::from_secs(30) // 30 seconds for simulation
     };
 
-    if nightscout_url.is_some() {
+    if demo_mode {
+        println!("winpane glucose_monitor: demo mode (~52s cycle).");
+    } else if nightscout_url.is_some() {
         println!("winpane glucose_monitor: polling Nightscout every 5 min.");
     } else {
         println!("winpane glucose_monitor: simulated mode (set NIGHTSCOUT_URL for live data).");
@@ -216,14 +301,29 @@ fn main() -> Result<(), winpane::Error> {
 
     let mut last_poll = Instant::now() - poll_interval; // force immediate first poll
     let mut current_reading = GlucoseReading {
-        sgv: 120,
+        sgv: 160,
         direction: "Flat".to_string(),
         timestamp: Instant::now(),
     };
 
+    // Demo mode state
+    let mut demo_index: usize = 0;
+    let mut demo_step_start = Instant::now();
+
     loop {
-        // Poll if interval has elapsed
-        if last_poll.elapsed() >= poll_interval {
+        if demo_mode {
+            let step = &DEMO_SEQUENCE[demo_index];
+            if demo_step_start.elapsed() >= Duration::from_secs(step.hold_secs) {
+                demo_index = (demo_index + 1) % DEMO_SEQUENCE.len();
+                demo_step_start = Instant::now();
+            }
+            let step = &DEMO_SEQUENCE[demo_index];
+            current_reading = GlucoseReading {
+                sgv: step.sgv,
+                direction: step.direction.to_string(),
+                timestamp: Instant::now(),
+            };
+        } else if last_poll.elapsed() >= poll_interval {
             if let Some(ref url) = nightscout_url {
                 if let Some(reading) = fetch_nightscout(url, nightscout_token.as_deref()) {
                     current_reading = reading;
@@ -234,15 +334,17 @@ fn main() -> Result<(), winpane::Error> {
             last_poll = Instant::now();
         }
 
+        let sgv = current_reading.sgv;
+
         // Update background color based on glucose range
         panel.set_rect(
             "bg",
             RectElement {
                 x: 0.0,
                 y: 0.0,
-                width: 140.0,
-                height: 93.0,
-                fill: bg_color_for_sgv(current_reading.sgv),
+                width: 170.0,
+                height: 108.0,
+                fill: bg_color_for_sgv(sgv),
                 corner_radius: 10.0,
                 border_color: Some(Color::rgba(255, 255, 255, 18)),
                 border_width: 1.0,
@@ -250,21 +352,45 @@ fn main() -> Result<(), winpane::Error> {
             },
         );
 
-        // Update reading text: "{sgv} {arrow}"
+        // Update reading text: "{glucose} {arrow}"
         let arrow = direction_to_arrow(&current_reading.direction);
         panel.set_text(
             "reading",
             TextElement {
-                text: format!("{} {}", current_reading.sgv, arrow),
+                text: format!("{} {}", format_glucose(sgv, unit_mmol), arrow),
                 x: 12.0,
                 y: 34.0,
-                font_size: 30.0,
-                color: Color::rgba(232, 232, 237, 255),
-                // NOTE: bold and font_family are stored in the scene graph
-                // but not honored by the D2D renderer yet. Set for forward
-                // compatibility.
+                font_size: 28.0,
+                color: arrow_color_for_sgv(sgv),
                 bold: true,
                 font_family: Some("Consolas".to_string()),
+                ..Default::default()
+            },
+        );
+
+        // Unit label
+        panel.set_text(
+            "unit",
+            TextElement {
+                text: unit_label(unit_mmol).to_string(),
+                x: 120.0,
+                y: 35.0,
+                font_size: 11.0,
+                color: Color::rgba(148, 148, 160, 255),
+                ..Default::default()
+            },
+        );
+
+        // Range label
+        panel.set_text(
+            "range",
+            TextElement {
+                text: range_label(sgv).to_string(),
+                x: 12.0,
+                y: 66.0,
+                font_size: 11.0,
+                color: arrow_color_for_sgv(sgv),
+                bold: true,
                 ..Default::default()
             },
         );
@@ -277,7 +403,7 @@ fn main() -> Result<(), winpane::Error> {
             TextElement {
                 text: stale_text,
                 x: 12.0,
-                y: 70.0,
+                y: 80.0,
                 font_size: 12.0,
                 color: stale_color,
                 ..Default::default()
