@@ -1,6 +1,12 @@
 # winpane
 
-Create transparent floating overlays on Windows — stats HUDs, interactive panels, PiP thumbnails, tray icons. Rust core, usable from TypeScript, Python, C, Go, Zig.
+**Windows overlay SDK: HUDs, interactive panels, PiP thumbnails, tray icons. High-perf Rust core with bindings for TypeScript, C, Python, Go, Zig, and any language via JSON-RPC.**
+
+[![Release](https://img.shields.io/github/v/release/peteretelej/winpane)](https://github.com/peteretelej/winpane/releases)
+[![CI](https://img.shields.io/github/actions/workflow/status/peteretelej/winpane/ci.yml?label=CI)](https://github.com/peteretelej/winpane/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/badge/docs-peteretelej.github.io%2Fwinpane-blue)](https://peteretelej.github.io/winpane/)
+[![DeepWiki](https://img.shields.io/badge/DeepWiki-peteretelej%2Fwinpane-blue?logo=data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJMMyA3VjE3TDEyIDIyTDIxIDE3VjdMMTIgMloiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+CjxwYXRoIGQ9Ik0xMiAyMlYxMiIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KPHBhdGggZD0iTTIxIDdMMTIgMTJMMyA3IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4=)](https://deepwiki.com/peteretelej/winpane)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ![winpane overlays floating over VS Code](docs/images/winpane.png)
 
@@ -190,7 +196,7 @@ If building from source, see the [TypeScript guide](docs/guides/typescript.md).
 
 ## Why I built this
 
-I was diagnosed with Type 1 diabetes in 2025. Most CGM apps are geolocked and unavailable in Kenya, so I built [mysukari.com](https://mysukari.com) — a free platform that connects any CGM via Nightscout for reporting and analysis. I wanted a small desktop overlay showing my glucose reading and trend arrow, updating every few minutes, hidden from screen shares. Nothing lightweight and multi-language existed, so I built winpane.
+I was diagnosed with Type 1 diabetes in 2025. Most CGM apps are geolocked and unavailable in Kenya, so I built [mysukari.com](https://mysukari.com) — a free platform that connects any CGM via Nightscout for reporting (_[view my dashboard](https://mysukari.com/tools/sugar-dashboard/peter?history=week)_) and analysis. I wanted a small desktop overlay showing my glucose reading and trend arrow, updating every few minutes, hidden from screen shares. Nothing lightweight and multi-language existed, so I built winpane.
 
 I had no prior experience with DirectComposition, Direct2D, or Win32 GPU rendering. [GitHub Copilot](https://github.com/features/copilot) with Claude Opus 4.6 was instrumental in building this.
 
