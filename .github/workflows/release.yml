@@ -145,14 +145,14 @@ jobs:
       - name: Publish to crates.io (idempotent)
         shell: bash
         run: |
-          declare -A dirs=([winpane-core]=crates/winpane-core [winpane]=crates/winpane [winpane-ffi]=crates/winpane-ffi [winpane-host]=crates/winpane-host)
           for pkg in winpane-core winpane winpane-ffi winpane-host; do
-            VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' "${dirs[$pkg]}/Cargo.toml" | head -1)
-            if cargo search "$pkg" 2>/dev/null | grep -q "^${pkg} = \"${VERSION}\""; then
-              echo "$pkg@$VERSION already published, skipping"
+            echo "Publishing $pkg..."
+            OUTPUT=$(cargo publish -p "$pkg" 2>&1) && echo "$pkg published successfully" && continue
+            if echo "$OUTPUT" | grep -q "already exists"; then
+              echo "$pkg already published, skipping"
             else
-              echo "Publishing $pkg@$VERSION"
-              cargo publish -p "$pkg"
+              echo "$OUTPUT"
+              exit 1
             fi
           done
         env:
