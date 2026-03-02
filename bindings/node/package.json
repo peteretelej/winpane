@@ -41,6 +41,6 @@
     "@napi-rs/cli": "^3"
   },
   "scripts": {
-    "build": "napi build --platform --release"
+    "build": "napi build --platform --release --no-js --dts generated.d.ts"
   }
 }

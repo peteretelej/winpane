@@ -29,6 +29,10 @@ nul
 # Node
 node_modules/
 bindings/node/dist/
+bindings/node/target/
+bindings/node/package-lock.json
+bindings/node/generated.d.ts
+*.node
 
 _docs/
 nul
