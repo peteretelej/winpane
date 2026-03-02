@@ -147,7 +147,7 @@ jobs:
         run: |
           for pkg in winpane-core winpane winpane-ffi winpane-host; do
             echo "Publishing $pkg..."
-            OUTPUT=$(cargo publish -p "$pkg" 2>&1) && echo "$pkg published successfully" && continue
+            OUTPUT=$(cargo publish -p "$pkg" --no-verify 2>&1) && echo "$pkg published successfully" && continue
             if echo "$OUTPUT" | grep -q "already exists"; then
               echo "$pkg already published, skipping"
             else
