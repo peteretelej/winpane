@@ -56,6 +56,12 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
 
+## Version bump
+
+Use the `bump-version` skill: read `.agents/skills/bump-version/SKILL.md` for full procedure.
+
+Quick: `.\scripts\bump-version.ps1 -To <NEW>` (PowerShell) or `./scripts/bump-version.sh <NEW>` (bash). Bumps all 8 versioned files in lockstep, runs `cargo check` + `cargo fmt --check`. Tag with `v<NEW>` to trigger release CI.
+
 ## Publishing
 
 - npm: Trusted Publishing via OIDC (`id-token: write`). **No `NODE_AUTH_TOKEN` or `NPM_TOKEN` needed.** No `--provenance` flag needed (auto-generated).

@@ -24,7 +24,7 @@
     "index.d.ts"
   ],
   "napi": {
-    "name": "winpane",
+    "binaryName": "winpane",
     "targets": [
       "x86_64-pc-windows-msvc",
       "aarch64-pc-windows-msvc"
