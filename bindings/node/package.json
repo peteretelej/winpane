@@ -41,7 +41,6 @@
     "@napi-rs/cli": "^3"
   },
   "scripts": {
-    "build": "napi build --platform --release",
-    "prepublishOnly": "napi prepublish -t npm"
+    "build": "napi build --platform --release"
   }
 }

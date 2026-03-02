@@ -182,6 +182,9 @@ jobs:
         run: npm install
         working-directory: bindings/node
 
+      - name: Stage native addon into platform package
+        run: cp bindings/node/winpane.win32-x64-msvc.node bindings/node/npm/win32-x64-msvc/
+
       - name: Publish platform package (idempotent)
         run: |
           PKG_NAME=$(node -p "require('./package.json').name")
