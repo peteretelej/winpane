@@ -145,7 +145,15 @@ jobs:
       - name: Publish to crates.io (idempotent)
         shell: bash
         run: |
+          FIRST=true
           for pkg in winpane-core winpane winpane-ffi winpane-host; do
+            # Sleep between publishes to let crates.io index the previous crate
+            if [ "$FIRST" = true ]; then
+              FIRST=false
+            else
+              echo "Waiting 5s for crates.io index to update..."
+              sleep 5
+            fi
             echo "Publishing $pkg..."
             OUTPUT=$(cargo publish -p "$pkg" --no-verify 2>&1) && echo "$pkg published successfully" && continue
             if echo "$OUTPUT" | grep -q "already exists"; then

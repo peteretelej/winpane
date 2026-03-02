@@ -1,6 +1,6 @@
 [package]
 name = "winpane-host"
-version = "0.1.1"
+version = "0.1.2"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -8,7 +8,7 @@ authors.workspace = true
 description = "CLI/stdio JSON-RPC host for winpane - Windows companion surface SDK"
 
 [dependencies]
-winpane = { version = "0.1.1", path = "../winpane" }
+winpane = { version = "0.1.2", path = "../winpane" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 image = { workspace = true }

@@ -82,17 +82,17 @@ Pushing the `v*` tag triggers `.github/workflows/release.yml` which automaticall
 - Builds release binaries (DLL, EXE, MSI, native addon)
 - Creates a GitHub Release with all assets
 - Publishes to crates.io (`winpane-core` → `winpane` → `winpane-ffi` → `winpane-host`)
-- Publishes to npm (`@nicepane/win32-x64-msvc` + `nicepane`)
+- Publishes to npm (`@winpane/win32-x64-msvc` + `winpane`)
 
 ### 6. Verify release (if tagged)
 
 - GitHub Release page shows the tag with SDK zip, MSI, and .node assets
 - crates.io: all 4 crates at the new version
-- npm: `nicepane` and `@nicepane/win32-x64-msvc` at the new version
+- npm: `winpane` and `@winpane/win32-x64-msvc` at the new version
 
 ## Rollback
 
 - **Delete tag:** `git tag -d v<VER> && git push origin :refs/tags/v<VER>`
 - **Delete GitHub Release:** `gh release delete v<VER> --yes`
 - **Yank crates.io** (permanent, only yank): `cargo yank --version <VER> -p <crate>`
-- **Unpublish npm** (within 72h): `npm unpublish @nicepane/win32-x64-msvc@<VER>`
+- **Unpublish npm** (within 72h): `npm unpublish @winpane/win32-x64-msvc@<VER>`
