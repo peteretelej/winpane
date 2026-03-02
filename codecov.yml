@@ -1,0 +1,30 @@
+# Codecov — relaxed config for a Windows GPU/Win32 SDK
+# Most code is inherently untestable (D3D11, HWND, COM, Shell APIs).
+# We value useful tests over coverage numbers.
+
+codecov:
+  require_ci_to_pass: true
+
+coverage:
+  status:
+    project:
+      default:
+        target: auto       # compare against base commit, not a fixed number
+        threshold: 10%     # allow up to 10% drop without failing
+        if_ci_failed: success
+    patch:
+      default:
+        target: 0%         # don't gate PRs on new-code coverage
+        threshold: 100%
+        if_ci_failed: success
+
+comment:
+  layout: "condensed_header, condensed_files"
+  behavior: default
+  require_changes: true    # only comment when coverage actually changes
+  after_n_builds: 1
+
+ignore:
+  - "examples/**"
+  - "bindings/node/**"
+  - "crates/winpane-ffi/build.rs"

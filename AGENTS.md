@@ -1,6 +1,6 @@
 <!-- AGENTS.md must remain concise - critical info & compacted indexes only, no verbose explanations -->
 
-Read ~/.agents/AGENTS.md if it exists for global instructions.
+ALWAYS read global AGENTS instructions at ~/.agents/AGENTS.md if it exists.
 
 # winpane
 

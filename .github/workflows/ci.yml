@@ -70,7 +70,7 @@ jobs:
         with:
           tool: cargo-llvm-cov
       - name: Generate coverage
-        run: cargo llvm-cov --workspace --lcov --output-path lcov.info
+        run: cargo llvm-cov --workspace --lcov --output-path lcov.info --ignore-filename-regex "examples/"
       - uses: codecov/codecov-action@v5
         with:
           files: lcov.info
