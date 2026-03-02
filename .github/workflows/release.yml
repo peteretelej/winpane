@@ -134,12 +134,19 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Publish to crates.io
+      - name: Publish to crates.io (idempotent)
+        shell: bash
         run: |
-          cargo publish -p winpane-core
-          cargo publish -p winpane
-          cargo publish -p winpane-ffi
-          cargo publish -p winpane-host
+          declare -A dirs=([winpane-core]=crates/winpane-core [winpane]=crates/winpane [winpane-ffi]=crates/winpane-ffi [winpane-host]=crates/winpane-host)
+          for pkg in winpane-core winpane winpane-ffi winpane-host; do
+            VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' "${dirs[$pkg]}/Cargo.toml" | head -1)
+            if cargo search "$pkg" 2>/dev/null | grep -q "^${pkg} = \"${VERSION}\""; then
+              echo "$pkg@$VERSION already published, skipping"
+            else
+              echo "Publishing $pkg@$VERSION"
+              cargo publish -p "$pkg"
+            fi
+          done
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
@@ -167,10 +174,24 @@ jobs:
         run: npm install
         working-directory: bindings/node
 
-      - name: Publish platform package
-        run: npm publish --access public
+      - name: Publish platform package (idempotent)
+        run: |
+          PKG_NAME=$(node -p "require('./package.json').name")
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if npm view "${PKG_NAME}@${PKG_VERSION}" version 2>/dev/null; then
+            echo "${PKG_NAME}@${PKG_VERSION} already published, skipping"
+          else
+            npm publish --access public
+          fi
         working-directory: bindings/node/npm/win32-x64-msvc
 
-      - name: Publish root package
-        run: npm publish --access public
+      - name: Publish root package (idempotent)
+        run: |
+          PKG_NAME=$(node -p "require('./package.json').name")
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if npm view "${PKG_NAME}@${PKG_VERSION}" version 2>/dev/null; then
+            echo "${PKG_NAME}@${PKG_VERSION} already published, skipping"
+          else
+            npm publish --access public
+          fi
         working-directory: bindings/node

@@ -56,6 +56,10 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
 
+## Publishing
+
+- npm: Trusted Publishing via OIDC (`id-token: write`). **No `NODE_AUTH_TOKEN` or `NPM_TOKEN` needed.** No `--provenance` flag needed (auto-generated).
+
 ## Architecture summary
 
 - Engine thread owns all HWNDs and GPU resources
