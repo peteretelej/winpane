@@ -1,6 +1,6 @@
 [package]
 name = "winpane-ffi"
-version = "0.1.0"
+version = "0.1.1"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -14,7 +14,7 @@ name = "winpane"
 crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
-winpane = { version = "0.1.0", path = "../winpane" }
+winpane = { version = "0.1.1", path = "../winpane" }
 
 [build-dependencies]
 cbindgen = { workspace = true }

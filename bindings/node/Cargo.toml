@@ -1,6 +1,6 @@
 [package]
 name = "winpane-node"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 rust-version = "1.88"
 license = "MIT"
@@ -10,7 +10,7 @@ description = "Node.js native addon for winpane - Windows companion surface SDK"
 crate-type = ["cdylib"]
 
 [dependencies]
-winpane = { version = "0.1.0", path = "../../crates/winpane" }
+winpane = { version = "0.1.1", path = "../../crates/winpane" }
 napi = { version = "3", default-features = false, features = ["napi4"] }
 napi-derive = "3"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "bmp"] }

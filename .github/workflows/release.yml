@@ -135,7 +135,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Download node addon
@@ -145,9 +145,9 @@ jobs:
           path: bindings/node
 
       - name: Publish platform package
-        run: npm publish --provenance --access public
+        run: npm publish --access public
         working-directory: bindings/node/npm/win32-x64-msvc
 
       - name: Publish root package
-        run: npm publish --provenance --access public
+        run: npm publish --access public
         working-directory: bindings/node
