@@ -126,11 +126,13 @@ jobs:
 
   publish-crates:
     needs: [create-release]
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
       - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
 
       - name: Publish to crates.io
         run: |
@@ -160,6 +162,10 @@ jobs:
         with:
           name: node-addon
           path: bindings/node
+
+      - name: Install dependencies
+        run: npm install
+        working-directory: bindings/node
 
       - name: Publish platform package
         run: npm publish --access public
