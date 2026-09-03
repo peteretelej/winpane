@@ -67,7 +67,7 @@ fn load_image_rgba(path: &str, premultiply: bool) -> Result<(Vec<u8>, u32, u32)>
     let mut pixels = rgba.into_raw();
 
     if premultiply {
-        for chunk in pixels.chunks_exact_mut(4) {
+        for chunk in pixels.as_chunks_mut::<4>().0 {
             let a = chunk[3] as u16;
             chunk[0] = ((chunk[0] as u16 * a) / 255) as u8;
             chunk[1] = ((chunk[1] as u16 * a) / 255) as u8;

@@ -6,6 +6,15 @@
 - `clippy` and `rustfmt` components: `rustup component add clippy rustfmt`
 - Windows 10 1903+ (builds target Win32 APIs)
 
+## Documentation
+
+- [Design overview](docs/design.md): architecture and key decisions, with deep dives under `docs/design/` (threading, rendering, surfaces, input, ffi, style)
+- [JSON-RPC protocol](docs/protocol.md): method reference for `winpane-host`
+- [Limitations](docs/limitations.md): known constraints and workarounds
+- [Signing and distribution](docs/signing.md): code signing, SmartScreen, MSIX
+
+Language guides for SDK users (Rust, Node.js, TypeScript, C, Go, Zig, Python) live under `docs/guides/` and on the docs site.
+
 ## Building
 
 ```sh
@@ -20,7 +29,7 @@ cargo test --workspace
 
 ## Pre-push hook
 
-A pre-push script runs `cargo fmt --check`, `clippy`, and tests before each push. Install it by symlinking:
+A pre-push script runs `cargo fmt --check`, `clippy`, and a workspace `cargo check` before each push; tests run in CI. Install it by symlinking:
 
 **Bash (Linux, macOS, Git Bash on Windows):**
 
@@ -47,39 +56,23 @@ cargo clippy --workspace --all-targets -- -D warnings
 
 ## Release Process
 
-### Version Bumping
+Releases are tag-driven: pushing a `v<NEW>` tag triggers the release workflow,
+which builds binaries, creates the GitHub Release, and publishes to crates.io
+and npm automatically.
 
-Update version in all these files (must match):
+1. Run the bump script (bumps all 8 versioned files in lockstep, then
+   verifies with `cargo check` and `cargo fmt --check`):
 
-- `crates/winpane-core/Cargo.toml`
-- `crates/winpane/Cargo.toml`
-- `crates/winpane-ffi/Cargo.toml`
-- `crates/winpane-host/Cargo.toml`
-- `bindings/node/Cargo.toml`
-- `bindings/node/package.json`
-- `bindings/node/npm/win32-x64-msvc/package.json`
-- `bindings/node/npm/win32-arm64-msvc/package.json`
+   - PowerShell: `.\scripts\bump-version.ps1 -To <NEW>`
+   - Bash: `./scripts/bump-version.sh <NEW>`
 
-### Creating a Release
+2. Spot-check `git diff` shows only version changes.
+3. Make sure `cargo test --workspace` and clippy are green, then commit,
+   tag `v<NEW>`, and push both.
 
-1. Update version in all files listed above
-2. Commit: `git commit -m "chore: bump version to X.Y.Z"`
-3. Tag: `git tag vX.Y.Z`
-4. Push: `git push origin main --tags`
-5. Release workflow runs automatically, creating GitHub Release with artifacts
-6. npm packages are published automatically via Trusted Publishing
-7. Manual: publish crates to crates.io in dependency order:
-   ```sh
-   cargo publish -p winpane-core
-   # wait ~30s for crates.io indexing
-   cargo publish -p winpane
-   cargo publish -p winpane-ffi
-   cargo publish -p winpane-host
-   ```
+Manual fallback (only if CI publishing fails): `cargo publish` in dependency
+order (winpane-core, winpane, winpane-ffi, winpane-host), waiting ~30s
+between crates for indexing.
 
-### Pre-release Checklist
-
-- [ ] All tests pass (`cargo test --workspace`)
-- [ ] Clippy passes (`cargo clippy --workspace --all-targets -- -D warnings`)
-- [ ] Version numbers updated in all files
-- [ ] CHANGELOG updated (if maintained)
+AI agents: the `bump-version` skill wraps this same script; the `repo-guide`
+skill covers everyday work in this repo.

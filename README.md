@@ -166,24 +166,6 @@ This creates a transparent, click-through overlay at (100, 100) with a rounded d
 
 If building from source, see the [TypeScript guide](docs/guides/typescript.md).
 
-## Guides
-
-- [Rust](docs/guides/rust.md)
-- [Node.js](docs/guides/nodejs.md)
-- [TypeScript / JavaScript](docs/guides/typescript.md)
-- [C / C++](docs/guides/c.md)
-- [Go](docs/guides/go.md)
-- [Zig](docs/guides/zig.md)
-- [Python / any language](docs/guides/python.md) (JSON-RPC)
-- [Cookbook](docs/cookbook.md) — 10 self-contained recipes
-
-## Reference
-
-- [Design overview](docs/design.md) — architecture, key decisions
-- [JSON-RPC protocol](docs/protocol.md) — full method reference for `winpane-host`
-- [Limitations](docs/limitations.md) — known constraints and workarounds
-- [Signing and distribution](docs/signing.md) — code signing, SmartScreen, MSIX
-
 ## Platform
 
 - Windows 10 version 1903 or later
@@ -196,9 +178,7 @@ If building from source, see the [TypeScript guide](docs/guides/typescript.md).
 
 ## Why I built this
 
-I was diagnosed with Type 1 diabetes in 2025. Most CGM apps are geolocked and unavailable in Kenya, so I built [mysukari.com](https://mysukari.com) — a free platform that connects any CGM via Nightscout for reporting (_[view my dashboard](https://mysukari.com/tools/sugar-dashboard/peter?history=week)_) and analysis. I wanted a small desktop overlay showing my glucose reading and trend arrow, updating every few minutes, hidden from screen shares. Nothing lightweight and multi-language existed, so I built winpane.
-
-I had no prior experience with DirectComposition, Direct2D, or Win32 GPU rendering. [GitHub Copilot](https://github.com/features/copilot) with Claude Opus 4.6 was instrumental in building this.
+winpane started as a glucose monitoring companion overlay for [mysukari.com](https://mysukari.com), my free platform for diabetes management. I wanted a small desktop overlay showing my glucose reading and trend arrow, updating every few minutes and hidden from screen shares. Nothing lightweight and multi-language existed, so I built it.
 
 ## License
 

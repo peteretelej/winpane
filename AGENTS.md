@@ -56,6 +56,13 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
 
+## Skills
+
+| Skill | Purpose |
+|-------|---------|
+| `repo-guide` | Evergreen working guide for this codebase (`.agents/skills/repo-guide/SKILL.md`) |
+| `bump-version` | Lockstep version bump across all packages (`.agents/skills/bump-version/SKILL.md`) |
+
 ## Version bump
 
 Use the `bump-version` skill: read `.agents/skills/bump-version/SKILL.md` for full procedure.

@@ -64,7 +64,10 @@ cargo check --workspace
 
 echo ""
 echo "Running cargo fmt --all -- --check ..."
-cargo fmt --all -- --check || echo "WARNING: cargo fmt check failed — run 'cargo fmt --all' to fix."
+cargo fmt --all -- --check || {
+  echo "ERROR: cargo fmt check failed. Run 'cargo fmt --all' to fix." >&2
+  exit 1
+}
 
 echo ""
 echo "Version bump complete: $OLD -> $NEW"

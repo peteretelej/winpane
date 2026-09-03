@@ -305,28 +305,26 @@ fn main() -> Result<(), winpane::Error> {
                 Event::ElementLeft {
                     surface_id,
                     ref key,
-                } if surface_id == panel_id => {
-                    if key == "btn_hello" || key == "btn_count" {
-                        let y = if key == "btn_hello" {
-                            btn_hello_y
-                        } else {
-                            btn_count_y
-                        };
-                        panel.set_rect(
-                            key,
-                            RectElement {
-                                x: 20.0,
-                                y,
-                                width: 240.0,
-                                height: 40.0,
-                                fill: Color::rgba(38, 38, 44, 255),
-                                corner_radius: 6.0,
-                                border_color: Some(Color::rgba(255, 255, 255, 23)),
-                                border_width: 1.0,
-                                interactive: true,
-                            },
-                        );
-                    }
+                } if surface_id == panel_id && (key == "btn_hello" || key == "btn_count") => {
+                    let y = if key == "btn_hello" {
+                        btn_hello_y
+                    } else {
+                        btn_count_y
+                    };
+                    panel.set_rect(
+                        key,
+                        RectElement {
+                            x: 20.0,
+                            y,
+                            width: 240.0,
+                            height: 40.0,
+                            fill: Color::rgba(38, 38, 44, 255),
+                            corner_radius: 6.0,
+                            border_color: Some(Color::rgba(255, 255, 255, 23)),
+                            border_width: 1.0,
+                            interactive: true,
+                        },
+                    );
                 }
                 _ => {}
             }

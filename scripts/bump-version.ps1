@@ -83,7 +83,8 @@ Write-Host ""
 Write-Host "Running cargo fmt --all -- --check ..." -ForegroundColor Cyan
 cargo fmt --all -- --check
 if ($LASTEXITCODE -ne 0) {
-    Write-Warning "cargo fmt check failed — run 'cargo fmt --all' to fix."
+    Write-Error "cargo fmt check failed! Run 'cargo fmt --all' to fix."
+    exit 1
 }
 
 Write-Host ""

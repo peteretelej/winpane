@@ -298,23 +298,21 @@ fn main() -> Result<(), winpane::Error> {
                 Event::ElementLeft {
                     surface_id,
                     ref key,
-                } if surface_id == panel_id => {
-                    if key == "close_btn" {
-                        panel.set_rect(
-                            "close_btn",
-                            RectElement {
-                                x: 214.0,
-                                y: 4.0,
-                                width: 20.0,
-                                height: 20.0,
-                                fill: Color::rgba(0, 0, 0, 0),
-                                corner_radius: 4.0,
-                                border_color: None,
-                                border_width: 0.0,
-                                interactive: true,
-                            },
-                        );
-                    }
+                } if surface_id == panel_id && key == "close_btn" => {
+                    panel.set_rect(
+                        "close_btn",
+                        RectElement {
+                            x: 214.0,
+                            y: 4.0,
+                            width: 20.0,
+                            height: 20.0,
+                            fill: Color::rgba(0, 0, 0, 0),
+                            corner_radius: 4.0,
+                            border_color: None,
+                            border_width: 0.0,
+                            interactive: true,
+                        },
+                    );
                 }
                 _ => {}
             }
